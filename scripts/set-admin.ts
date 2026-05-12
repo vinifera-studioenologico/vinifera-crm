@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 /**
  * Script per settare il custom claim role="admin" su un utente Firebase.
- * Uso: npx tsx scripts/set-admin.ts <email>
+ * Uso: npx tsx scripts/set-admin.ts <email|uid>
  */
 
 import { initializeApp, cert } from "firebase-admin/app";
@@ -11,12 +11,11 @@ import * as path from "path";
 
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 
-const emailArg = process.argv[2];
-if (!emailArg) {
-  console.error("Uso: npx tsx scripts/set-admin.ts <email>");
+const arg = process.argv[2];
+if (!arg) {
+  console.error("Uso: npx tsx scripts/set-admin.ts <email|uid>");
   process.exit(1);
 }
-const email: string = emailArg;
 
 const app = initializeApp({
   credential: cert({
@@ -29,9 +28,12 @@ const app = initializeApp({
 const adminAuth = getAuth(app);
 
 async function main() {
-  const user = await adminAuth.getUserByEmail(email);
+  const isEmail = arg.includes("@");
+  const user = isEmail
+    ? await adminAuth.getUserByEmail(arg)
+    : await adminAuth.getUser(arg);
   await adminAuth.setCustomUserClaims(user.uid, { role: "admin" });
-  console.log(`✅ Custom claim role=admin settato per ${email} (uid: ${user.uid})`);
+  console.log(`✅ Custom claim role=admin settato per ${user.email ?? user.uid} (uid: ${user.uid})`);
   process.exit(0);
 }
 
