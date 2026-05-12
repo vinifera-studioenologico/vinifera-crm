@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check": "tsc --noEmit && eslint && vitest run",
     "seed": "tsx --env-file=.env.local scripts/seed-dev.ts",
     "seed:clean": "tsx --env-file=.env.local scripts/unseed-dev.ts"
   },

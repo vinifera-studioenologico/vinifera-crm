@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { z } from "zod";
 
-import { MarkInstallmentPaidSchema } from "@/schemas/payment";
 import type { InstallmentDoc } from "@/schemas/payment";
 import { markInstallmentPaid } from "@/server/actions/payments";
 import { formatEUR } from "@/lib/utils/money";

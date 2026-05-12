@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Guard: se Firebase non è configurato (env vars mancanti), skip silenzioso in dev
     if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(false);
       return;
     }

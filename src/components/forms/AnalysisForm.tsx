@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { z } from "zod";
 
-import { AnalysisFormSchema } from "@/schemas/analysis";
 import type { AnalysisDoc } from "@/schemas/analysis";
 import { createAnalysis, updateAnalysis } from "@/server/actions/analyses";
 import { formatEUR } from "@/lib/utils/money";

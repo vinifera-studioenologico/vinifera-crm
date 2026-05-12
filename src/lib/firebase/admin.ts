@@ -11,7 +11,7 @@ import { getStorage, type Storage } from "firebase-admin/storage";
 // - è sincrono per i builder di query (.where, .orderBy, .collection, .doc, ecc.)
 // - restituisce Promise vuote per i terminatori (.get, .set, .update, .delete, .add)
 const ASYNC_METHODS = new Set(["get", "set", "update", "delete", "add", "create"]);
-const EMPTY_SNAP = { docs: [], empty: true, size: 0, exists: false, forEach: () => {}, data: () => ({}) };
+
 
 function makeDevStub(): any { // eslint-disable-line @typescript-eslint/no-explicit-any
   return new Proxy(

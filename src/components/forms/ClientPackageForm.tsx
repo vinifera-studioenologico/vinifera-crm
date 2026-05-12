@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { z } from "zod";
 
-import { ClientPackageFormSchema } from "@/schemas/package";
 import type { PackageDoc } from "@/schemas/package";
 import { purchasePackage } from "@/server/actions/clientPackages";
 import { formatEUR } from "@/lib/utils/money";

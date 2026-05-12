@@ -48,6 +48,7 @@ export function Topbar() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setMounted(true); }, []);
 
   // Cmd+K / Ctrl+K � questo e` il pattern corretto: setState e` chiamato
