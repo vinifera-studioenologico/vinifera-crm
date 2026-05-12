@@ -16,6 +16,7 @@ if (!arg) {
   console.error("Uso: npx tsx scripts/set-admin.ts <email|uid>");
   process.exit(1);
 }
+const identifier: string = arg;
 
 const app = initializeApp({
   credential: cert({
@@ -28,10 +29,10 @@ const app = initializeApp({
 const adminAuth = getAuth(app);
 
 async function main() {
-  const isEmail = arg.includes("@");
+  const isEmail = identifier.includes("@");
   const user = isEmail
-    ? await adminAuth.getUserByEmail(arg)
-    : await adminAuth.getUser(arg);
+    ? await adminAuth.getUserByEmail(identifier)
+    : await adminAuth.getUser(identifier);
   await adminAuth.setCustomUserClaims(user.uid, { role: "admin" });
   console.log(`✅ Custom claim role=admin settato per ${user.email ?? user.uid} (uid: ${user.uid})`);
   process.exit(0);
