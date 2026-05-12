@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthed() && request.auth.token.role == "admin";
+    }
+
+    // ── Deny-by-default ────────────────────────────────────────────────
+    // Tutte le collezioni richiedono ruolo admin.
+    // Il client SDK non è mai usato per scrivere dati sensibili (solo Admin SDK lato server).
+
+    match /clients/{clientId} {
+      allow read, write: if isAdmin();
+
+      match /notes/{noteId} {
+        allow read, write: if isAdmin();
+      }
+    }
+
+    match /analyses/{analysisId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /packages/{packageId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /clientPackages/{pkgId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /samples/{sampleId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /quotes/{quoteId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /reports/{reportId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /payments/{paymentId} {
+      allow read, write: if isAdmin();
+
+      match /installments/{installmentId} {
+        allow read, write: if isAdmin();
+      }
+
+      match /transactions/{txId} {
+        allow read, write: if isAdmin();
+      }
+    }
+
+    match /reminders/{reminderId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /counters/{counterId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ── Fallback: nega tutto il resto ────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
