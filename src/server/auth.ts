@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { adminAuth } from "@/lib/firebase/admin";
 import { logger } from "@/lib/logger";
 
@@ -37,21 +38,28 @@ export async function requireAdmin(): Promise<{ uid: string; email: string }> {
   const sessionCookie = cookieStore.get("__session")?.value;
 
   if (!sessionCookie) {
-    throw new AuthError("Sessione non trovata", "unauthenticated");
+    redirect("/login");
+    // TypeScript narrow: redirect() lancia sempre un errore, ma il type
+    // system non lo sa ancora senza `never` — il return sotto non è mai raggiunto
+    return null as never;
   }
 
   try {
     const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
 
     if (decoded.role !== "admin") {
-      throw new AuthError("Ruolo insufficiente", "unauthorized");
+      logger.warn("Accesso negato: ruolo insufficiente", { uid: decoded.uid });
+      // Redirige all'endpoint che cancella il cookie, altrimenti il
+      // middleware continua a lasciar passare il vecchio cookie e si
+      // genera un redirect loop tra /dashboard e /login.
+      redirect("/api/auth/signout");
     }
 
     return { uid: decoded.uid, email: decoded.email ?? "" };
   } catch (err) {
-    if (err instanceof AuthError) throw err;
+    if ((err as { digest?: string }).digest?.startsWith("NEXT_REDIRECT")) throw err;
     logger.warn("Verifica session cookie fallita", err);
-    throw new AuthError("Sessione non valida", "unauthenticated");
+    redirect("/api/auth/signout");
   }
 }
 

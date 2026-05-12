@@ -5,10 +5,12 @@ import "server-only";
 import { Timestamp } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireAdmin } from "@/server/auth";
+import { tsToISO } from "@/lib/utils/date";
 import type { SampleDoc } from "@/schemas/sample";
 import type { ReminderDoc } from "@/schemas/reminder";
 
 // ── Helpers ────────────────────────────────────────────────────────────
+
 function toSampleDoc(id: string, d: FirebaseFirestore.DocumentData): SampleDoc {
   return {
     id,
@@ -19,11 +21,11 @@ function toSampleDoc(id: string, d: FirebaseFirestore.DocumentData): SampleDoc {
     status: d["status"] ?? "pending",
     items: d["items"] ?? [],
     notes: d["notes"],
-    receivedAt: d["receivedAt"],
+    receivedAt: tsToISO(d["receivedAt"]),
     estimatedTotalCents: d["estimatedTotalCents"] ?? 0,
     version: d["version"] ?? 0,
-    createdAt: d["createdAt"],
-    updatedAt: d["updatedAt"],
+    createdAt: tsToISO(d["createdAt"]),
+    updatedAt: tsToISO(d["updatedAt"]),
   };
 }
 
@@ -32,16 +34,16 @@ function toReminderDoc(id: string, d: FirebaseFirestore.DocumentData): ReminderD
     id,
     title: d["title"] ?? "",
     description: d["description"],
-    dueAt: d["dueAt"],
+    dueAt: tsToISO(d["dueAt"]),
     relatedTo: d["relatedTo"],
     status: d["status"] ?? "pending",
     remindBeforeMinutes: d["remindBeforeMinutes"],
     notifyChannels: d["notifyChannels"] ?? { telegram: false, email: false },
-    notifiedAt: d["notifiedAt"],
-    doneAt: d["doneAt"],
+    notifiedAt: tsToISO(d["notifiedAt"]),
+    doneAt: tsToISO(d["doneAt"]),
     recurrence: d["recurrence"],
-    createdAt: d["createdAt"],
-    updatedAt: d["updatedAt"],
+    createdAt: tsToISO(d["createdAt"]),
+    updatedAt: tsToISO(d["updatedAt"]),
   };
 }
 
@@ -72,7 +74,22 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000),
   );
 
-  // Esegui tutte le query in parallelo
+  // Esegui tutte le query in parallelo; se un indice non è ancora pronto
+  // (FAILED_PRECONDITION code 9) restituisce uno snapshot vuoto invece di
+  // far crashare l'intera dashboard.
+  const safeGet = async (query: FirebaseFirestore.Query) => {
+    try {
+      return await query.get();
+    } catch (err: unknown) {
+      const code = (err as { code?: number })?.code;
+      if (code === 9) {
+        // Index not ready yet — return empty snapshot
+        return { docs: [] as FirebaseFirestore.QueryDocumentSnapshot[], size: 0 };
+      }
+      throw err;
+    }
+  };
+
   const [
     paidInstallmentsSnap,
     futureInstallmentsSnap,
@@ -85,67 +102,58 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     upcomingRemindersSnap,
   ] = await Promise.all([
     // Rate pagate questo mese
-    adminDb
+    safeGet(adminDb
       .collectionGroup("installments")
       .where("status", "==", "paid")
       .where("paidAt", ">=", monthStart)
-      .where("paidAt", "<=", monthEnd)
-      .get(),
+      .where("paidAt", "<=", monthEnd)),
 
     // Rate pending nei prossimi 90 giorni
-    adminDb
+    safeGet(adminDb
       .collectionGroup("installments")
       .where("status", "==", "pending")
-      .where("dueAt", "<=", in90Days)
-      .get(),
+      .where("dueAt", "<=", in90Days)),
 
     // Rate overdue
-    adminDb
+    safeGet(adminDb
       .collectionGroup("installments")
-      .where("status", "==", "overdue")
-      .get(),
+      .where("status", "==", "overdue")),
 
     // Campioni attivi (pending + in_progress)
-    adminDb
+    safeGet(adminDb
       .collection("samples")
       .where("status", "in", ["pending", "in_progress"])
-      .where("deletedAt", "==", null)
-      .get(),
+      .where("deletedAt", "==", null)),
 
     // Preventivi in attesa
-    adminDb
+    safeGet(adminDb
       .collection("quotes")
       .where("status", "==", "sent")
-      .where("deletedAt", "==", null)
-      .get(),
+      .where("deletedAt", "==", null)),
 
     // Pacchetti attivi
-    adminDb
+    safeGet(adminDb
       .collection("clientPackages")
-      .where("status", "==", "active")
-      .get(),
+      .where("status", "==", "active")),
 
     // Clienti attivi
-    adminDb
+    safeGet(adminDb
       .collection("clients")
-      .where("deletedAt", "==", null)
-      .get(),
+      .where("deletedAt", "==", null)),
 
     // Ultimi 5 campioni
-    adminDb
+    safeGet(adminDb
       .collection("samples")
       .where("deletedAt", "==", null)
       .orderBy("createdAt", "desc")
-      .limit(5)
-      .get(),
+      .limit(5)),
 
     // Prossimi 5 promemoria
-    adminDb
+    safeGet(adminDb
       .collection("reminders")
       .where("status", "==", "pending")
       .orderBy("dueAt", "asc")
-      .limit(5)
-      .get(),
+      .limit(5)),
   ]);
 
   const incassiMeseCents = paidInstallmentsSnap.docs.reduce(

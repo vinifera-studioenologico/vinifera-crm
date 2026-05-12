@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,12 +21,21 @@ const loginSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>;
 
 function LoginForm() {
-  const { signIn } = useAuth();
+  const { signIn, user, loading: authLoading, sessionReady } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
 
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
+
+  // Se l'utente è già autenticato e il session cookie è pronto, reindirizza.
+  // Questo gestisce il caso in cui onAuthStateChanged ha aggiornato il cookie
+  // (con getIdToken(true)) dopo che requireAdmin aveva fatto il signout.
+  useEffect(() => {
+    if (!authLoading && user && sessionReady) {
+      router.replace(callbackUrl);
+    }
+  }, [authLoading, user, sessionReady, router, callbackUrl]);
 
   const {
     register,

@@ -5,13 +5,14 @@ import "server-only";
 import { FieldValue } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
 import React from "react";
-import ReactPDF, { type DocumentProps } from "@react-pdf/renderer";
+import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
 
 import { adminDb, adminStorage } from "@/lib/firebase/admin";
 import { requireAdmin } from "@/server/auth";
 import { logger } from "@/lib/logger";
 import { ReportFormSchema } from "@/schemas/report";
 import type { ReportDoc } from "@/schemas/report";
+import { tsToISO } from "@/lib/utils/date";
 import type { ActionResult, PaginatedResult } from "@/types";
 import { getClient } from "./clients";
 import { getSample } from "./samples";
@@ -30,11 +31,11 @@ function toReportDoc(id: string, data: FirebaseFirestore.DocumentData): ReportDo
     clientId: data["clientId"] ?? "",
     clientSnapshot: data["clientSnapshot"] ?? {},
     sampleIds: data["sampleIds"] ?? [],
-    generatedAt: data["generatedAt"],
+    generatedAt: tsToISO(data["generatedAt"]),
     pdfStorageRef: data["pdfStorageRef"] ?? "",
     notes: data["notes"],
-    createdAt: data["createdAt"],
-    updatedAt: data["updatedAt"],
+    createdAt: tsToISO(data["createdAt"]),
+    updatedAt: tsToISO(data["updatedAt"]),
   };
 }
 
@@ -157,22 +158,25 @@ export async function createReport(
       samples,
       notes: data.notes,
     });
-    const buffer = await ReactPDF.renderToBuffer(element as React.ReactElement<DocumentProps>);
+    const buffer = await renderToBuffer(element as React.ReactElement<DocumentProps>);
 
-    // Salva su Firebase Storage
+    // Salva su Firebase Storage (non bloccante — il bucket potrebbe non essere abilitato)
     const storagePath = `reports/${createdId}.pdf`;
-    const bucket = adminStorage.bucket();
-    const file = bucket.file(storagePath);
-    await file.save(buffer, {
-      contentType: "application/pdf",
-      metadata: { cacheControl: "private, max-age=31536000" },
-    });
-
-    // Aggiorna il documento con il ref Storage
-    await adminDb.collection(COL).doc(createdId).update({
-      pdfStorageRef: storagePath,
-      updatedAt: FieldValue.serverTimestamp(),
-    });
+    try {
+      const bucket = adminStorage.bucket();
+      const file = bucket.file(storagePath);
+      await file.save(buffer, {
+        contentType: "application/pdf",
+        metadata: { cacheControl: "private, max-age=31536000" },
+      });
+      // Aggiorna il documento con il ref Storage
+      await adminDb.collection(COL).doc(createdId).update({
+        pdfStorageRef: storagePath,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    } catch (storageErr) {
+      logger.warn("Upload PDF su Storage fallito (non bloccante)", { storageErr });
+    }
 
     revalidatePath("/reports");
     return { success: true, data: { id: createdId, number: reportNumber } };

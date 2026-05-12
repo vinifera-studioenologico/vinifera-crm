@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // production configg
+  // production config
 };
 
 export default nextConfig;

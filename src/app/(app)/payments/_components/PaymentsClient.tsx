@@ -83,17 +83,23 @@ export function PaymentsClient({ initialData }: Props) {
     {
       id: "description",
       header: "Descrizione",
-      cell: ({ row }) => (
-        <div>
-          <p className="text-sm font-medium">{row.original.description}</p>
-          <p className="text-xs text-muted-foreground">
-            {sourceLabel[row.original.source.kind] ?? row.original.source.kind}
-            {row.original.installmentsCount > 1
-              ? ` · ${row.original.installmentsCount} rate`
-              : ""}
-          </p>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const src = row.original.source;
+        const subline = src.sampleCode
+          ? `Campione · ${src.sampleCode}`
+          : (sourceLabel[src.kind] ?? src.kind);
+        return (
+          <div>
+            <p className="text-sm font-medium">{row.original.description}</p>
+            <p className="text-xs text-muted-foreground">
+              {subline}
+              {row.original.installmentsCount > 1
+                ? ` · ${row.original.installmentsCount} rate`
+                : ""}
+            </p>
+          </div>
+        );
+      },
     },
     {
       accessorKey: "status",

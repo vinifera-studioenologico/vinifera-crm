@@ -10,6 +10,7 @@ import { requireAdmin } from "@/server/auth";
 import { logger } from "@/lib/logger";
 import { ClientFormSchema } from "@/schemas/client";
 import type { ClientDoc } from "@/schemas/client";
+import { tsToISO } from "@/lib/utils/date";
 import type { ActionResult, PaginatedResult } from "@/types";
 
 const COL = "clients";
@@ -35,9 +36,9 @@ function toClientDoc(id: string, data: FirebaseFirestore.DocumentData): ClientDo
       samplesPending: data["stats"]?.samplesPending ?? 0,
     },
     version: data["version"] ?? 0,
-    createdAt: data["createdAt"],
-    updatedAt: data["updatedAt"],
-    deletedAt: data["deletedAt"] ?? null,
+    createdAt: tsToISO(data["createdAt"]),
+    updatedAt: tsToISO(data["updatedAt"]),
+    deletedAt: tsToISO(data["deletedAt"]) ?? null,
   };
 
   if (data["type"] === "business") {

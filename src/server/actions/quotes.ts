@@ -10,6 +10,7 @@ import { requireAdmin } from "@/server/auth";
 import { logger } from "@/lib/logger";
 import { QuoteFormSchema, isQuoteTransitionAllowed } from "@/schemas/quote";
 import type { QuoteDoc, QuoteStatus } from "@/schemas/quote";
+import { tsToISO } from "@/lib/utils/date";
 import type { ActionResult, PaginatedResult } from "@/types";
 import { computeQuoteTotals } from "@/lib/calc/quote";
 import { getClient } from "./clients";
@@ -27,8 +28,8 @@ function toQuoteDoc(id: string, data: FirebaseFirestore.DocumentData): QuoteDoc 
     clientId: data["clientId"] ?? "",
     clientSnapshot: data["clientSnapshot"] ?? {},
     status: data["status"] ?? "draft",
-    issuedAt: data["issuedAt"],
-    validUntil: data["validUntil"],
+    issuedAt: tsToISO(data["issuedAt"]),
+    validUntil: tsToISO(data["validUntil"]),
     items: data["items"] ?? [],
     subtotalCents: data["subtotalCents"] ?? 0,
     discounts: data["discounts"] ?? [],
@@ -37,11 +38,11 @@ function toQuoteDoc(id: string, data: FirebaseFirestore.DocumentData): QuoteDoc 
     notes: data["notes"],
     pdfStorageRef: data["pdfStorageRef"],
     frozenSnapshot: data["frozenSnapshot"],
-    approvedAt: data["approvedAt"],
+    approvedAt: tsToISO(data["approvedAt"]),
     approvedBy: data["approvedBy"],
     version: data["version"] ?? 0,
-    createdAt: data["createdAt"],
-    updatedAt: data["updatedAt"],
+    createdAt: tsToISO(data["createdAt"]),
+    updatedAt: tsToISO(data["updatedAt"]),
   };
 }
 

@@ -34,7 +34,7 @@ const S = StyleSheet.create({
   logo: { width: 80, height: 40, objectFit: "contain", marginBottom: 6 },
   companyName: { fontSize: 14, fontFamily: "Helvetica-Bold", marginBottom: 3 },
   companyDetail: { fontSize: 8, color: "#555", lineHeight: 1.5 },
-  reportTitle: { fontSize: 20, fontFamily: "Helvetica-Bold", color: "#5B1A1A" },
+  reportTitle: { fontSize: 14, fontFamily: "Helvetica-Bold", color: "#5B1A1A" },
   reportNumber: { fontSize: 13, fontFamily: "Helvetica-Bold", color: "#5B1A1A", marginBottom: 2 },
   reportMeta: { fontSize: 8.5, color: "#666" },
 

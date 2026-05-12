@@ -23,20 +23,46 @@ export function tsToDate(ts: Timestamp): Date {
 }
 
 /**
- * Formatta un Timestamp Firestore come data italiana gg/mm/aaaa.
+ * Converte un valore Firestore Timestamp (client o admin SDK) in stringa ISO.
+ * Restituisce undefined se il valore è null/undefined.
+ * Usare nei mapper server-side prima di passare dati a Client Components.
  */
-export function formatDate(ts: Timestamp | Date | null | undefined): string {
-  if (!ts) return "—";
-  const d = ts instanceof Date ? ts : tsToDate(ts);
+export function tsToISO(val: unknown): string | undefined {
+  if (val == null) return undefined;
+  if (typeof val === "string") return val;
+  if (typeof val === "object") {
+    const v = val as Record<string, unknown>;
+    if (typeof v["toDate"] === "function") {
+      return (v["toDate"] as () => Date)().toISOString();
+    }
+    if (typeof v["_seconds"] === "number") {
+      return new Date(v["_seconds"] * 1000).toISOString();
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Formatta un Timestamp Firestore (o stringa ISO) come data italiana gg/mm/aaaa.
+ */
+export function formatDate(ts: Timestamp | Date | string | null | undefined): string {
+  if (!ts) return "\u2014";
+  let d: Date;
+  if (typeof ts === "string") d = new Date(ts);
+  else if (ts instanceof Date) d = ts;
+  else d = tsToDate(ts);
   return format(toZonedTime(d, TZ), "dd/MM/yyyy", { locale: it });
 }
 
 /**
- * Formatta un Timestamp Firestore come data e ora italiana.
+ * Formatta un Timestamp Firestore (o stringa ISO) come data e ora italiana.
  */
-export function formatDateTime(ts: Timestamp | Date | null | undefined): string {
-  if (!ts) return "—";
-  const d = ts instanceof Date ? ts : tsToDate(ts);
+export function formatDateTime(ts: Timestamp | Date | string | null | undefined): string {
+  if (!ts) return "\u2014";
+  let d: Date;
+  if (typeof ts === "string") d = new Date(ts);
+  else if (ts instanceof Date) d = ts;
+  else d = tsToDate(ts);
   return format(toZonedTime(d, TZ), "dd/MM/yyyy HH:mm", { locale: it });
 }
 

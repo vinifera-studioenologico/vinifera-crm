@@ -432,7 +432,9 @@ function PaymentCard({
             <p className="text-sm font-medium truncate">{payment.description}</p>
             <PaymentStatusBadge status={payment.status} />
             <Badge variant="outline" className="text-[10px] text-muted-foreground">
-              {sourceLabel[payment.source.kind] ?? payment.source.kind}
+              {payment.source.sampleCode
+                ? `Campione · ${payment.source.sampleCode}`
+                : (sourceLabel[payment.source.kind] ?? payment.source.kind)}
             </Badge>
           </div>
           <div className="flex items-center gap-3 mt-1">

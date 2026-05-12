@@ -10,6 +10,7 @@ import { requireAdmin } from "@/server/auth";
 import { logger } from "@/lib/logger";
 import { PackageFormSchema } from "@/schemas/package";
 import type { PackageDoc } from "@/schemas/package";
+import { tsToISO } from "@/lib/utils/date";
 import type { ActionResult } from "@/types";
 
 const COL = "packages";
@@ -23,9 +24,9 @@ function toPackageDoc(id: string, data: FirebaseFirestore.DocumentData): Package
     priceCents: data["priceCents"] ?? 0,
     active: data["active"] ?? true,
     version: data["version"] ?? 0,
-    createdAt: data["createdAt"],
-    updatedAt: data["updatedAt"],
-    deletedAt: data["deletedAt"] ?? null,
+    createdAt: tsToISO(data["createdAt"]),
+    updatedAt: tsToISO(data["updatedAt"]),
+    deletedAt: tsToISO(data["deletedAt"]) ?? null,
   };
 }
 

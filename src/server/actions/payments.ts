@@ -10,6 +10,7 @@ import { requireAdmin } from "@/server/auth";
 import { logger } from "@/lib/logger";
 import { PaymentFormSchema, MarkInstallmentPaidSchema } from "@/schemas/payment";
 import type { PaymentDoc, InstallmentDoc } from "@/schemas/payment";
+import { tsToISO } from "@/lib/utils/date";
 import type { ActionResult, PaginatedResult } from "@/types";
 import { generateDueDates } from "@/lib/utils/date";
 import { splitInCents } from "@/lib/utils/money";
@@ -29,9 +30,9 @@ function toPaymentDoc(id: string, data: FirebaseFirestore.DocumentData): Payment
     status: data["status"] ?? "pending",
     installmentsCount: data["installmentsCount"] ?? 1,
     version: data["version"] ?? 0,
-    createdAt: data["createdAt"],
-    updatedAt: data["updatedAt"],
-    deletedAt: data["deletedAt"] ?? null,
+    createdAt: tsToISO(data["createdAt"]),
+    updatedAt: tsToISO(data["updatedAt"]),
+    deletedAt: tsToISO(data["deletedAt"]) ?? null,
   };
 }
 
@@ -43,15 +44,15 @@ function toInstallmentDoc(
     id,
     index: data["index"] ?? 0,
     // handle both field name conventions (createSample wrote "dueAt")
-    dueDate: data["dueAt"] ?? data["dueDate"],
+    dueDate: tsToISO(data["dueAt"] ?? data["dueDate"]),
     amountCents: data["amountCents"] ?? 0,
     status: data["status"] ?? "pending",
-    paidAt: data["paidAt"],
+    paidAt: tsToISO(data["paidAt"]),
     paidAmountCents: data["paidAmountCents"],
     method: data["method"],
     note: data["note"],
-    createdAt: data["createdAt"],
-    updatedAt: data["updatedAt"],
+    createdAt: tsToISO(data["createdAt"]),
+    updatedAt: tsToISO(data["updatedAt"]),
   };
 }
 

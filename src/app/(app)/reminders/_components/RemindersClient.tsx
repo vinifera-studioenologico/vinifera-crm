@@ -248,7 +248,6 @@ interface Props {
 
 export function RemindersClient({ initialData, defaultClientId }: Props) {
   const router = useRouter();
-  const [reminders] = useState(initialData);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ReminderStatus | "all">("pending");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -256,14 +255,14 @@ export function RemindersClient({ initialData, defaultClientId }: Props) {
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const filtered = reminders.filter((r) => {
+  const filtered = initialData.filter((r) => {
     if (statusFilter !== "all" && r.status !== statusFilter) return false;
     if (!search) return true;
     return r.title.toLowerCase().includes(search.toLowerCase());
   });
 
-  const pendingCount = reminders.filter((r) => r.status === "pending").length;
-  const overdueCount = reminders.filter(
+  const pendingCount = initialData.filter((r) => r.status === "pending").length;
+  const overdueCount = initialData.filter(
     (r) => r.status === "pending" && isOverdue(r),
   ).length;
 

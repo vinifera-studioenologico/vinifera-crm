@@ -10,6 +10,7 @@ import { requireAdmin } from "@/server/auth";
 import { logger } from "@/lib/logger";
 import { SampleFormSchema } from "@/schemas/sample";
 import type { SampleDoc, SampleStatus } from "@/schemas/sample";
+import { tsToISO } from "@/lib/utils/date";
 import type { ActionResult, PaginatedResult } from "@/types";
 import { computeSampleTotal } from "@/lib/calc/sample";
 import { generateDueDates } from "@/lib/utils/date";
@@ -27,30 +28,39 @@ function toSampleDoc(id: string, data: FirebaseFirestore.DocumentData): SampleDo
     clientId: data["clientId"] ?? "",
     clientNameSnapshot: data["clientNameSnapshot"] ?? "",
     sampleName: data["sampleName"] ?? "",
-    receivedAt: data["receivedAt"],
+    receivedAt: tsToISO(data["receivedAt"]),
     status: data["status"] ?? "pending",
     items: data["items"] ?? [],
     estimatedTotalCents: data["estimatedTotalCents"] ?? 0,
     paymentId: data["paymentId"],
     sourceQuoteId: data["sourceQuoteId"],
     notes: data["notes"],
-    cancelledAt: data["cancelledAt"],
+    cancelledAt: tsToISO(data["cancelledAt"]),
     cancelReason: data["cancelReason"],
     version: data["version"] ?? 0,
-    createdAt: data["createdAt"],
-    updatedAt: data["updatedAt"],
+    createdAt: tsToISO(data["createdAt"]),
+    updatedAt: tsToISO(data["updatedAt"]),
   };
 }
 
 // ── Genera codice campione C-YYYY-NNNN ────────────────────────────────
-async function getNextSampleCode(
+// Separato in read/write per rispettare il vincolo Firestore: tutte le
+// letture devono precedere qualsiasi scrittura nella stessa transazione.
+async function readSampleCounter(
   tx: FirebaseFirestore.Transaction,
   year: number,
-): Promise<string> {
+): Promise<FirebaseFirestore.DocumentSnapshot> {
   const counterRef = adminDb.doc(`counters/samples_${year}`);
-  const snap = await tx.get(counterRef);
+  return tx.get(counterRef);
+}
+
+function writeSampleCodeFromSnap(
+  tx: FirebaseFirestore.Transaction,
+  year: number,
+  snap: FirebaseFirestore.DocumentSnapshot,
+): string {
   const next = (snap.data()?.["seq"] ?? 0) + 1;
-  tx.set(counterRef, { seq: next }, { merge: true });
+  tx.set(snap.ref, { seq: next }, { merge: true });
   return `C-${year}-${String(next).padStart(4, "0")}`;
 }
 
@@ -137,8 +147,35 @@ export async function createSample(raw: unknown): Promise<ActionResult<{ id: str
     let createdCode = "";
 
     await adminDb.runTransaction(async (tx) => {
-      // 1. Genera codice campione
-      const code = await getNextSampleCode(tx, year);
+      // ── FASE LETTURE — tutte in parallelo, nessuna scrittura ──────────
+
+      // Calcola i pacchetti da decrementare prima di aprire la tx
+      const packageDecrements = new Map<string, number>();
+      for (const item of data.items) {
+        if (item.coveredByPackageId && !item.chargeAnyway) {
+          packageDecrements.set(
+            item.coveredByPackageId,
+            (packageDecrements.get(item.coveredByPackageId) ?? 0) + 1,
+          );
+        }
+      }
+
+      const pkgRefs = [...packageDecrements.keys()].map((pkgId) =>
+        adminDb.collection("clientPackages").doc(pkgId),
+      );
+
+      // Leggi counter e tutti i pacchetti in parallelo
+      const [counterSnap, ...pkgSnapsList] = await Promise.all([
+        readSampleCounter(tx, year),
+        ...pkgRefs.map((ref) => tx.get(ref)),
+      ]);
+
+      const pkgSnaps = new Map<string, FirebaseFirestore.DocumentSnapshot>();
+      pkgRefs.forEach((ref, i) => pkgSnaps.set(ref.id, pkgSnapsList[i]!));
+
+      // ── FASE SCRITTURE ────────────────────────────────────────────────
+
+      const code = writeSampleCodeFromSnap(tx, year, counterSnap);
       createdCode = code;
 
       const sampleRef = adminDb.collection(COL).doc();
@@ -148,7 +185,7 @@ export async function createSample(raw: unknown): Promise<ActionResult<{ id: str
         ? Timestamp.fromDate(new Date(data.receivedAt + "T12:00:00"))
         : FieldValue.serverTimestamp();
 
-      // 2. Crea documento campione
+      // 3. Crea documento campione
       tx.set(sampleRef, {
         code,
         clientId: data.clientId,
@@ -165,21 +202,12 @@ export async function createSample(raw: unknown): Promise<ActionResult<{ id: str
         createdBy: actor.uid,
       });
 
-      // 3. Decrementa contatori pacchetti per le analisi coperte
-      const packageDecrements = new Map<string, number>();
-      for (const item of data.items) {
-        if (item.coveredByPackageId && !item.chargeAnyway) {
-          packageDecrements.set(
-            item.coveredByPackageId,
-            (packageDecrements.get(item.coveredByPackageId) ?? 0) + 1,
-          );
-        }
-      }
+      // 4. Decrementa contatori pacchetti
       for (const [pkgId, count] of packageDecrements) {
-        const pkgRef = adminDb.collection("clientPackages").doc(pkgId);
-        const pkgSnap = await tx.get(pkgRef);
-        if (pkgSnap.exists) {
+        const pkgSnap = pkgSnaps.get(pkgId);
+        if (pkgSnap?.exists) {
           const remaining = (pkgSnap.data()!["remainingAnalyses"] as number) - count;
+          const pkgRef = adminDb.collection("clientPackages").doc(pkgId);
           tx.update(pkgRef, {
             remainingAnalyses: Math.max(0, remaining),
             status: remaining <= 0 ? "exhausted" : "active",
@@ -197,8 +225,8 @@ export async function createSample(raw: unknown): Promise<ActionResult<{ id: str
         const paymentRef = adminDb.collection("payments").doc();
         tx.set(paymentRef, {
           clientId: data.clientId,
-          source: { kind: "sample", refId: sampleRef.id },
-          description: `Campione ${code} – ${client.displayName}`,
+          source: { kind: "sample", refId: sampleRef.id, sampleCode: code },
+          description: data.sampleName,
           totalAmountCents: estimatedTotalCents,
           paidAmountCents: 0,
           status: "pending",
@@ -226,7 +254,7 @@ export async function createSample(raw: unknown): Promise<ActionResult<{ id: str
             index: i,
             amountCents: amounts[i] ?? 0,
             paidAmountCents: 0,
-            dueAt: Timestamp.fromDate(new Date(dueDates[i] + "T23:59:59")),
+            dueAt: Timestamp.fromDate(dueDates[i]!),
             status: "pending",
             createdAt: FieldValue.serverTimestamp(),
           });

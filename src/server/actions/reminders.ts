@@ -10,6 +10,7 @@ import { requireAdmin } from "@/server/auth";
 import { logger } from "@/lib/logger";
 import { ReminderFormSchema } from "@/schemas/reminder";
 import type { ReminderDoc, ReminderStatus } from "@/schemas/reminder";
+import { tsToISO } from "@/lib/utils/date";
 import type { ActionResult, PaginatedResult } from "@/types";
 
 const COL = "reminders";
@@ -21,16 +22,16 @@ function toReminderDoc(id: string, d: FirebaseFirestore.DocumentData): ReminderD
     id,
     title: d["title"] ?? "",
     description: d["description"],
-    dueAt: d["dueAt"],
+    dueAt: tsToISO(d["dueAt"]),
     relatedTo: d["relatedTo"],
     status: d["status"] ?? "pending",
     remindBeforeMinutes: d["remindBeforeMinutes"],
     notifyChannels: d["notifyChannels"] ?? { telegram: false, email: false },
-    notifiedAt: d["notifiedAt"],
-    doneAt: d["doneAt"],
+    notifiedAt: tsToISO(d["notifiedAt"]),
+    doneAt: tsToISO(d["doneAt"]),
     recurrence: d["recurrence"],
-    createdAt: d["createdAt"],
-    updatedAt: d["updatedAt"],
+    createdAt: tsToISO(d["createdAt"]),
+    updatedAt: tsToISO(d["updatedAt"]),
   };
 }
 

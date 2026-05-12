@@ -12,6 +12,7 @@ import { AnalysisFormSchema } from "@/schemas/analysis";
 import type { AnalysisDoc } from "@/schemas/analysis";
 import type { ActionResult } from "@/types";
 import { toCents } from "@/lib/utils/money";
+import { tsToISO } from "@/lib/utils/date";
 
 const COL = "analyses";
 
@@ -27,9 +28,9 @@ function toAnalysisDoc(id: string, data: FirebaseFirestore.DocumentData): Analys
     unit: data["unit"],
     active: data["active"] ?? true,
     version: data["version"] ?? 0,
-    createdAt: data["createdAt"],
-    updatedAt: data["updatedAt"],
-    deletedAt: data["deletedAt"] ?? null,
+    createdAt: tsToISO(data["createdAt"]),
+    updatedAt: tsToISO(data["updatedAt"]),
+    deletedAt: tsToISO(data["deletedAt"]) ?? null,
   };
 }
 

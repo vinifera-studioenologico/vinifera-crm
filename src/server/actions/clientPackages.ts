@@ -10,6 +10,7 @@ import { requireAdmin } from "@/server/auth";
 import { logger } from "@/lib/logger";
 import { ClientPackageFormSchema } from "@/schemas/package";
 import type { ClientPackageDoc } from "@/schemas/package";
+import { tsToISO } from "@/lib/utils/date";
 import type { ActionResult } from "@/types";
 import { generateDueDates } from "@/lib/utils/date";
 import { splitInCents } from "@/lib/utils/money";
@@ -32,11 +33,11 @@ function toClientPackageDoc(
     priceCents: data["priceCents"] ?? 0,
     status: data["status"] ?? "active",
     paymentId: data["paymentId"],
-    purchasedAt: data["purchasedAt"],
-    cancelledAt: data["cancelledAt"],
+    purchasedAt: tsToISO(data["purchasedAt"]),
+    cancelledAt: tsToISO(data["cancelledAt"]),
     cancelReason: data["cancelReason"],
-    createdAt: data["createdAt"],
-    updatedAt: data["updatedAt"],
+    createdAt: tsToISO(data["createdAt"]),
+    updatedAt: tsToISO(data["updatedAt"]),
   };
 }
 
@@ -152,7 +153,7 @@ export async function purchasePackage(
             index: i,
             amountCents: amounts[i] ?? 0,
             paidAmountCents: 0,
-            dueAt: Timestamp.fromDate(new Date(dueDates[i] + "T23:59:59")),
+            dueAt: Timestamp.fromDate(dueDates[i]!),
             status: "pending",
             createdAt: FieldValue.serverTimestamp(),
           });
