@@ -54,8 +54,9 @@ export async function GET(
     });
 
     const buffer = await renderToBuffer(element as React.ReactElement<DocumentProps>);
+    const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 
-    return new NextResponse(buffer, {
+    return new NextResponse(uint8, {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename="referto-${report.number}.pdf"`,
