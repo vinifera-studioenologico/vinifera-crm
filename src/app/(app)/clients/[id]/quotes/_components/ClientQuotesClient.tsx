@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, ChevronRight, FileText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import type { QuoteDoc, QuoteStatus } from "@/schemas/quote";
+import type { QuoteDoc } from "@/schemas/quote";
 import type { ClientDoc } from "@/schemas/client";
 import type { AnalysisDoc } from "@/schemas/analysis";
 import type { PackageDoc } from "@/schemas/package";
@@ -39,14 +39,6 @@ interface Props {
   defaultEnpaiaApplied: boolean;
   defaultEnpaiaPercent: number;
 }
-
-const STATUS_LABELS: Record<QuoteStatus, string> = {
-  draft: "Bozza",
-  pending_approval: "In approvazione",
-  approved: "Approvato",
-  rejected: "Rifiutato",
-  cancelled: "Annullato",
-};
 
 export function ClientQuotesClient({
   client,

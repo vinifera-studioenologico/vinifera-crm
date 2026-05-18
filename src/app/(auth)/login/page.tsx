@@ -32,7 +32,7 @@ function LoginForm() {
   // (con getIdToken(true)) dopo che requireAdmin aveva fatto il signout.
   useEffect(() => {
     if (!authLoading && user && sessionReady) {
-      window.location.href = callbackUrl;
+      window.location.assign(callbackUrl);
     }
   }, [authLoading, user, sessionReady, callbackUrl]);
 
@@ -48,7 +48,7 @@ function LoginForm() {
       await signIn(data.email, data.password);
       // Hard redirect: serve un full reload per sincronizzare lo stato
       // server (cookie) con il client (AuthProvider).
-      window.location.href = callbackUrl;
+      window.location.assign(callbackUrl);
     } catch {
       toast.error("Credenziali non valide. Riprova.");
     } finally {
@@ -61,7 +61,7 @@ function LoginForm() {
     setLoading(true);
     try {
       await signIn("dev@vinifera.local", "devpassword123");
-      window.location.href = callbackUrl;
+      window.location.assign(callbackUrl);
     } catch {
       toast.error("Account dev non configurato. Crealo negli emulatori Firebase.");
     } finally {
