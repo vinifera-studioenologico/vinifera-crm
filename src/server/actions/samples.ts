@@ -10,10 +10,9 @@ import { requireAdmin } from "@/server/auth";
 import { logger } from "@/lib/logger";
 import { SampleFormSchema } from "@/schemas/sample";
 import type { SampleDoc, SampleStatus } from "@/schemas/sample";
-import { tsToISO } from "@/lib/utils/date";
+import { tsToISO, civilDateToEndOfDay, generateDueDates } from "@/lib/utils/date";
 import type { ActionResult, PaginatedResult } from "@/types";
 import { computeSampleTotal } from "@/lib/calc/sample";
-import { generateDueDates } from "@/lib/utils/date";
 import { splitInCents } from "@/lib/utils/money";
 import { getClient } from "./clients";
 
@@ -182,7 +181,7 @@ export async function createSample(raw: unknown): Promise<ActionResult<{ id: str
       createdId = sampleRef.id;
 
       const receivedAt = data.receivedAt
-        ? Timestamp.fromDate(new Date(data.receivedAt + "T12:00:00"))
+        ? Timestamp.fromDate(civilDateToEndOfDay(data.receivedAt))
         : FieldValue.serverTimestamp();
 
       // 3. Crea documento campione
@@ -251,7 +250,7 @@ export async function createSample(raw: unknown): Promise<ActionResult<{ id: str
             .collection("installments")
             .doc();
           tx.set(installRef, {
-            index: i,
+            index: i + 1,
             amountCents: amounts[i] ?? 0,
             paidAmountCents: 0,
             dueAt: Timestamp.fromDate(dueDates[i]!),
@@ -296,21 +295,83 @@ export async function updateSampleStatus(
   const actor = await requireAdmin();
 
   try {
-    const snap = await adminDb.collection(COL).doc(id).get();
-    if (!snap.exists) return { success: false, error: "Campione non trovato" };
+    const txResult = await adminDb.runTransaction(async (tx) => {
+      // ── FASE LETTURE ────────────────────────────────────────────────
 
-    const update: Record<string, unknown> = {
-      status,
-      updatedAt: FieldValue.serverTimestamp(),
-      updatedBy: actor.uid,
-    };
+      const sampleRef = adminDb.collection(COL).doc(id);
+      const snap = await tx.get(sampleRef);
+      if (!snap.exists) return "not_found";
 
-    if (status === "cancelled") {
-      update["cancelledAt"] = FieldValue.serverTimestamp();
-      update["cancelReason"] = opts.cancelReason ?? "";
-    }
+      const sampleData = snap.data()!;
+      const currentStatus = sampleData["status"] as SampleStatus;
+      const items = (sampleData["items"] ?? []) as SampleDoc["items"];
+      const clientId = sampleData["clientId"] as string;
 
-    await adminDb.collection(COL).doc(id).update(update);
+      // Calcola quali pacchetti ripristinare (solo se cancellazione)
+      const packageRestorations = new Map<string, number>();
+      if (status === "cancelled") {
+        for (const item of items) {
+          if (item.coveredByPackageId && !item.chargeAnyway) {
+            packageRestorations.set(
+              item.coveredByPackageId,
+              (packageRestorations.get(item.coveredByPackageId) ?? 0) + 1,
+            );
+          }
+        }
+      }
+
+      // Leggi i pacchetti da ripristinare (tutte le letture prima delle scritture)
+      const pkgRefs = [...packageRestorations.keys()].map((pkgId) =>
+        adminDb.collection("clientPackages").doc(pkgId),
+      );
+      const pkgSnaps = pkgRefs.length > 0
+        ? await Promise.all(pkgRefs.map((ref) => tx.get(ref)))
+        : [];
+
+      // ── FASE SCRITTURE ───────────────────────────────────────────────
+
+      const update: Record<string, unknown> = {
+        status,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: actor.uid,
+      };
+      if (status === "cancelled") {
+        update["cancelledAt"] = FieldValue.serverTimestamp();
+        update["cancelReason"] = opts.cancelReason ?? "";
+      }
+      tx.update(sampleRef, update);
+
+      // Decrementa samplesPending quando si esce da uno stato attivo
+      const wasActive = currentStatus === "pending" || currentStatus === "in_progress";
+      const isTerminal = status === "completed" || status === "cancelled";
+      if (wasActive && isTerminal) {
+        const clientRef = adminDb.collection("clients").doc(clientId);
+        tx.update(clientRef, {
+          "stats.samplesPending": FieldValue.increment(-1),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+
+      // Ripristina analisi nei pacchetti in caso di cancellazione
+      pkgRefs.forEach((ref, i) => {
+        const pkgSnap = pkgSnaps[i];
+        if (!pkgSnap?.exists) return;
+        const restoreCount = packageRestorations.get(ref.id) ?? 0;
+        const currentPkgStatus = pkgSnap.data()!["status"] as string;
+        const newRemaining =
+          (pkgSnap.data()!["remainingAnalyses"] as number) + restoreCount;
+        tx.update(ref, {
+          remainingAnalyses: newRemaining,
+          // Riattiva solo se era esaurito, non se è stato annullato esplicitamente
+          ...(currentPkgStatus === "exhausted" ? { status: "active" } : {}),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      });
+
+      return "ok";
+    });
+
+    if (txResult === "not_found") return { success: false, error: "Campione non trovato" };
 
     revalidatePath("/samples");
     revalidatePath(`/samples/${id}`);

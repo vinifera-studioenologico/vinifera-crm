@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
-import { Plus, Trash2, GripVertical } from "lucide-react";
+import { Plus, Trash2, GripVertical, Search } from "lucide-react";
 import type { z } from "zod";
 
 import { QuoteFormSchema } from "@/schemas/quote";
 import type { AnalysisDoc } from "@/schemas/analysis";
+import type { PackageDoc } from "@/schemas/package";
 import { formatEUR } from "@/lib/utils/money";
 
 import { Button } from "@/components/ui/button";
@@ -17,19 +19,32 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command";
 
 type FormInput = z.input<typeof QuoteFormSchema>;
 
 interface Props {
   analyses: AnalysisDoc[];
+  packages: PackageDoc[];
 }
 
-export function QuoteItemsEditor({ analyses }: Props) {
+export function QuoteItemsEditor({ analyses, packages }: Props) {
   const form = useFormContext<FormInput>();
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "items",
   });
+
+  const [open, setOpen] = useState(false);
 
   const items = useWatch({ control: form.control, name: "items" });
 
@@ -47,9 +62,23 @@ export function QuoteItemsEditor({ analyses }: Props) {
       kind: "analysis",
       analysisId: analysis.id,
       nameSnapshot: analysis.name,
+      description: "",
       quantity: 1,
       unitPriceCents: analysis.defaultPriceCents,
     } as never);
+    setOpen(false);
+  }
+
+  function addPackageRow(pkg: PackageDoc) {
+    append({
+      kind: "package",
+      packageId: pkg.id,
+      nameSnapshot: pkg.name,
+      description: "",
+      quantity: 1,
+      unitPriceCents: pkg.priceCents,
+    } as never);
+    setOpen(false);
   }
 
   const subtotal = (items ?? []).reduce((acc, it) => {
@@ -212,19 +241,69 @@ export function QuoteItemsEditor({ analyses }: Props) {
           <Plus className="size-3.5" strokeWidth={1.75} />
           Riga libera
         </Button>
-        {analyses.slice(0, 8).map((a) => (
-          <Button
-            key={a.id}
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => addAnalysisRow(a)}
-            className="text-xs"
-          >
-            <Plus className="size-3" strokeWidth={1.75} />
-            {a.code} – {a.name}
-          </Button>
-        ))}
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger
+            render={
+              <Button type="button" variant="outline" size="sm">
+                <Search className="size-3.5" strokeWidth={1.75} />
+                Aggiungi voce
+              </Button>
+            }
+          />
+          <PopoverContent className="p-0 w-80" align="start">
+            <Command>
+              <CommandInput placeholder="Cerca analisi o pacchetto..." />
+              <CommandList>
+                <CommandEmpty>Nessun risultato trovato.</CommandEmpty>
+                {analyses.length > 0 && (
+                  <CommandGroup heading="Analisi">
+                    {analyses.map((a) => (
+                      <CommandItem
+                        key={a.id}
+                        value={`${a.code} ${a.name}`}
+                        onSelect={() => addAnalysisRow(a)}
+                        className="flex justify-between gap-2"
+                      >
+                        <span className="flex gap-1.5 items-baseline min-w-0">
+                          <span className="font-mono text-xs text-muted-foreground shrink-0">
+                            {a.code}
+                          </span>
+                          <span className="truncate">{a.name}</span>
+                        </span>
+                        <span className="tabular-nums text-xs text-muted-foreground shrink-0">
+                          {formatEUR(a.defaultPriceCents)}
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+                {packages.length > 0 && (
+                  <>
+                    {analyses.length > 0 && <CommandSeparator />}
+                    <CommandGroup heading="Pacchetti">
+                      {packages.map((p) => (
+                        <CommandItem
+                          key={p.id}
+                          value={p.name}
+                          onSelect={() => addPackageRow(p)}
+                          className="flex justify-between gap-2"
+                        >
+                          <span className="flex gap-1.5 items-baseline min-w-0">
+                            <span className="text-xs shrink-0">📦</span>
+                            <span className="truncate">{p.name}</span>
+                          </span>
+                          <span className="tabular-nums text-xs text-muted-foreground shrink-0">
+                            {formatEUR(p.priceCents)}
+                          </span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </>
+                )}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   );

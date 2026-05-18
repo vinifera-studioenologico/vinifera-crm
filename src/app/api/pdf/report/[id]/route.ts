@@ -8,6 +8,7 @@ import { getClient } from "@/server/actions/clients";
 import { getSample } from "@/server/actions/samples";
 import { getCompanySettings } from "@/server/actions/settings";
 import { ReportPdfDocument } from "@/components/pdf/ReportPdfDocument";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,6 +65,7 @@ export async function GET(
       },
     });
   } catch (err) {
+    logger.error("Errore generazione PDF referto", err);
     const message = err instanceof Error ? err.message : "Errore";
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -24,6 +24,7 @@ export const QuoteItemAnalysisSchema = z.object({
   kind: z.literal("analysis"),
   analysisId: z.string().min(1),
   nameSnapshot: z.string(),
+  description: z.string().max(500).optional(),
   quantity: z.number().min(0.01).max(100000),
   unitPriceCents: zCents,
 });
@@ -32,6 +33,7 @@ export const QuoteItemPackageSchema = z.object({
   kind: z.literal("package"),
   packageId: z.string().min(1),
   nameSnapshot: z.string(),
+  description: z.string().max(500).optional(),
   quantity: z.number().min(1).max(100000).int(),
   unitPriceCents: zCents,
 });

@@ -141,6 +141,39 @@ const S = StyleSheet.create({
   },
   footerText: { fontSize: 7, color: "#999" },
 
+  // Pagina finale — riepilogo
+  summaryPage: {
+    fontFamily: "Helvetica",
+    fontSize: 9,
+    color: "#111",
+    padding: "40pt 48pt",
+    lineHeight: 1.4,
+  },
+  summaryTitle: {
+    fontSize: 13,
+    fontFamily: "Helvetica-Bold",
+    color: "#5B1A1A",
+    marginBottom: 20,
+    borderBottom: "1pt solid #5B1A1A",
+    paddingBottom: 6,
+  },
+  summaryTotalsBox: { width: 260, alignSelf: "flex-end", marginTop: 28 },
+  signatureRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 48,
+  },
+  signatureBlock: { width: "45%" },
+  signatureLabel: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: "#888",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 28,
+  },
+  signatureLine: { borderBottom: "0.5pt solid #999" },
+
   // Badge stato
   badge: {
     paddingHorizontal: 8,
@@ -189,7 +222,7 @@ export function QuotePdfDocument({ quote, company }: Props) {
 
   // Footer note aziendale
   const footerNote =
-    company?.pdfFooterNote ??
+    company?.pdfFooterNote ||
     (company
       ? `${company.legalName} · P.IVA ${company.vatNumber} · ${company.email}`
       : "");
@@ -212,10 +245,12 @@ export function QuotePdfDocument({ quote, company }: Props) {
             <Text style={S.companyName}>{company?.displayName ?? "Laboratorio"}</Text>
             {company && (
               <>
-                <Text style={S.companyDetail}>
-                  {company.address.street} · {company.address.zip} {company.address.city}
-                  {company.address.province ? ` (${company.address.province})` : ""}
-                </Text>
+              <Text style={S.companyDetail}>
+                {[company.address.street, company.address.zip, company.address.city]
+                  .filter(Boolean)
+                  .join(" · ")}
+                {company.address.province ? ` (${company.address.province})` : ""}
+              </Text>
                 <Text style={S.companyDetail}>P.IVA {company.vatNumber}</Text>
                 <Text style={S.companyDetail}>{company.email}</Text>
                 {company.pec && <Text style={S.companyDetail}>PEC {company.pec}</Text>}
@@ -226,7 +261,7 @@ export function QuotePdfDocument({ quote, company }: Props) {
           {/* Destra: numero preventivo + stato */}
           <View style={S.headerRight}>
             <Text style={S.quoteTitle}>PREVENTIVO</Text>
-            <Text style={[S.quoteTitle, { fontSize: 14 }]}>N° {quote.number}</Text>
+            <Text style={[S.quoteTitle, { fontSize: 14, marginTop: 6 }]}>N° {quote.number}</Text>
             <Text style={S.quoteMeta}>Emesso il {formatDatePdf(quote.issuedAt)}</Text>
             {quote.validUntil && (
               <Text style={S.quoteMeta}>Valido fino al {formatDatePdf(quote.validUntil)}</Text>
@@ -327,46 +362,21 @@ export function QuotePdfDocument({ quote, company }: Props) {
           );
         })}
 
-        {/* ── TOTALI ── */}
-        <View style={S.totalsSection}>
-          <View style={S.totalsBox}>
-            {/* Subtotale */}
-            <View style={S.totalsRow}>
-              <Text style={S.totalsLabel}>Subtotale</Text>
-              <Text style={S.totalsValue}>{formatEurPdf(quote.subtotalCents)}</Text>
-            </View>
+        {/* ── FOOTER ── */}
+        <View fixed style={{ position: "absolute", bottom: 44, left: 48, right: 48, height: 0.5, backgroundColor: "#ddd" }} />
+        <Text fixed style={[S.footerText, { position: "absolute", bottom: 28, left: 48, right: 150 }]}>{footerNote}</Text>
+        <Text
+          fixed
+          style={[S.footerText, { position: "absolute", bottom: 28, right: 48 }]}
+          render={({ pageNumber, totalPages }) =>
+            `Pag. ${pageNumber} / ${totalPages}`
+          }
+        />
+      </Page>
 
-            {/* Sconti */}
-            {quote.discounts.map((d, i) => (
-              <View key={i} style={S.totalsRow}>
-                <Text style={S.totalsLabel}>{d.label}</Text>
-                <Text style={S.totalsDiscountValue}>
-                  {d.type === "percent"
-                    ? `−${d.value}%`
-                    : `−${formatEurPdf(Math.round(d.value * 100))}`}
-                </Text>
-              </View>
-            ))}
-
-            {/* Tasse applicate */}
-            {quote.taxes
-              .filter((t) => t.applied)
-              .map((t, i) => (
-                <View key={i} style={S.totalsRow}>
-                  <Text style={S.totalsLabel}>{t.label}</Text>
-                  <Text style={S.totalsValue}>+{t.percent}%</Text>
-                </View>
-              ))}
-
-            <View style={S.totalsDivider} />
-
-            {/* Totale finale */}
-            <View style={S.totalRow}>
-              <Text style={S.totalLabel}>TOTALE</Text>
-              <Text style={S.totalValue}>{formatEurPdf(quote.totalCents)}</Text>
-            </View>
-          </View>
-        </View>
+      {/* ══ PAGINA FINALE: NOTE + RIEPILOGO + FIRMA ══ */}
+      <Page size="A4" style={S.summaryPage}>
+        <Text style={S.summaryTitle}>Riepilogo preventivo N° {quote.number}</Text>
 
         {/* ── NOTE ── */}
         {quote.notes && (
@@ -376,16 +386,67 @@ export function QuotePdfDocument({ quote, company }: Props) {
           </View>
         )}
 
-        {/* ── FOOTER ── */}
-        <View style={S.footer} fixed>
-          <Text style={S.footerText}>{footerNote}</Text>
-          <Text
-            style={S.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Pag. ${pageNumber} / ${totalPages}`
-            }
-          />
+        {/* ── TOTALI ── */}
+        <View style={S.summaryTotalsBox}>
+          {/* Subtotale */}
+          <View style={S.totalsRow}>
+            <Text style={S.totalsLabel}>Subtotale</Text>
+            <Text style={S.totalsValue}>{formatEurPdf(quote.subtotalCents)}</Text>
+          </View>
+
+          {/* Sconti */}
+          {quote.discounts.map((d, i) => (
+            <View key={i} style={S.totalsRow}>
+              <Text style={S.totalsLabel}>{d.label}</Text>
+              <Text style={S.totalsDiscountValue}>
+                {d.type === "percent"
+                  ? `−${d.value}%`
+                  : `−${formatEurPdf(Math.round(d.value * 100))}`}
+              </Text>
+            </View>
+          ))}
+
+          {/* Tasse applicate */}
+          {quote.taxes
+            .filter((t) => t.applied)
+            .map((t, i) => (
+              <View key={i} style={S.totalsRow}>
+                <Text style={S.totalsLabel}>{t.label}</Text>
+                <Text style={S.totalsValue}>+{t.percent}%</Text>
+              </View>
+            ))}
+
+          <View style={S.totalsDivider} />
+
+          {/* Totale finale */}
+          <View style={S.totalRow}>
+            <Text style={S.totalLabel}>TOTALE</Text>
+            <Text style={S.totalValue}>{formatEurPdf(quote.totalCents)}</Text>
+          </View>
         </View>
+
+        {/* ── FIRMA ── */}
+        <View style={S.signatureRow}>
+          <View style={S.signatureBlock}>
+            <Text style={S.signatureLabel}>Data e luogo</Text>
+            <View style={S.signatureLine} />
+          </View>
+          <View style={S.signatureBlock}>
+            <Text style={S.signatureLabel}>Firma</Text>
+            <View style={S.signatureLine} />
+          </View>
+        </View>
+
+        {/* ── FOOTER ── */}
+        <View fixed style={{ position: "absolute", bottom: 44, left: 48, right: 48, height: 0.5, backgroundColor: "#ddd" }} />
+        <Text fixed style={[S.footerText, { position: "absolute", bottom: 28, left: 48, right: 150 }]}>{footerNote}</Text>
+        <Text
+          fixed
+          style={[S.footerText, { position: "absolute", bottom: 28, right: 48 }]}
+          render={({ pageNumber, totalPages }) =>
+            `Pag. ${pageNumber} / ${totalPages}`
+          }
+        />
       </Page>
     </Document>
   );

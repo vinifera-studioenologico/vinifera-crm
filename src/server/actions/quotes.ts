@@ -10,7 +10,7 @@ import { requireAdmin } from "@/server/auth";
 import { logger } from "@/lib/logger";
 import { QuoteFormSchema, isQuoteTransitionAllowed } from "@/schemas/quote";
 import type { QuoteDoc, QuoteStatus } from "@/schemas/quote";
-import { tsToISO } from "@/lib/utils/date";
+import { tsToISO, civilDateToEndOfDay } from "@/lib/utils/date";
 import type { ActionResult, PaginatedResult } from "@/types";
 import { computeQuoteTotals } from "@/lib/calc/quote";
 import { getClient } from "./clients";
@@ -37,7 +37,13 @@ function toQuoteDoc(id: string, data: FirebaseFirestore.DocumentData): QuoteDoc 
     totalCents: data["totalCents"] ?? 0,
     notes: data["notes"],
     pdfStorageRef: data["pdfStorageRef"],
-    frozenSnapshot: data["frozenSnapshot"],
+    frozenSnapshot: data["frozenSnapshot"]
+      ? {
+          ...data["frozenSnapshot"],
+          issuedAt: tsToISO(data["frozenSnapshot"]["issuedAt"]),
+          validUntil: tsToISO(data["frozenSnapshot"]["validUntil"]),
+        }
+      : undefined,
     approvedAt: tsToISO(data["approvedAt"]),
     approvedBy: data["approvedBy"],
     version: data["version"] ?? 0,
@@ -126,8 +132,8 @@ export async function createQuote(raw: unknown): Promise<ActionResult<{ id: stri
     displayName: client.displayName,
     email: client.email,
     phone: client.phone,
-    vatNumber: client.type === "business" ? client.vatNumber : client.vatNumber,
-    taxCode: client.taxCode,
+    vatNumber: client.type === "business" ? client.vatNumber : (client.vatNumber ?? null),
+    taxCode: client.taxCode ?? null,
     address: client.address,
     type: client.type,
   };
@@ -155,12 +161,12 @@ export async function createQuote(raw: unknown): Promise<ActionResult<{ id: stri
       const docRef = adminDb.collection(COL).doc();
       createdId = docRef.id;
 
-      // Converti date stringa in Timestamp
+      // Converti date stringa in Timestamp (§18.4 — Europe/Rome end-of-day)
       const issuedAt = data.issuedAt
-        ? Timestamp.fromDate(new Date(data.issuedAt + "T23:59:59"))
+        ? Timestamp.fromDate(civilDateToEndOfDay(data.issuedAt))
         : FieldValue.serverTimestamp();
       const validUntil = data.validUntil
-        ? Timestamp.fromDate(new Date(data.validUntil + "T23:59:59"))
+        ? Timestamp.fromDate(civilDateToEndOfDay(data.validUntil))
         : null;
 
       tx.set(docRef, {
@@ -235,10 +241,10 @@ export async function updateQuote(
       if (current["status"] !== "draft") return "not_draft";
 
       const issuedAt = data.issuedAt
-        ? Timestamp.fromDate(new Date(data.issuedAt + "T23:59:59"))
+        ? Timestamp.fromDate(civilDateToEndOfDay(data.issuedAt))
         : current["issuedAt"];
       const validUntil = data.validUntil
-        ? Timestamp.fromDate(new Date(data.validUntil + "T23:59:59"))
+        ? Timestamp.fromDate(civilDateToEndOfDay(data.validUntil))
         : null;
 
       tx.update(docRef, {
@@ -304,7 +310,19 @@ export async function transitionQuote(
       if (to === "approved") {
         update["approvedAt"] = FieldValue.serverTimestamp();
         update["approvedBy"] = actor.uid;
-        update["frozenSnapshot"] = current["items"];
+        // §2.5 — frozenSnapshot completo (non solo items)
+        update["frozenSnapshot"] = {
+          number: current["number"],
+          clientSnapshot: current["clientSnapshot"],
+          issuedAt: tsToISO(current["issuedAt"]) ?? null,
+          validUntil: tsToISO(current["validUntil"]) ?? null,
+          items: current["items"],
+          subtotalCents: current["subtotalCents"],
+          discounts: current["discounts"],
+          taxes: current["taxes"],
+          totalCents: current["totalCents"],
+          notes: current["notes"] ?? null,
+        };
       }
 
       tx.update(docRef, update);

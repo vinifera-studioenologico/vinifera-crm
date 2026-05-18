@@ -24,15 +24,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, router, devBypass]);
 
-  if (!devBypass && loading) {
+  if (!devBypass && (loading || !user)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
-
-  if (!devBypass && !user) return null;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

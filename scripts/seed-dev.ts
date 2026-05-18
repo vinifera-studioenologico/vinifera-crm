@@ -10,7 +10,9 @@
  * Per rimuovere i seed: elimina questo file e la riga in package.json (se aggiunta).
  */
 
-import "dotenv/config";
+import * as dotenv from "dotenv";
+import * as path from "path";
+dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
 
@@ -40,6 +42,10 @@ const pastDays = (n: number) =>
 function id(prefix: string, n: number) {
   return `${prefix}-seed-${String(n).padStart(3, "0")}`;
 }
+
+// Restituisce il Timestamp per il giorno 15 del mese specificato (0-based)
+const monthTs = (year: number, month: number) =>
+  Timestamp.fromDate(new Date(year, month, 15, 10, 0, 0));
 
 // ── Dati seed ─────────────────────────────────────────────────────────────────
 
@@ -165,7 +171,7 @@ const CLIENTS = [
       street: "Via della Vigna 12",
       city: "Ascoli Piceno",
       province: "AP",
-      postalCode: "63100",
+      zip: "63100",
       country: "Italia",
     },
     billingAddress: null,
@@ -186,14 +192,14 @@ const CLIENTS = [
       street: "Contrada San Filippo 8",
       city: "Offida",
       province: "AP",
-      postalCode: "63073",
+      zip: "63073",
       country: "Italia",
     },
     billingAddress: {
       street: "Via Roma 1",
       city: "Offida",
       province: "AP",
-      postalCode: "63073",
+      zip: "63073",
       country: "Italia",
     },
     notes: "",
@@ -213,7 +219,7 @@ const CLIENTS = [
       street: "Via Salaria 45",
       city: "San Benedetto del Tronto",
       province: "AP",
-      postalCode: "63074",
+      zip: "63074",
       country: "Italia",
     },
     notes: "Piccolo produttore hobbista.",
@@ -233,7 +239,7 @@ const CLIENTS = [
       street: "Via Test 0",
       city: "Ascoli Piceno",
       province: "AP",
-      postalCode: "63100",
+      zip: "63100",
       country: "Italia",
     },
     notes: "Cliente archiviato — da usare per testare il filtro archivio.",
@@ -464,6 +470,31 @@ const SAMPLES = [
   },
 ];
 
+// Campioni storici — distribuiti negli ultimi 6 mesi per popolare il grafico
+const HISTORICAL_SAMPLES = [
+  // Dicembre 2025
+  { id: id("SC", 10), code: "C-2025-0010", clientId: id("CL", 1), clientNameSnapshot: "Cantina Rossi S.r.l.", sampleName: "Sangiovese Riserva 2023", receivedAt: monthTs(2025, 11), status: "completed", items: [{ analysisId: id("AN", 1), analysisCodeSnapshot: "SO2-L", analysisNameSnapshot: "Solforosa libera", unitPriceCents: 1200, chargeAnyway: true }], estimatedTotalCents: 1200, notes: "", createdAt: monthTs(2025, 11) },
+  { id: id("SC", 11), code: "C-2025-0011", clientId: id("CL", 2), clientNameSnapshot: "Azienda Agricola Bianchi", sampleName: "Pecorino DOC 2025 — Lotto invernale", receivedAt: monthTs(2025, 11), status: "completed", items: [{ analysisId: id("AN", 4), analysisCodeSnapshot: "GRAD", analysisNameSnapshot: "Gradazione alcolica", unitPriceCents: 1800, chargeAnyway: true }, { analysisId: id("AN", 3), analysisCodeSnapshot: "ALK", analysisNameSnapshot: "Acidità totale", unitPriceCents: 1000, chargeAnyway: true }], estimatedTotalCents: 2800, notes: "", createdAt: monthTs(2025, 11) },
+  { id: id("SC", 12), code: "C-2025-0012", clientId: id("CL", 3), clientNameSnapshot: "Marco Valentini", sampleName: "Rosso 2023 — prova", receivedAt: monthTs(2025, 11), status: "cancelled", items: [{ analysisId: id("AN", 7), analysisCodeSnapshot: "PH", analysisNameSnapshot: "pH", unitPriceCents: 700, chargeAnyway: true }], estimatedTotalCents: 700, notes: "", createdAt: monthTs(2025, 11) },
+  // Gennaio 2026
+  { id: id("SC", 13), code: "C-2026-0013", clientId: id("CL", 1), clientNameSnapshot: "Cantina Rossi S.r.l.", sampleName: "Rosso Piceno 2024 — campionatura", receivedAt: monthTs(2026, 0), status: "completed", items: [{ analysisId: id("AN", 1), analysisCodeSnapshot: "SO2-L", analysisNameSnapshot: "Solforosa libera", unitPriceCents: 1200, chargeAnyway: true }, { analysisId: id("AN", 2), analysisCodeSnapshot: "SO2-T", analysisNameSnapshot: "Solforosa totale", unitPriceCents: 1500, chargeAnyway: true }], estimatedTotalCents: 2700, notes: "", createdAt: monthTs(2026, 0) },
+  { id: id("SC", 14), code: "C-2026-0014", clientId: id("CL", 2), clientNameSnapshot: "Azienda Agricola Bianchi", sampleName: "Trebbiano 2025 — invecchiamento", receivedAt: monthTs(2026, 0), status: "completed", items: [{ analysisId: id("AN", 6), analysisCodeSnapshot: "ZUCK", analysisNameSnapshot: "Zuccheri riducenti", unitPriceCents: 900, chargeAnyway: true }], estimatedTotalCents: 900, notes: "", createdAt: monthTs(2026, 0) },
+  { id: id("SC", 15), code: "C-2026-0015", clientId: id("CL", 1), clientNameSnapshot: "Cantina Rossi S.r.l.", sampleName: "Cerasuolo 2025 — controllo", receivedAt: monthTs(2026, 0), status: "in_progress", items: [{ analysisId: id("AN", 5), analysisCodeSnapshot: "PEST", analysisNameSnapshot: "Residui pesticidi", unitPriceCents: 8500, chargeAnyway: true }], estimatedTotalCents: 8500, notes: "", createdAt: monthTs(2026, 0) },
+  // Febbraio 2026
+  { id: id("SC", 16), code: "C-2026-0016", clientId: id("CL", 2), clientNameSnapshot: "Azienda Agricola Bianchi", sampleName: "Bianco fermo 2025 — imbottigliamento", receivedAt: monthTs(2026, 1), status: "completed", items: [{ analysisId: id("AN", 1), analysisCodeSnapshot: "SO2-L", analysisNameSnapshot: "Solforosa libera", unitPriceCents: 1200, chargeAnyway: true }, { analysisId: id("AN", 7), analysisCodeSnapshot: "PH", analysisNameSnapshot: "pH", unitPriceCents: 700, chargeAnyway: true }], estimatedTotalCents: 1900, notes: "", createdAt: monthTs(2026, 1) },
+  { id: id("SC", 17), code: "C-2026-0017", clientId: id("CL", 1), clientNameSnapshot: "Cantina Rossi S.r.l.", sampleName: "Sangiovese 2024 — affinamento", receivedAt: monthTs(2026, 1), status: "completed", items: [{ analysisId: id("AN", 4), analysisCodeSnapshot: "GRAD", analysisNameSnapshot: "Gradazione alcolica", unitPriceCents: 1800, chargeAnyway: true }, { analysisId: id("AN", 3), analysisCodeSnapshot: "ALK", analysisNameSnapshot: "Acidità totale", unitPriceCents: 1000, chargeAnyway: true }], estimatedTotalCents: 2800, notes: "", createdAt: monthTs(2026, 1) },
+  { id: id("SC", 18), code: "C-2026-0018", clientId: id("CL", 3), clientNameSnapshot: "Marco Valentini", sampleName: "Rosato 2025 — prima analisi", receivedAt: monthTs(2026, 1), status: "pending", items: [{ analysisId: id("AN", 7), analysisCodeSnapshot: "PH", analysisNameSnapshot: "pH", unitPriceCents: 700, chargeAnyway: true }], estimatedTotalCents: 700, notes: "", createdAt: monthTs(2026, 1) },
+  // Marzo 2026
+  { id: id("SC", 19), code: "C-2026-0019", clientId: id("CL", 1), clientNameSnapshot: "Cantina Rossi S.r.l.", sampleName: "Montepulciano 2024 — lotto primavera", receivedAt: monthTs(2026, 2), status: "completed", items: [{ analysisId: id("AN", 1), analysisCodeSnapshot: "SO2-L", analysisNameSnapshot: "Solforosa libera", unitPriceCents: 1200, chargeAnyway: true }, { analysisId: id("AN", 2), analysisCodeSnapshot: "SO2-T", analysisNameSnapshot: "Solforosa totale", unitPriceCents: 1500, chargeAnyway: true }, { analysisId: id("AN", 4), analysisCodeSnapshot: "GRAD", analysisNameSnapshot: "Gradazione alcolica", unitPriceCents: 1800, chargeAnyway: true }], estimatedTotalCents: 4500, notes: "", createdAt: monthTs(2026, 2) },
+  { id: id("SC", 20), code: "C-2026-0020", clientId: id("CL", 2), clientNameSnapshot: "Azienda Agricola Bianchi", sampleName: "Pecorino 2026 — prima fioritura", receivedAt: monthTs(2026, 2), status: "completed", items: [{ analysisId: id("AN", 6), analysisCodeSnapshot: "ZUCK", analysisNameSnapshot: "Zuccheri riducenti", unitPriceCents: 900, chargeAnyway: true }, { analysisId: id("AN", 3), analysisCodeSnapshot: "ALK", analysisNameSnapshot: "Acidità totale", unitPriceCents: 1000, chargeAnyway: true }], estimatedTotalCents: 1900, notes: "", createdAt: monthTs(2026, 2) },
+  { id: id("SC", 21), code: "C-2026-0021", clientId: id("CL", 1), clientNameSnapshot: "Cantina Rossi S.r.l.", sampleName: "Rosso Conero 2024 — verifica SO2", receivedAt: monthTs(2026, 2), status: "in_progress", items: [{ analysisId: id("AN", 1), analysisCodeSnapshot: "SO2-L", analysisNameSnapshot: "Solforosa libera", unitPriceCents: 1200, chargeAnyway: true }], estimatedTotalCents: 1200, notes: "", createdAt: monthTs(2026, 2) },
+  { id: id("SC", 22), code: "C-2026-0022", clientId: id("CL", 3), clientNameSnapshot: "Marco Valentini", sampleName: "Bianco amatoriale 2025", receivedAt: monthTs(2026, 2), status: "cancelled", items: [{ analysisId: id("AN", 7), analysisCodeSnapshot: "PH", analysisNameSnapshot: "pH", unitPriceCents: 700, chargeAnyway: true }], estimatedTotalCents: 700, notes: "", createdAt: monthTs(2026, 2) },
+  // Aprile 2026
+  { id: id("SC", 23), code: "C-2026-0023", clientId: id("CL", 1), clientNameSnapshot: "Cantina Rossi S.r.l.", sampleName: "Sangiovese IGT 2024 — selezione aprile", receivedAt: monthTs(2026, 3), status: "completed", items: [{ analysisId: id("AN", 5), analysisCodeSnapshot: "PEST", analysisNameSnapshot: "Residui pesticidi", unitPriceCents: 8500, chargeAnyway: true }], estimatedTotalCents: 8500, notes: "", createdAt: monthTs(2026, 3) },
+  { id: id("SC", 24), code: "C-2026-0024", clientId: id("CL", 2), clientNameSnapshot: "Azienda Agricola Bianchi", sampleName: "Verdicchio 2025 — imbottigliamento", receivedAt: monthTs(2026, 3), status: "completed", items: [{ analysisId: id("AN", 4), analysisCodeSnapshot: "GRAD", analysisNameSnapshot: "Gradazione alcolica", unitPriceCents: 1800, chargeAnyway: true }, { analysisId: id("AN", 1), analysisCodeSnapshot: "SO2-L", analysisNameSnapshot: "Solforosa libera", unitPriceCents: 1200, chargeAnyway: true }], estimatedTotalCents: 3000, notes: "", createdAt: monthTs(2026, 3) },
+  { id: id("SC", 25), code: "C-2026-0025", clientId: id("CL", 1), clientNameSnapshot: "Cantina Rossi S.r.l.", sampleName: "Rosso Piceno 2025 — pre-imbottigliamento", receivedAt: monthTs(2026, 3), status: "in_progress", items: [{ analysisId: id("AN", 2), analysisCodeSnapshot: "SO2-T", analysisNameSnapshot: "Solforosa totale", unitPriceCents: 1500, chargeAnyway: true }, { analysisId: id("AN", 3), analysisCodeSnapshot: "ALK", analysisNameSnapshot: "Acidità totale", unitPriceCents: 1000, chargeAnyway: true }], estimatedTotalCents: 2500, notes: "", createdAt: monthTs(2026, 3) },
+];
+
 // Pagamenti
 const PAYMENTS = [
   {
@@ -591,7 +622,7 @@ const COMPANY_SETTINGS = {
     street: "Via del Laboratorio 10",
     city: "Ascoli Piceno",
     province: "AP",
-    postalCode: "63100",
+    zip: "63100",
     country: "Italia",
   },
   email: "info@labenologicotest.it",
@@ -683,16 +714,17 @@ async function seed() {
 
   // Samples
   const batch3 = db.batch();
-  for (const s of SAMPLES) {
-    const { id: docId, cancelledAt, cancelReason, ...data } = s as typeof SAMPLES[0] & {
-      cancelledAt?: Timestamp;
-      cancelReason?: string;
-    };
+  const allSamples = [
+    ...SAMPLES,
+    ...HISTORICAL_SAMPLES,
+  ] as Array<typeof SAMPLES[0] & { cancelledAt?: Timestamp; cancelReason?: string; createdAt?: Timestamp }>;
+  for (const s of allSamples) {
+    const { id: docId, cancelledAt, cancelReason, createdAt: sCreatedAt, ...data } = s;
     const doc: Record<string, unknown> = {
       ...data,
       version: 0,
-      createdAt: now,
-      updatedAt: now,
+      createdAt: sCreatedAt ?? now,
+      updatedAt: sCreatedAt ?? now,
     };
     if (cancelledAt) doc["cancelledAt"] = cancelledAt;
     if (cancelReason) doc["cancelReason"] = cancelReason;
@@ -700,7 +732,7 @@ async function seed() {
   }
 
   await batch3.commit();
-  console.log("✓ Samples");
+  console.log("✓ Samples (inclusi storici)");
 
   // Payments + Installments
   const batch4 = db.batch();
@@ -756,6 +788,15 @@ async function seed() {
   await batch5.commit();
   console.log("✓ Reminders, Company Settings");
 
+  // Contatori progressivi — inizializzati ai valori massimi dei seed
+  // così il prossimo documento reale parte dal numero giusto
+  const batchCounters = db.batch();
+  batchCounters.set(db.collection("counters").doc("quotes_2026"),   { seq: 4 });
+  batchCounters.set(db.collection("counters").doc("samples_2025"),  { seq: 12 });
+  batchCounters.set(db.collection("counters").doc("samples_2026"),  { seq: 25 });
+  await batchCounters.commit();
+  console.log("✓ Contatori progressivi");
+
   console.log("\n✅ Seed completato:");
   console.log(`   ${ANALYSES.length} analisi  (${ANALYSES.filter(a => !a.active).length} inattive)`);
   console.log(`   ${PACKAGES.length} pacchetti  (${PACKAGES.filter(p => !p.active).length} archiviati)`);
@@ -766,6 +807,7 @@ async function seed() {
   console.log(`   ${PAYMENTS.length} pagamenti + ${INSTALLMENTS.length} rate`);
   console.log(`   ${REMINDERS.length} promemoria`);
   console.log(`   1 impostazioni azienda`);
+  console.log(`   3 contatori progressivi (quotes_2026=4, samples_2025=12, samples_2026=25)`);
 }
 
 seed().catch((err) => {

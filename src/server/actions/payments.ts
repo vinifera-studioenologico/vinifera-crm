@@ -10,10 +10,13 @@ import { requireAdmin } from "@/server/auth";
 import { logger } from "@/lib/logger";
 import { PaymentFormSchema, MarkInstallmentPaidSchema } from "@/schemas/payment";
 import type { PaymentDoc, InstallmentDoc } from "@/schemas/payment";
-import { tsToISO } from "@/lib/utils/date";
+import { tsToISO, generateDueDates, civilDateToEndOfDay } from "@/lib/utils/date";
 import type { ActionResult, PaginatedResult } from "@/types";
-import { generateDueDates } from "@/lib/utils/date";
 import { splitInCents } from "@/lib/utils/money";
+import {
+  derivePaymentStatus,
+  type InstallmentForCalc,
+} from "@/lib/calc/payment";
 
 const COL = "payments";
 const PAGE_SIZE = 25;
@@ -134,9 +137,15 @@ export async function markInstallmentPaid(
 
       const paymentRef = adminDb.collection(COL).doc(data.paymentId);
 
-      const [installSnap, paymentSnap] = await Promise.all([
+      const [installSnap, paymentSnap, allInstallmentsSnap] = await Promise.all([
         tx.get(installRef),
         tx.get(paymentRef),
+        tx.get(
+          adminDb
+            .collection(COL)
+            .doc(data.paymentId)
+            .collection("installments"),
+        ),
       ]);
 
       if (!installSnap.exists) throw new Error("Rata non trovata");
@@ -148,14 +157,39 @@ export async function markInstallmentPaid(
       if (installData["status"] === "paid") throw new Error("Rata già pagata");
       if (installData["status"] === "cancelled") throw new Error("Rata annullata");
 
+      // §4.3 — guard rail sovrapagamento
+      const installAmountCents = (installData["amountCents"] as number) ?? 0;
+      if (paidAmountCents > installAmountCents) {
+        throw new Error(
+          `L'importo registrato (${(paidAmountCents / 100).toFixed(2)} €) supera il valore della rata (${(installAmountCents / 100).toFixed(2)} €).`,
+        );
+      }
+
       const currentPaid = (paymentData["paidAmountCents"] as number) ?? 0;
       const totalAmount = (paymentData["totalAmountCents"] as number) ?? 0;
       const newPaid = currentPaid + paidAmountCents;
-      const newStatus = newPaid >= totalAmount ? "paid" : "partial";
 
-      const paidAtTs = Timestamp.fromDate(
-        new Date(data.paidAt + "T12:00:00"),
+      // §4.4 — usa derivePaymentStatus per calcolare il nuovo status
+      const now = new Date();
+      const installmentsForCalc: InstallmentForCalc[] = allInstallmentsSnap.docs.map(
+        (d) => {
+          const isCurrent = d.id === data.installmentId;
+          return {
+            status: isCurrent
+              ? "paid"
+              : (d.data()["status"] as InstallmentForCalc["status"]),
+            dueDate: (d.data()["dueAt"] as FirebaseFirestore.Timestamp).toDate(),
+            amountCents: (d.data()["amountCents"] as number) ?? 0,
+          };
+        },
       );
+      const newPaymentStatus = derivePaymentStatus(
+        { totalAmountCents: totalAmount, paidAmountCents: newPaid, cancelled: false },
+        installmentsForCalc,
+        now,
+      );
+
+      const paidAtTs = Timestamp.fromDate(civilDateToEndOfDay(data.paidAt));
 
       // Aggiorna rata
       tx.update(installRef, {
@@ -170,7 +204,7 @@ export async function markInstallmentPaid(
       // Aggiorna pagamento
       tx.update(paymentRef, {
         paidAmountCents: FieldValue.increment(paidAmountCents),
-        status: newStatus,
+        status: newPaymentStatus,
         version: FieldValue.increment(1),
         updatedAt: FieldValue.serverTimestamp(),
       });
@@ -240,6 +274,11 @@ export async function cancelPayment(id: string): Promise<ActionResult<void>> {
       .where("status", "in", ["pending", "overdue"])
       .get();
 
+    // Calcola l'importo pendente da sottrarre (total - già pagato)
+    const remainingPending =
+      ((data["totalAmountCents"] as number) ?? 0) -
+      ((data["paidAmountCents"] as number) ?? 0);
+
     const batch = adminDb.batch();
     batch.update(ref, {
       status: "cancelled",
@@ -251,6 +290,17 @@ export async function cancelPayment(id: string): Promise<ActionResult<void>> {
         updatedAt: FieldValue.serverTimestamp(),
       });
     }
+
+    // Aggiorna stats cliente: decrementa il pendente residuo
+    const clientId = data["clientId"] as string | undefined;
+    if (clientId && remainingPending > 0) {
+      const clientRef = adminDb.collection("clients").doc(clientId);
+      batch.update(clientRef, {
+        "stats.pendingAmountCents": FieldValue.increment(-remainingPending),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+
     await batch.commit();
 
     revalidatePath("/payments");
@@ -321,7 +371,7 @@ export async function createManualPayment(
           amountCents: amounts[i] ?? 0,
           paidAmountCents: 0,
           dueAt: Timestamp.fromDate(
-            new Date((dueDates[i] ?? data.firstDueDate) + "T23:59:59"),
+            dueDates[i] ?? civilDateToEndOfDay(data.firstDueDate),
           ),
           status: "pending",
           createdAt: FieldValue.serverTimestamp(),

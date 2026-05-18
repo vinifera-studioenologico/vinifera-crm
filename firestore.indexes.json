@@ -96,6 +96,14 @@
         { "fieldPath": "deletedAt", "order": "ASCENDING" },
         { "fieldPath": "code", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "samples",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "deletedAt", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -150,7 +150,7 @@ export async function purchasePackage(
             .collection("installments")
             .doc();
           tx.set(installRef, {
-            index: i,
+            index: i + 1,
             amountCents: amounts[i] ?? 0,
             paidAmountCents: 0,
             dueAt: Timestamp.fromDate(dueDates[i]!),

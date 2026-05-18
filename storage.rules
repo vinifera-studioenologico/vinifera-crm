@@ -6,20 +6,16 @@ service firebase.storage {
       return request.auth != null && request.auth.token.role == "admin";
     }
 
-    // ── PDF preventivi ────────────────────────────────────────────────
-    match /quotes/{quoteId}/quote.pdf {
-      allow read: if isAdmin();
-      allow write: if false; // solo Admin SDK server-side
-    }
-
     // ── PDF referti ───────────────────────────────────────────────────
-    match /reports/{reportId}/report.pdf {
+    // Path effettivo: reports/{id}.pdf  (es. reports/abc123.pdf)
+    match /reports/{fileName} {
       allow read: if isAdmin();
       allow write: if false; // solo Admin SDK server-side
     }
 
     // ── Logo azienda ──────────────────────────────────────────────────
-    match /settings/logo {
+    // Path effettivo: company/logo.{ext}  (es. company/logo.png)
+    match /company/{fileName} {
       allow read: if isAdmin();
       allow write: if isAdmin();
     }

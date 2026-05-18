@@ -98,8 +98,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src="/icon/icon.png" alt="Vinifera" width={28} height={28} className="shrink-0" />
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src="/icon/logo.png" alt="Vinifera" className="h-8 w-auto" />
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icon/logo.png" alt="Vinifera" className="h-8 w-auto dark:hidden" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icon/logo_darkmode.png" alt="Vinifera" className="h-8 w-auto hidden dark:block" />
+          </>
         )}
       </div>
 

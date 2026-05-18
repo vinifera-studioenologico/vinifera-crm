@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -22,7 +22,6 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 function LoginForm() {
   const { signIn, user, loading: authLoading, sessionReady } = useAuth();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
 
@@ -33,9 +32,9 @@ function LoginForm() {
   // (con getIdToken(true)) dopo che requireAdmin aveva fatto il signout.
   useEffect(() => {
     if (!authLoading && user && sessionReady) {
-      router.replace(callbackUrl);
+      window.location.href = callbackUrl;
     }
-  }, [authLoading, user, sessionReady, router, callbackUrl]);
+  }, [authLoading, user, sessionReady, callbackUrl]);
 
   const {
     register,
@@ -47,7 +46,9 @@ function LoginForm() {
     setLoading(true);
     try {
       await signIn(data.email, data.password);
-      router.replace(callbackUrl);
+      // Hard redirect: serve un full reload per sincronizzare lo stato
+      // server (cookie) con il client (AuthProvider).
+      window.location.href = callbackUrl;
     } catch {
       toast.error("Credenziali non valide. Riprova.");
     } finally {
@@ -60,7 +61,7 @@ function LoginForm() {
     setLoading(true);
     try {
       await signIn("dev@vinifera.local", "devpassword123");
-      router.replace(callbackUrl);
+      window.location.href = callbackUrl;
     } catch {
       toast.error("Account dev non configurato. Crealo negli emulatori Firebase.");
     } finally {

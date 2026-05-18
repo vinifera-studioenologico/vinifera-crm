@@ -8,7 +8,9 @@
  *   npm run seed:clean
  */
 
-import "dotenv/config";
+import * as dotenv from "dotenv";
+import * as path from "path";
+dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
@@ -104,6 +106,15 @@ async function unseed() {
   // Settings company (documento fisso, lo elimina solo se fu creato dal seed)
   // Lo saltiamo — è condiviso con dati reali potenziali
   // Se vuoi rimuoverlo: db.collection("settings").doc("company").delete()
+
+  // Contatori progressivi inizializzati dal seed
+  const counterDocs = ["quotes_2026", "samples_2025", "samples_2026"];
+  const batchCounters = db.batch();
+  for (const docId of counterDocs) {
+    batchCounters.delete(db.collection("counters").doc(docId));
+  }
+  await batchCounters.commit();
+  console.log(`  counters: eliminati ${counterDocs.length} documenti`);
 
   console.log(`\n✅ Rimossi ${total} documenti seed.`);
 }

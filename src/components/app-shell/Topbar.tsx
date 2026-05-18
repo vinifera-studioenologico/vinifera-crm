@@ -143,7 +143,7 @@ export function Topbar() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => void signOut()}
+              onClick={() => void signOut().then(() => { window.location.href = "/login"; })}
               className="gap-2 text-destructive focus:text-destructive"
             >
               <LogOut className="size-4" strokeWidth={1.75} />

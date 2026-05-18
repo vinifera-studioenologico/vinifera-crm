@@ -34,7 +34,8 @@ export function derivePaymentStatus(
 
   const hasOverdue = installments.some(
     (inst) =>
-      inst.status === "pending" && inst.dueDate < now,
+      inst.status === "overdue" ||
+      (inst.status === "pending" && inst.dueDate < now),
   );
   if (hasOverdue) return "overdue";
 

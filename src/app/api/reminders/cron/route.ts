@@ -2,6 +2,10 @@ import { type NextRequest, NextResponse } from "next/server";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin";
 import { logger } from "@/lib/logger";
+import {
+  derivePaymentStatus,
+  type InstallmentForCalc,
+} from "@/lib/calc/payment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -138,13 +142,44 @@ export async function GET(req: NextRequest) {
 
     if (overdueInstallSnap.docs.length > 0) await batch.commit();
 
-    // Aggiorna status pagamento → overdue se ha rate overdue
+    // Aggiorna status pagamento usando derivePaymentStatus
     for (const paymentId of paymentIds) {
       const payRef = adminDb.collection("payments").doc(paymentId);
-      const paySnap = await payRef.get();
-      if (paySnap.exists && paySnap.data()!["status"] !== "paid") {
+      const [paySnap, installSnap] = await Promise.all([
+        payRef.get(),
+        adminDb
+          .collection("payments")
+          .doc(paymentId)
+          .collection("installments")
+          .get(),
+      ]);
+      if (!paySnap.exists) continue;
+      const payData = paySnap.data()!;
+      const currentPayStatus = payData["status"] as string;
+      // Non toccare pagamenti già terminali
+      if (currentPayStatus === "paid" || currentPayStatus === "cancelled") continue;
+
+      const installmentsForCalc: InstallmentForCalc[] = installSnap.docs.map((d) => ({
+        // Rate overdue appena aggiornate in batch — considerale già overdue
+        status: overdueInstallSnap.docs.some((od) => od.id === d.id)
+          ? "overdue"
+          : (d.data()["status"] as InstallmentForCalc["status"]),
+        dueDate: (d.data()["dueAt"] as Timestamp).toDate(),
+        amountCents: (d.data()["amountCents"] as number) ?? 0,
+      }));
+
+      const newStatus = derivePaymentStatus(
+        {
+          totalAmountCents: (payData["totalAmountCents"] as number) ?? 0,
+          paidAmountCents: (payData["paidAmountCents"] as number) ?? 0,
+          cancelled: false,
+        },
+        installmentsForCalc,
+      );
+
+      if (newStatus !== currentPayStatus) {
         await payRef.update({
-          status: "overdue",
+          status: newStatus,
           updatedAt: FieldValue.serverTimestamp(),
         });
       }

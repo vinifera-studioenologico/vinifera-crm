@@ -36,7 +36,7 @@ function EurTooltip({ active, payload, label }: {
       <p className="font-semibold mb-1">{label}</p>
       {payload.map((p) => (
         <p key={p.name} style={{ color: p.color }}>
-          {p.name}: {formatEUR(p.value)}
+          {p.name}: {formatEUR(Math.round(p.value * 100))}
         </p>
       ))}
     </div>
@@ -75,12 +75,12 @@ export function StatsClient({ initialRevenue, samplesByMonth, currentYear }: Pro
   const revenueChartData = initialRevenue.map((r) => ({
     month: r.month,
     Incassato: r.incassatoCents / 100,
-    Stimato: r.attesoContents / 100,
+    "Da incassare": r.attesoCents / 100,
   }));
 
   // Totali anno
   const totalIncassato = initialRevenue.reduce((s, r) => s + r.incassatoCents, 0);
-  const totalStimato = initialRevenue.reduce((s, r) => s + r.attesoContents, 0);
+  const totalStimato = initialRevenue.reduce((s, r) => s + r.attesoCents, 0);
   const bestMonth = [...initialRevenue].sort(
     (a, b) => b.incassatoCents - a.incassatoCents,
   )[0];
@@ -142,7 +142,7 @@ export function StatsClient({ initialRevenue, samplesByMonth, currentYear }: Pro
         </Card>
         <Card>
           <CardContent className="pt-5">
-            <p className="text-xs text-muted-foreground">Stimato campioni</p>
+            <p className="text-xs text-muted-foreground">Da incassare {selectedYear}</p>
             <p className="text-2xl font-semibold tabular-nums mt-1">
               {formatEUR(totalStimato)}
             </p>
@@ -174,7 +174,7 @@ export function StatsClient({ initialRevenue, samplesByMonth, currentYear }: Pro
         <CardHeader>
           <CardTitle className="text-base">Entrate mensili {selectedYear}</CardTitle>
           <CardDescription>
-            Confronto tra importo incassato e stimato (campioni ricevuti)
+            Confronto tra importo incassato e rate ancora da incassare (scadenza nel mese)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -206,14 +206,14 @@ export function StatsClient({ initialRevenue, samplesByMonth, currentYear }: Pro
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Bar
                 dataKey="Incassato"
-                fill="hsl(var(--primary))"
+                fill="#10b981"
                 radius={[4, 4, 0, 0]}
               />
               <Bar
-                dataKey="Stimato"
-                fill="hsl(var(--muted-foreground))"
+                dataKey="Da incassare"
+                fill="#f59e0b"
                 radius={[4, 4, 0, 0]}
-                opacity={0.4}
+                minPointSize={3}
               />
             </BarChart>
           </ResponsiveContainer>

@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import type { QuoteDoc, QuoteStatus } from "@/schemas/quote";
 import type { ClientDoc } from "@/schemas/client";
 import type { AnalysisDoc } from "@/schemas/analysis";
+import type { PackageDoc } from "@/schemas/package";
 import { deleteQuote } from "@/server/actions/quotes";
 import { formatEUR } from "@/lib/utils/money";
 
@@ -49,6 +50,7 @@ interface Props {
   initialData: QuoteDoc[];
   clients: ClientDoc[];
   analyses: AnalysisDoc[];
+  packages: PackageDoc[];
   defaultEnpaiaApplied?: boolean;
   defaultEnpaiaPercent?: number;
 }
@@ -61,7 +63,7 @@ const STATUS_LABELS: Record<QuoteStatus, string> = {
   cancelled: "Annullati",
 };
 
-export function QuotesClient({ initialData, clients, analyses, defaultEnpaiaApplied, defaultEnpaiaPercent }: Props) {
+export function QuotesClient({ initialData, clients, analyses, packages, defaultEnpaiaApplied, defaultEnpaiaPercent }: Props) {
   const router = useRouter();
   const [data, setData] = useState(initialData);
   const [search, setSearch] = useState("");
@@ -197,6 +199,7 @@ export function QuotesClient({ initialData, clients, analyses, defaultEnpaiaAppl
             <QuoteForm
               clients={clients}
               analyses={analyses}
+              packages={packages}
               defaultEnpaiaApplied={defaultEnpaiaApplied}
               defaultEnpaiaPercent={defaultEnpaiaPercent}
               onSuccess={(id) => {

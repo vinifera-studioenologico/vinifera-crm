@@ -11,6 +11,7 @@ import { QuoteFormSchema } from "@/schemas/quote";
 import type { QuoteDoc } from "@/schemas/quote";
 import type { ClientDoc } from "@/schemas/client";
 import type { AnalysisDoc } from "@/schemas/analysis";
+import type { PackageDoc } from "@/schemas/package";
 import { createQuote, updateQuote } from "@/server/actions/quotes";
 import { computeQuoteTotals } from "@/lib/calc/quote";
 import { formatEUR } from "@/lib/utils/money";
@@ -29,6 +30,7 @@ interface Props {
   existing?: QuoteDoc;
   clients: ClientDoc[];
   analyses: AnalysisDoc[];
+  packages: PackageDoc[];
   defaultClientId?: string;
   defaultEnpaiaApplied?: boolean;
   defaultEnpaiaPercent?: number;
@@ -39,6 +41,7 @@ export function QuoteForm({
   existing,
   clients,
   analyses,
+  packages,
   defaultClientId,
   defaultEnpaiaApplied = false,
   defaultEnpaiaPercent = 4,
@@ -216,7 +219,10 @@ export function QuoteForm({
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
             Voci preventivo
           </p>
-          <QuoteItemsEditor analyses={analyses.filter((a) => a.active && a.deletedAt === null)} />
+          <QuoteItemsEditor
+            analyses={analyses.filter((a) => a.active && a.deletedAt === null)}
+            packages={packages.filter((p) => p.active && p.deletedAt === null)}
+          />
         </div>
 
         <Separator />

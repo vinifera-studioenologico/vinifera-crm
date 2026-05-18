@@ -4,49 +4,61 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ─── Vinifera Design Tokens ──────────────────────────────────────────── */
+/*
+ * Brand palette sampled from logo:
+ *   Forest green  →  oklch(0.37 0.09 175)   (#1a5c52 area)
+ *   Champagne gold →  oklch(0.73 0.09 82)    (#c9a84c area)
+ */
 :root {
+  /* Warm cream base — harmonises with the gold accent */
   --background: oklch(0.985 0.005 80);
-  --foreground: oklch(0.15 0.02 30);
+  --foreground: oklch(0.15 0.02 175);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.15 0.02 30);
+  --card-foreground: oklch(0.15 0.02 175);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.15 0.02 30);
-  --primary: oklch(0.35 0.10 15);
+  --popover-foreground: oklch(0.15 0.02 175);
+  /* Primary — forest green from logo */
+  --primary: oklch(0.37 0.09 175);
   --primary-foreground: oklch(0.98 0.005 80);
-  --secondary: oklch(0.92 0.04 60);
-  --secondary-foreground: oklch(0.2 0.03 30);
-  --muted: oklch(0.93 0.01 60);
-  --muted-foreground: oklch(0.5 0.02 30);
-  --accent: oklch(0.88 0.07 60);
-  --accent-foreground: oklch(0.2 0.03 30);
+  /* Secondary — warm neutral (gold-tinted) */
+  --secondary: oklch(0.92 0.04 82);
+  --secondary-foreground: oklch(0.2 0.03 175);
+  --muted: oklch(0.93 0.01 82);
+  --muted-foreground: oklch(0.5 0.02 165);
+  /* Accent — champagne gold from logo */
+  --accent: oklch(0.88 0.07 82);
+  --accent-foreground: oklch(0.25 0.05 82);
   --destructive: oklch(0.45 0.15 20);
   --destructive-foreground: oklch(0.98 0.005 80);
-  --border: oklch(0.88 0.01 60);
-  --input: oklch(0.88 0.01 60);
-  --ring: oklch(0.35 0.10 15);
+  --border: oklch(0.88 0.015 165);
+  --input: oklch(0.88 0.015 165);
+  --ring: oklch(0.37 0.09 175);
   --radius: 0.75rem;
 }
 
 .dark {
-    --background: oklch(0.13 0.01 40);
-    --foreground: oklch(0.93 0.005 60);
-    --card: oklch(0.18 0.01 40);
-    --card-foreground: oklch(0.93 0.005 60);
-    --popover: oklch(0.18 0.01 40);
-    --popover-foreground: oklch(0.93 0.005 60);
-    --primary: oklch(0.55 0.12 15);
-    --primary-foreground: oklch(0.13 0.01 40);
-    --secondary: oklch(0.25 0.02 40);
-    --secondary-foreground: oklch(0.93 0.005 60);
-    --muted: oklch(0.22 0.01 40);
-    --muted-foreground: oklch(0.65 0.01 50);
-    --accent: oklch(0.28 0.03 50);
-    --accent-foreground: oklch(0.93 0.005 60);
-    --destructive: oklch(0.55 0.18 20);
-    --destructive-foreground: oklch(0.98 0.005 80);
-  --border: oklch(0.28 0.01 40);
-  --input: oklch(0.28 0.01 40);
-  --ring: oklch(0.55 0.12 15);
+  /* Deep forest background */
+  --background: oklch(0.14 0.02 175);
+  --foreground: oklch(0.93 0.005 165);
+  --card: oklch(0.18 0.02 175);
+  --card-foreground: oklch(0.93 0.005 165);
+  --popover: oklch(0.18 0.02 175);
+  --popover-foreground: oklch(0.93 0.005 165);
+  /* Primary — lighter green for readability on dark bg */
+  --primary: oklch(0.62 0.10 175);
+  --primary-foreground: oklch(0.14 0.02 175);
+  --secondary: oklch(0.24 0.025 175);
+  --secondary-foreground: oklch(0.93 0.005 165);
+  --muted: oklch(0.21 0.015 175);
+  --muted-foreground: oklch(0.65 0.01 165);
+  /* Accent — subtle gold on dark */
+  --accent: oklch(0.30 0.05 82);
+  --accent-foreground: oklch(0.93 0.005 165);
+  --destructive: oklch(0.55 0.18 20);
+  --destructive-foreground: oklch(0.98 0.005 80);
+  --border: oklch(0.27 0.015 175);
+  --input: oklch(0.27 0.015 175);
+  --ring: oklch(0.62 0.10 175);
 }
 
 @theme inline {

@@ -17,6 +17,7 @@ import Link from "next/link";
 import type { QuoteDoc, QuoteStatus } from "@/schemas/quote";
 import type { AnalysisDoc } from "@/schemas/analysis";
 import type { ClientDoc } from "@/schemas/client";
+import type { PackageDoc } from "@/schemas/package";
 import { transitionQuote } from "@/server/actions/quotes";
 import { isQuoteTransitionAllowed } from "@/schemas/quote";
 import { formatEUR } from "@/lib/utils/money";
@@ -65,11 +66,12 @@ interface Props {
   quote: QuoteDoc;
   clients: ClientDoc[];
   analyses: AnalysisDoc[];
+  packages: PackageDoc[];
   defaultEnpaiaApplied?: boolean;
   defaultEnpaiaPercent?: number;
 }
 
-export function QuoteDetailClient({ quote, clients, analyses, defaultEnpaiaApplied, defaultEnpaiaPercent }: Props) {
+export function QuoteDetailClient({ quote, clients, analyses, packages, defaultEnpaiaApplied, defaultEnpaiaPercent }: Props) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [confirmTransition, setConfirmTransition] = useState<QuoteStatus | null>(null);
@@ -173,6 +175,7 @@ export function QuoteDetailClient({ quote, clients, analyses, defaultEnpaiaAppli
                     existing={quote}
                     clients={clients}
                     analyses={analyses}
+                    packages={packages}
                     defaultEnpaiaApplied={defaultEnpaiaApplied}
                     defaultEnpaiaPercent={defaultEnpaiaPercent}
                     onSuccess={() => {

@@ -1,6 +1,7 @@
 import { getQuotes } from "@/server/actions/quotes";
 import { getClients } from "@/server/actions/clients";
 import { getAnalyses } from "@/server/actions/analyses";
+import { getPackages } from "@/server/actions/packages";
 import { getCompanySettings } from "@/server/actions/settings";
 import { QuotesClient } from "./_components/QuotesClient";
 
@@ -9,10 +10,11 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Preventivi — Vinifera" };
 
 export default async function QuotesPage() {
-  const [quotesResult, clientsResult, analyses, settings] = await Promise.all([
+  const [quotesResult, clientsResult, analyses, packages, settings] = await Promise.all([
     getQuotes(),
     getClients(),
     getAnalyses(),
+    getPackages(),
     getCompanySettings(),
   ]);
 
@@ -22,6 +24,7 @@ export default async function QuotesPage() {
         initialData={quotesResult.items}
         clients={clientsResult.items}
         analyses={analyses}
+        packages={packages}
         defaultEnpaiaApplied={settings?.defaultEnpaiaApplied ?? false}
         defaultEnpaiaPercent={settings?.defaultEnpaiaPercent ?? 4}
       />

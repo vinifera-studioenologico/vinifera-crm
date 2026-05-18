@@ -47,6 +47,20 @@ function toReminderDoc(id: string, d: FirebaseFirestore.DocumentData): ReminderD
   };
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────
+const safeGet = async (query: FirebaseFirestore.Query) => {
+  try {
+    return await query.get();
+  } catch (err: unknown) {
+    const code = (err as { code?: number })?.code;
+    if (code === 9) {
+      // Index not ready yet — return empty snapshot
+      return { docs: [] as FirebaseFirestore.QueryDocumentSnapshot[], size: 0 };
+    }
+    throw err;
+  }
+};
+
 // ── KPI Dashboard ─────────────────────────────────────────────────────
 export interface DashboardStats {
   incassiMeseCents: number;          // incassato nel mese corrente
@@ -73,22 +87,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const in90Days = Timestamp.fromDate(
     new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000),
   );
-
-  // Esegui tutte le query in parallelo; se un indice non è ancora pronto
-  // (FAILED_PRECONDITION code 9) restituisce uno snapshot vuoto invece di
-  // far crashare l'intera dashboard.
-  const safeGet = async (query: FirebaseFirestore.Query) => {
-    try {
-      return await query.get();
-    } catch (err: unknown) {
-      const code = (err as { code?: number })?.code;
-      if (code === 9) {
-        // Index not ready yet — return empty snapshot
-        return { docs: [] as FirebaseFirestore.QueryDocumentSnapshot[], size: 0 };
-      }
-      throw err;
-    }
-  };
 
   const [
     paidInstallmentsSnap,
@@ -189,7 +187,7 @@ export interface MonthlyRevenue {
   month: string;   // "Gen", "Feb", ...
   year: number;
   incassatoCents: number;
-  attesoContents: number; // preventivato (campioni stimati)
+  attesoCents: number; // rate pending/overdue con scadenza nel mese
 }
 
 const MONTHS_IT = ["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"];
@@ -201,20 +199,19 @@ export async function getMonthlyStats(year?: number): Promise<MonthlyRevenue[]> 
   const yearStart = Timestamp.fromDate(new Date(targetYear, 0, 1));
   const yearEnd = Timestamp.fromDate(new Date(targetYear, 11, 31, 23, 59, 59));
 
-  const [paidSnap, samplesSnap] = await Promise.all([
-    adminDb
+  const [paidSnap, pendingSnap] = await Promise.all([
+    safeGet(adminDb
       .collectionGroup("installments")
       .where("status", "==", "paid")
       .where("paidAt", ">=", yearStart)
-      .where("paidAt", "<=", yearEnd)
-      .get(),
+      .where("paidAt", "<=", yearEnd)),
 
-    adminDb
-      .collection("samples")
-      .where("deletedAt", "==", null)
-      .where("createdAt", ">=", yearStart)
-      .where("createdAt", "<=", yearEnd)
-      .get(),
+    // Rate non ancora incassate (pending + overdue) con scadenza nell'anno
+    safeGet(adminDb
+      .collectionGroup("installments")
+      .where("status", "in", ["pending", "overdue"])
+      .where("dueAt", ">=", yearStart)
+      .where("dueAt", "<=", yearEnd)),
   ]);
 
   // Raggruppa incassato per mese
@@ -229,22 +226,22 @@ export async function getMonthlyStats(year?: number): Promise<MonthlyRevenue[]> 
     revenueByMonth[month] = (revenueByMonth[month] ?? 0) + cents;
   }
 
-  // Raggruppa stimato campioni per mese
-  const estimatedByMonth: Record<number, number> = {};
-  for (const doc of samplesSnap.docs) {
+  // Raggruppa da incassare per mese di scadenza
+  const pendingByMonth: Record<number, number> = {};
+  for (const doc of pendingSnap.docs) {
     const d = doc.data();
-    const createdAt = d["createdAt"] as Timestamp | null;
-    if (!createdAt) continue;
-    const month = createdAt.toDate().getMonth();
-    const cents = (d["estimatedTotalCents"] as number | null) ?? 0;
-    estimatedByMonth[month] = (estimatedByMonth[month] ?? 0) + cents;
+    const dueAt = d["dueAt"] as Timestamp | null;
+    if (!dueAt) continue;
+    const month = dueAt.toDate().getMonth();
+    const cents = (d["amountCents"] as number | null) ?? 0;
+    pendingByMonth[month] = (pendingByMonth[month] ?? 0) + cents;
   }
 
   return Array.from({ length: 12 }, (_, i) => ({
     month: MONTHS_IT[i] ?? String(i + 1),
     year: targetYear,
     incassatoCents: revenueByMonth[i] ?? 0,
-    attesoContents: estimatedByMonth[i] ?? 0,
+    attesoCents: pendingByMonth[i] ?? 0,
   }));
 }
 
@@ -264,10 +261,9 @@ export async function getSamplesByMonth(): Promise<SamplesByMonth[]> {
     new Date(new Date().getTime() - 180 * 24 * 60 * 60 * 1000),
   );
 
-  const snap = await adminDb
+  const snap = await safeGet(adminDb
     .collection("samples")
-    .where("createdAt", ">=", sixMonthsAgo)
-    .get();
+    .where("createdAt", ">=", sixMonthsAgo));
 
   const byMonth: Record<
     string,

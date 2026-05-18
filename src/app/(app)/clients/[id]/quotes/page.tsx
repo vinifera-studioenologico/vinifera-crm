@@ -1,18 +1,37 @@
-import { FileText } from "lucide-react";
+import { notFound } from "next/navigation";
+import { getClient } from "@/server/actions/clients";
+import { getQuotes } from "@/server/actions/quotes";
+import { getAnalyses } from "@/server/actions/analyses";
+import { getPackages } from "@/server/actions/packages";
+import { getCompanySettings } from "@/server/actions/settings";
+import { ClientQuotesClient } from "./_components/ClientQuotesClient";
 
-export default async function ClientQuotesPage() {
+interface Props {
+  params: Promise<{ id: string }>;
+}
+
+export default async function ClientQuotesPage({ params }: Props) {
+  const { id } = await params;
+  const [client, quotesResult, analyses, packages, settings] = await Promise.all([
+    getClient(id),
+    getQuotes({ clientId: id }),
+    getAnalyses(),
+    getPackages(),
+    getCompanySettings(),
+  ]);
+
+  if (!client) notFound();
 
   return (
     <div className="p-4 md:p-6">
-      <div className="rounded-xl border border-border bg-card p-16 flex flex-col items-center gap-3 text-center">
-        <div className="size-12 rounded-full bg-muted flex items-center justify-center">
-          <FileText className="size-5 text-muted-foreground" strokeWidth={1.5} />
-        </div>
-        <p className="text-sm font-medium text-foreground">Preventivi</p>
-        <p className="text-xs text-muted-foreground max-w-xs">
-          La gestione dei preventivi sarà disponibile nello STEP 7.
-        </p>
-      </div>
+      <ClientQuotesClient
+        client={client}
+        initialQuotes={quotesResult.items}
+        analyses={analyses}
+        packages={packages}
+        defaultEnpaiaApplied={settings?.defaultEnpaiaApplied ?? false}
+        defaultEnpaiaPercent={settings?.defaultEnpaiaPercent ?? 4}
+      />
     </div>
   );
 }

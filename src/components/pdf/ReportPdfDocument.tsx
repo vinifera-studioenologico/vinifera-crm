@@ -168,7 +168,7 @@ export function ReportPdfDocument({
   });
 
   const footerNote =
-    company?.pdfFooterNote ??
+    company?.pdfFooterNote ||
     (company ? `${company.legalName} · P.IVA ${company.vatNumber} · ${company.email}` : "");
 
   return (
@@ -187,8 +187,9 @@ export function ReportPdfDocument({
             {company && (
               <>
                 <Text style={S.companyDetail}>
-                  {company.address.street} · {company.address.zip}{" "}
-                  {company.address.city}
+                  {[company.address.street, company.address.zip, company.address.city]
+                    .filter(Boolean)
+                    .join(" · ")}
                   {company.address.province ? ` (${company.address.province})` : ""}
                 </Text>
                 <Text style={S.companyDetail}>P.IVA {company.vatNumber}</Text>
@@ -218,7 +219,9 @@ export function ReportPdfDocument({
           ) : null}
           {client.address && (
             <Text style={S.clientSub}>
-              {client.address.street}, {client.address.zip} {client.address.city}
+              {[client.address.street, client.address.zip, client.address.city]
+                .filter(Boolean)
+                .join(", ")}
               {client.address.province ? ` (${client.address.province})` : ""}
             </Text>
           )}
@@ -287,15 +290,15 @@ export function ReportPdfDocument({
         )}
 
         {/* ── FOOTER ── */}
-        <View style={S.footer} fixed>
-          <Text style={S.footerText}>{footerNote}</Text>
-          <Text
-            style={S.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Pag. ${pageNumber} / ${totalPages}`
-            }
-          />
-        </View>
+        <View fixed style={{ position: "absolute", bottom: 44, left: 48, right: 48, height: 0.5, backgroundColor: "#ddd" }} />
+        <Text fixed style={[S.footerText, { position: "absolute", bottom: 28, left: 48, right: 150 }]}>{footerNote}</Text>
+        <Text
+          fixed
+          style={[S.footerText, { position: "absolute", bottom: 28, right: 48 }]}
+          render={({ pageNumber, totalPages }) =>
+            `Pag. ${pageNumber} / ${totalPages}`
+          }
+        />
       </Page>
     </Document>
   );
