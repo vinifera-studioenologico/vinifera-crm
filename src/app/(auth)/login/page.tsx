@@ -6,7 +6,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, Wine } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import Image from "next/image";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +24,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 function LoginForm() {
   const { signIn, user, loading: authLoading, sessionReady } = useAuth();
+  const { resolvedTheme } = useTheme();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
 
@@ -74,11 +77,14 @@ function LoginForm() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center space-y-3 pb-6">
           <div className="flex justify-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-              <Wine className="h-7 w-7 text-primary" />
-            </div>
+            <Image
+              src={resolvedTheme === "dark" ? "/icon/logo_darkmode.png" : "/icon/logo.png"}
+              alt="Vinifera logo"
+              width={120}
+              height={48}
+              priority
+            />
           </div>
-          <CardTitle className="text-2xl font-semibold tracking-tight">Vinifera CRM</CardTitle>
           <CardDescription>Accedi al gestionale</CardDescription>
         </CardHeader>
 

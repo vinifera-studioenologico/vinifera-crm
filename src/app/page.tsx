@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import {
-  FlaskConical,
   FileText,
   BarChart2,
   Package,
@@ -96,8 +96,22 @@ export default function LandingPage() {
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-sm">
         <div className="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FlaskConical className="size-5 text-primary" strokeWidth={1.75} />
-            <span className="font-semibold tracking-tight">Vinifera</span>
+            <Image
+              src="/icon/logo.png"
+              alt="Vinifera"
+              width={140}
+              height={50}
+              priority
+              className="dark:hidden"
+            />
+            <Image
+              src="/icon/logo_darkmode.png"
+              alt="Vinifera"
+              width={140}
+              height={50}
+              priority
+              className="hidden dark:block"
+            />
           </div>
           <Link href="/login">
             <Button size="sm" variant="outline" className="text-xs">
@@ -264,8 +278,7 @@ export default function LandingPage() {
       <footer className="border-t border-border">
         <div className="mx-auto max-w-6xl px-4 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5">
-            <FlaskConical className="size-3.5 text-primary" strokeWidth={1.75} />
-            <span className="font-medium text-foreground">Vinifera</span>
+            <Image src="/icon/icon.png" alt="Vinifera" width={20} height={20} />
             <span>— Gestionale per laboratori enologici</span>
           </div>
           <p>© {new Date().getFullYear()} Tutti i diritti riservati</p>
