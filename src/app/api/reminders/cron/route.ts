@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin";
 import { logger } from "@/lib/logger";
+import { buildEmailHtml } from "@/lib/email";
 import {
   derivePaymentStatus,
   type InstallmentForCalc,
@@ -19,8 +20,7 @@ function isAuthorized(req: NextRequest): boolean {
 }
 
 // ── Invia notifica Telegram ───────────────────────────────────────────
-async function sendTelegram(chatId: string, text: string): Promise<void> {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
+async function sendTelegram(token: string, chatId: string, text: string): Promise<void> {
   if (!token || !chatId) return;
   await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
@@ -30,7 +30,12 @@ async function sendTelegram(chatId: string, text: string): Promise<void> {
 }
 
 // ── Invia notifica Email via Resend ───────────────────────────────────
-async function sendEmail(to: string, subject: string, text: string): Promise<void> {
+async function sendEmail(
+  to: string,
+  subject: string,
+  text: string,
+  htmlBody?: string,
+): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || !to) return;
   const { Resend } = await import("resend");
@@ -40,7 +45,28 @@ async function sendEmail(to: string, subject: string, text: string): Promise<voi
     to,
     subject,
     text,
+    html: htmlBody,
   });
+}
+
+// ── Carica config notifiche da Firestore ──────────────────────────────
+async function loadNotifConfig() {
+  const snap = await adminDb.doc("settings/notifications").get();
+  const d = snap.data() ?? {};
+  return {
+    telegramToken:
+      (d["telegramBotToken"] as string | undefined) ||
+      process.env.TELEGRAM_BOT_TOKEN ||
+      "",
+    telegramChatId:
+      (d["telegramChatId"] as string | undefined) ||
+      process.env.TELEGRAM_CHAT_ID ||
+      "",
+    notifyEmail:
+      (d["notifyEmail"] as string | undefined) ||
+      process.env.NOTIFY_EMAIL ||
+      "",
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -52,6 +78,7 @@ export async function GET(req: NextRequest) {
   const COL = "reminders";
 
   try {
+    const notif = await loadNotifConfig();
     // Trova promemoria pending con dueAt passato e non ancora notificati
     const snap = await adminDb
       .collection(COL)
@@ -96,15 +123,23 @@ export async function GET(req: NextRequest) {
 
       try {
         if (channels?.telegram) {
-          const chatId = process.env.TELEGRAM_CHAT_ID ?? "";
-          await sendTelegram(chatId, messageText);
+          await sendTelegram(notif.telegramToken, notif.telegramChatId, messageText);
         }
         if (channels?.email) {
-          const toEmail = process.env.NOTIFY_EMAIL ?? "";
+          const emailHtml = buildEmailHtml({
+            title: `Promemoria: ${title}`,
+            body: [
+              description ? `<p>${description}</p>` : "",
+              `<p>📅 <strong>Scadenza:</strong> ${dueDateStr}</p>`,
+            ]
+              .filter(Boolean)
+              .join(""),
+          });
           await sendEmail(
-            toEmail,
+            notif.notifyEmail,
             `Promemoria: ${title}`,
             `${title}\n${description ?? ""}\nScade: ${dueDateStr}`,
+            emailHtml,
           );
         }
 

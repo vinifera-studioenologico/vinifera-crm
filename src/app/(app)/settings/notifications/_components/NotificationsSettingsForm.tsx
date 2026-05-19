@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Loader2, Bell, Send, Mail } from "lucide-react";
+import { Loader2, Bell, Send, Mail, FlaskConical } from "lucide-react";
 
 import {
   Form,
@@ -20,40 +20,61 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  sendTestTelegram,
+  sendTestEmail,
+  updateNotificationSettings,
+} from "@/server/actions/settings";
+import type { NotificationSettingsValues } from "@/schemas/settings";
 
 const NotificationsSchema = z.object({
-  telegramBotToken: z.string().optional(),
-  telegramChatId: z.string().optional(),
-  notifyEmail: z.string().email("Email non valida").optional().or(z.literal("")),
+  telegramBotToken: z.string().default(""),
+  telegramChatId: z.string().default(""),
+  notifyEmail: z.string().email("Email non valida").or(z.literal("")).default(""),
 });
 
 type NotificationsInput = z.input<typeof NotificationsSchema>;
 
-async function saveNotificationSettings() {
-  // Le impostazioni di notifica sono solo variabili d'ambiente — qui mostriamo
-  // le istruzioni su come configurarle, ma fornisci un "test" locale se disponibile.
-  // In un progetto reale si salverebbero in Firestore settings/notifications.
-  return { success: true };
+interface Props {
+  initialValues: NotificationSettingsValues;
 }
 
-export function NotificationsSettingsForm() {
+export function NotificationsSettingsForm({ initialValues }: Props) {
   const [isPending, startTransition] = useTransition();
+  const [isTelegramTestPending, startTelegramTest] = useTransition();
+  const [isEmailTestPending, startEmailTest] = useTransition();
 
   const form = useForm<NotificationsInput>({
     resolver: zodResolver(NotificationsSchema),
     defaultValues: {
-      telegramBotToken: "",
-      telegramChatId: "",
-      notifyEmail: "",
+      telegramBotToken: initialValues.telegramBotToken,
+      telegramChatId: initialValues.telegramChatId,
+      notifyEmail: initialValues.notifyEmail,
     },
     mode: "onTouched",
   });
 
-  function onSubmit() {
+  function onSubmit(values: NotificationsInput) {
     startTransition(async () => {
-      const result = await saveNotificationSettings();
+      const result = await updateNotificationSettings(values);
       if (result.success) toast.success("Impostazioni salvate");
-      else toast.error("Errore nel salvataggio");
+      else toast.error(result.error ?? "Errore nel salvataggio");
+    });
+  }
+
+  function handleTestTelegram() {
+    startTelegramTest(async () => {
+      const result = await sendTestTelegram();
+      if (result.success) toast.success("Messaggio Telegram inviato con successo!");
+      else toast.error(result.error ?? "Errore nell'invio Telegram");
+    });
+  }
+
+  function handleTestEmail() {
+    startEmailTest(async () => {
+      const result = await sendTestEmail();
+      if (result.success) toast.success("Email di test inviata con successo!");
+      else toast.error(result.error ?? "Errore nell'invio email");
     });
   }
 
@@ -62,16 +83,38 @@ export function NotificationsSettingsForm() {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Send className="size-4" strokeWidth={1.75} />
-              Telegram
-            </CardTitle>
+            <div className="flex items-start justify-between gap-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Send className="size-4" strokeWidth={1.75} />
+                Telegram
+              </CardTitle>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isTelegramTestPending}
+                onClick={handleTestTelegram}
+              >
+                {isTelegramTestPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <FlaskConical className="size-3.5" />
+                )}
+                Invia test
+              </Button>
+            </div>
             <CardDescription>
-              Configura il bot Telegram per ricevere notifiche sui promemoria. Le
-              variabili d&apos;ambiente corrispondenti sono{" "}
-              <code className="rounded bg-muted px-1 text-xs">TELEGRAM_BOT_TOKEN</code>{" "}
-              e{" "}
-              <code className="rounded bg-muted px-1 text-xs">TELEGRAM_CHAT_ID</code>.
+              Configura il bot Telegram per ricevere notifiche sui promemoria.
+              Ottieni il token da{" "}
+              <a
+                href="https://t.me/BotFather"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+              >
+                @BotFather
+              </a>
+              .
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -91,16 +134,7 @@ export function NotificationsSettingsForm() {
                     />
                   </FormControl>
                   <FormDescription>
-                    Ottieni il token da{" "}
-                    <a
-                      href="https://t.me/BotFather"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline"
-                    >
-                      @BotFather
-                    </a>
-                    .
+                    Visibile una sola volta su @BotFather — incollalo qui e salva.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -131,15 +165,29 @@ export function NotificationsSettingsForm() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Mail className="size-4" strokeWidth={1.75} />
-              Email
-            </CardTitle>
+            <div className="flex items-start justify-between gap-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Mail className="size-4" strokeWidth={1.75} />
+                Email
+              </CardTitle>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isEmailTestPending}
+                onClick={handleTestEmail}
+              >
+                {isEmailTestPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <FlaskConical className="size-3.5" />
+                )}
+                Invia test
+              </Button>
+            </div>
             <CardDescription>
-              Indirizzo a cui inviare le notifiche email dei promemoria (variabile{" "}
-              <code className="rounded bg-muted px-1 text-xs">NOTIFY_EMAIL</code>). L&apos;API
-              key Resend è configurata tramite{" "}
-              <code className="rounded bg-muted px-1 text-xs">RESEND_API_KEY</code>.
+              Indirizzo a cui inviare le notifiche email dei promemoria. L&apos;invio
+              avviene tramite Resend (API key configurata nelle variabili d&apos;ambiente).
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -175,16 +223,15 @@ export function NotificationsSettingsForm() {
           </CardHeader>
           <CardContent>
             <pre className="text-xs leading-relaxed">
-              {`TELEGRAM_BOT_TOKEN=<token>
-TELEGRAM_CHAT_ID=<chat_id>
-NOTIFY_EMAIL=admin@lab.it
-RESEND_API_KEY=re_...
+              {`RESEND_API_KEY=re_...
 RESEND_FROM_EMAIL="Vinifera <noreply@dominio.it>"
 CRON_SECRET=<segreto_random>`}
             </pre>
             <p className="mt-3 text-xs text-muted-foreground">
-              Imposta queste variabili nel pannello Vercel → Settings → Environment
-              Variables (o nel file <code>.env.local</code> per lo sviluppo locale).
+              Token Telegram, Chat ID e Email di notifica si configurano nei campi
+              qui sopra. Le variabili rimanenti vanno impostate nel pannello
+              Vercel → Settings → Environment Variables (o in{" "}
+              <code>.env.local</code> in locale).
             </p>
           </CardContent>
         </Card>

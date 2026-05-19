@@ -5,6 +5,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { getNotificationSettings } from "@/server/actions/settings";
 import { NotificationsSettingsForm } from "./_components/NotificationsSettingsForm";
 
 
@@ -13,7 +14,9 @@ export const metadata = {
   title: "Impostazioni notifiche — Vinifera",
 };
 
-export default function NotificationsSettingsPage() {
+export default async function NotificationsSettingsPage() {
+  const initialValues = await getNotificationSettings();
+
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
@@ -33,7 +36,7 @@ export default function NotificationsSettingsPage() {
           Configura Telegram e Email per i promemoria automatici.
         </p>
       </div>
-      <NotificationsSettingsForm />
+      <NotificationsSettingsForm initialValues={initialValues} />
     </div>
   );
 }
