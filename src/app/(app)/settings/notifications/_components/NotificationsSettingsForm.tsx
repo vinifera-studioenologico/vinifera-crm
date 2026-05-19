@@ -214,28 +214,6 @@ export function NotificationsSettingsForm({ initialValues }: Props) {
 
         <Separator />
 
-        <Card className="bg-muted/40 border-dashed">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Bell className="size-4" strokeWidth={1.75} />
-              Variabili d&apos;ambiente richieste
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="text-xs leading-relaxed">
-              {`RESEND_API_KEY=re_...
-RESEND_FROM_EMAIL="Vinifera <noreply@dominio.it>"
-CRON_SECRET=<segreto_random>`}
-            </pre>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Token Telegram, Chat ID e Email di notifica si configurano nei campi
-              qui sopra. Le variabili rimanenti vanno impostate nel pannello
-              Vercel → Settings → Environment Variables (o in{" "}
-              <code>.env.local</code> in locale).
-            </p>
-          </CardContent>
-        </Card>
-
         <Button type="submit" disabled={isPending}>
           {isPending && <Loader2 className="size-3.5 animate-spin" />}
           {isPending ? "Salvataggio..." : "Salva impostazioni"}
