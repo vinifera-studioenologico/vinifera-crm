@@ -42,7 +42,7 @@ const S = StyleSheet.create({
   quoteTitle: {
     fontSize: 20,
     fontFamily: "Helvetica-Bold",
-    color: "#5B1A1A",   // bordeaux
+    color: "#1A4D3E",
     marginBottom: 2,
   },
   quoteMeta: { fontSize: 8.5, color: "#666" },
@@ -54,7 +54,7 @@ const S = StyleSheet.create({
     marginTop: 20,
     marginBottom: 20,
     padding: "12pt 14pt",
-    backgroundColor: "#f8f4f4",
+    backgroundColor: "#f2f8f5",
     borderRadius: 4,
   },
   infoBlock: { flex: 1 },
@@ -68,7 +68,7 @@ const S = StyleSheet.create({
   // Tabella voci
   tableHeader: {
     flexDirection: "row",
-    backgroundColor: "#f3f0f0",
+    backgroundColor: "#edf4f1",
     padding: "5pt 8pt",
     borderRadius: 3,
     marginBottom: 2,
@@ -111,18 +111,18 @@ const S = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     paddingVertical: 3,
-    borderTop: "1pt solid #5B1A1A",
+    borderTop: "1pt solid #1A4D3E",
     marginTop: 2,
   },
   totalLabel: { fontSize: 11, fontFamily: "Helvetica-Bold" },
-  totalValue: { fontSize: 11, fontFamily: "Helvetica-Bold", color: "#5B1A1A", textAlign: "right" },
+  totalValue: { fontSize: 11, fontFamily: "Helvetica-Bold", color: "#1A4D3E", textAlign: "right" },
 
   // Note
   notesSection: {
     marginTop: 14,
     padding: "10pt 12pt",
     backgroundColor: "#fafafa",
-    borderLeft: "2pt solid #5B1A1A",
+    borderLeft: "2pt solid #1A4D3E",
     borderRadius: 2,
   },
   notesLabel: { fontSize: 7, fontFamily: "Helvetica-Bold", color: "#888", textTransform: "uppercase", marginBottom: 4 },
@@ -152,9 +152,9 @@ const S = StyleSheet.create({
   summaryTitle: {
     fontSize: 13,
     fontFamily: "Helvetica-Bold",
-    color: "#5B1A1A",
+    color: "#1A4D3E",
     marginBottom: 20,
-    borderBottom: "1pt solid #5B1A1A",
+    borderBottom: "1pt solid #1A4D3E",
     paddingBottom: 6,
   },
   summaryTotalsBox: { width: 260, alignSelf: "flex-end", marginTop: 28 },
@@ -226,6 +226,17 @@ export function QuotePdfDocument({ quote, company }: Props) {
     (company
       ? `${company.legalName} · P.IVA ${company.vatNumber} · ${company.email}`
       : "");
+
+  // Pre-calcola importi sconti in cascata (evita mutazione in render)
+  const discountAmounts = quote.discounts.reduce<{ amounts: number[]; running: number }>(
+    (acc, d) => {
+      const amtCents = d.type === "percent"
+        ? Math.round((acc.running * d.value) / 100)
+        : d.value;
+      return { amounts: [...acc.amounts, amtCents], running: acc.running - amtCents };
+    },
+    { amounts: [], running: quote.subtotalCents },
+  ).amounts;
 
   return (
     <Document
@@ -394,17 +405,20 @@ export function QuotePdfDocument({ quote, company }: Props) {
             <Text style={S.totalsValue}>{formatEurPdf(quote.subtotalCents)}</Text>
           </View>
 
-          {/* Sconti */}
-          {quote.discounts.map((d, i) => (
-            <View key={i} style={S.totalsRow}>
-              <Text style={S.totalsLabel}>{d.label}</Text>
-              <Text style={S.totalsDiscountValue}>
-                {d.type === "percent"
-                  ? `−${d.value}%`
-                  : `−${formatEurPdf(Math.round(d.value * 100))}`}
-              </Text>
-            </View>
-          ))}
+          {/* Sconti — pre-calcola importi in cascata */}
+          {quote.discounts.map((d, i) => {
+            const amt = discountAmounts[i] ?? 0;
+            return (
+              <View key={i} style={S.totalsRow}>
+                <Text style={S.totalsLabel}>{d.label}</Text>
+                <Text style={S.totalsDiscountValue}>
+                  {d.type === "percent"
+                    ? `−${d.value}%  (−${formatEurPdf(amt)})`
+                    : `−${formatEurPdf(amt)}`}
+                </Text>
+              </View>
+            );
+          })}
 
           {/* Tasse applicate */}
           {quote.taxes

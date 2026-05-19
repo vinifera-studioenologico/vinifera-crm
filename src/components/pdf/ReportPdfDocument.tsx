@@ -34,14 +34,14 @@ const S = StyleSheet.create({
   logo: { width: 80, height: 40, objectFit: "contain", marginBottom: 6 },
   companyName: { fontSize: 14, fontFamily: "Helvetica-Bold", marginBottom: 3 },
   companyDetail: { fontSize: 8, color: "#555", lineHeight: 1.5 },
-  reportTitle: { fontSize: 14, fontFamily: "Helvetica-Bold", color: "#5B1A1A" },
-  reportNumber: { fontSize: 13, fontFamily: "Helvetica-Bold", color: "#5B1A1A", marginBottom: 2 },
+  reportTitle: { fontSize: 14, fontFamily: "Helvetica-Bold", color: "#1A4D3E" },
+  reportNumber: { fontSize: 13, fontFamily: "Helvetica-Bold", color: "#1A4D3E", marginBottom: 2 },
   reportMeta: { fontSize: 8.5, color: "#666" },
 
   // Info cliente
   clientBox: {
     padding: "10pt 14pt",
-    backgroundColor: "#f8f4f4",
+    backgroundColor: "#f2f8f5",
     borderRadius: 4,
     marginBottom: 20,
   },
@@ -61,16 +61,16 @@ const S = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: "8pt 12pt",
-    backgroundColor: "#5B1A1A",
+    backgroundColor: "#1A4D3E",
   },
   sampleCode: { fontSize: 10, fontFamily: "Helvetica-Bold", color: "#fff" },
-  sampleName: { fontSize: 9, color: "#fde8e8" },
-  sampleMeta: { fontSize: 8, color: "#fde8e8", textAlign: "right" },
+  sampleName: { fontSize: 9, color: "#c8e8e0" },
+  sampleMeta: { fontSize: 8, color: "#c8e8e0", textAlign: "right" },
 
   // Tabella analisi
   tableHeader: {
     flexDirection: "row",
-    backgroundColor: "#f3f0f0",
+    backgroundColor: "#edf4f1",
     padding: "4pt 10pt",
   },
   tableHeaderText: { fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#666", textTransform: "uppercase" },
@@ -105,7 +105,7 @@ const S = StyleSheet.create({
     marginTop: 14,
     padding: "10pt 12pt",
     backgroundColor: "#fafafa",
-    borderLeft: "2pt solid #5B1A1A",
+    borderLeft: "2pt solid #1A4D3E",
     borderRadius: 2,
   },
   reportNotesLabel: {

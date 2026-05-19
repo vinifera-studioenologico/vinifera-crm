@@ -201,7 +201,7 @@ export async function getReportDownloadUrl(storagePath: string): Promise<string>
 // ── Invia referto via email (Resend) ──────────────────────────────────
 export async function sendReportByEmail(
   reportId: string,
-  opts: { to: string; subject?: string; body?: string },
+  opts: { to: string; subject?: string; body?: string; type?: "technical" | "commercial" },
 ): Promise<ActionResult<void>> {
   await requireAdmin();
 
@@ -209,32 +209,56 @@ export async function sendReportByEmail(
     const report = await getReport(reportId);
     if (!report) return { success: false, error: "Referto non trovato" };
 
-    // Carica PDF da Storage
-    const bucket = adminStorage.bucket();
-    const [pdfBuffer] = await bucket.file(report.pdfStorageRef).download();
+    const isCommercial = opts.type === "commercial";
+    let pdfBuffer: Buffer;
 
-    // Invia via Resend
+    if (!isCommercial && report.pdfStorageRef) {
+      // Tecnico pre-generato su Storage
+      const bucket = adminStorage.bucket();
+      const [downloaded] = await bucket.file(report.pdfStorageRef).download();
+      pdfBuffer = downloaded;
+    } else {
+      // Genera al volo (commerciale sempre, tecnico se non su Storage)
+      const { getClient } = await import("./clients");
+      const { getSample } = await import("./samples");
+      const { getCompanySettings } = await import("./settings");
+      const { renderToBuffer } = await import("@react-pdf/renderer");
+      const React = await import("react");
+
+      const [client, company, ...sampleResults] = await Promise.all([
+        getClient(report.clientId),
+        getCompanySettings(),
+        ...report.sampleIds.map((sid) => getSample(sid)),
+      ]);
+
+      if (!client) return { success: false, error: "Cliente non trovato" };
+      const samples = sampleResults.filter((s) => s !== null);
+      const props = { reportNumber: report.number, company, client, samples, notes: report.notes };
+
+      const element = isCommercial
+        ? React.createElement((await import("@/components/pdf/ReportCommercialPdfDocument")).ReportCommercialPdfDocument, props)
+        : React.createElement((await import("@/components/pdf/ReportPdfDocument")).ReportPdfDocument, props);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      pdfBuffer = await renderToBuffer(element as any);
+    }
+
     const { Resend } = await import("resend");
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     const fromEmail = process.env.RESEND_FROM_EMAIL ?? "noreply@vinifera.app";
-    const subject =
-      opts.subject ?? `Referto ${report.number} — ${report.clientSnapshot.displayName}`;
-    const bodyText =
-      opts.body ??
-      `In allegato il referto ${report.number}.\n\nGrazie per aver scelto il nostro laboratorio.`;
+    const subject = opts.subject ?? `Referto ${report.number} — ${report.clientSnapshot.displayName}`;
+    const bodyText = opts.body ?? `In allegato il referto ${report.number}.\n\nGrazie per aver scelto il nostro laboratorio.`;
+    const filename = isCommercial
+      ? `referto-commerciale-${report.number}.pdf`
+      : `referto-${report.number}.pdf`;
 
     await resend.emails.send({
       from: fromEmail,
       to: opts.to,
       subject,
       text: bodyText,
-      attachments: [
-        {
-          filename: `referto-${report.number}.pdf`,
-          content: pdfBuffer,
-        },
-      ],
+      attachments: [{ filename, content: pdfBuffer }],
     });
 
     revalidatePath(`/reports/${reportId}`);

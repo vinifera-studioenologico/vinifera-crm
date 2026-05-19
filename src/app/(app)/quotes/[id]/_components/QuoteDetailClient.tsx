@@ -10,6 +10,8 @@ import {
   Ban,
   Loader2,
   Download,
+  Mail,
+  Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -18,12 +20,15 @@ import type { QuoteDoc, QuoteStatus } from "@/schemas/quote";
 import type { AnalysisDoc } from "@/schemas/analysis";
 import type { ClientDoc } from "@/schemas/client";
 import type { PackageDoc } from "@/schemas/package";
-import { transitionQuote } from "@/server/actions/quotes";
+import { transitionQuote, sendQuoteByEmail } from "@/server/actions/quotes";
 import { isQuoteTransitionAllowed } from "@/schemas/quote";
 import { formatEUR } from "@/lib/utils/money";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Sheet,
   SheetContent,
@@ -75,7 +80,35 @@ export function QuoteDetailClient({ quote, clients, analyses, packages, defaultE
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [confirmTransition, setConfirmTransition] = useState<QuoteStatus | null>(null);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [isSending, startSend] = useTransition();
+
+  function openEmail() {
+    setEmailTo(quote.clientSnapshot.email ?? "");
+    setEmailSubject(`Preventivo ${quote.number} — ${quote.clientSnapshot.displayName}`);
+    setEmailBody(`Gentile cliente,\n\nin allegato il preventivo ${quote.number}.\n\nCordiali saluti`);
+    setEmailOpen(true);
+  }
+
+  function handleSendEmail() {
+    startSend(async () => {
+      const result = await sendQuoteByEmail(quote.id, {
+        to: emailTo,
+        subject: emailSubject,
+        body: emailBody,
+      });
+      if (result.success) {
+        toast.success("Preventivo inviato via email");
+        setEmailOpen(false);
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
 
   function handleTransition(to: QuoteStatus) {
     startTransition(async () => {
@@ -142,6 +175,12 @@ export function QuoteDetailClient({ quote, clients, analyses, packages, defaultE
 
           {/* Azioni */}
           <div className="flex gap-2 flex-wrap">
+            {/* Invia via email */}
+            <Button variant="outline" size="sm" onClick={openEmail}>
+              <Mail className="size-3.5" strokeWidth={1.75} />
+              Email
+            </Button>
+
             {/* Download PDF */}
             <a
               href={`/api/pdf/quote/${quote.id}`}
@@ -318,6 +357,55 @@ export function QuoteDetailClient({ quote, clients, analyses, packages, defaultE
           <p className="text-sm whitespace-pre-wrap">{quote.notes}</p>
         </div>
       )}
+
+      {/* Dialog invio email */}
+      <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invia preventivo via email</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label>A (email)</Label>
+              <Input
+                type="email"
+                value={emailTo}
+                onChange={(e) => setEmailTo(e.target.value)}
+                placeholder="cliente@email.com"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Oggetto</Label>
+              <Input
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Corpo messaggio</Label>
+              <Textarea
+                rows={4}
+                className="resize-none"
+                value={emailBody}
+                onChange={(e) => setEmailBody(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEmailOpen(false)}>
+              Annulla
+            </Button>
+            <Button disabled={isSending || !emailTo} onClick={handleSendEmail}>
+              {isSending ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Send className="size-3.5" strokeWidth={1.75} />
+              )}
+              {isSending ? "Invio..." : "Invia"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialogs di conferma per azioni irreversibili */}
       <Dialog

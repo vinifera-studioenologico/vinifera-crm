@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   Plus,
@@ -51,7 +52,7 @@ interface Props {
 }
 
 export function AnalysesClient({ initialData }: Props) {
-  const [data, setData] = useState(initialData);
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -60,7 +61,7 @@ export function AnalysesClient({ initialData }: Props) {
   const [, startTransition] = useTransition();
 
   // Filtra localmente — i dati vengono ricaricati via revalidatePath lato server
-  const filtered = data.filter((a) => {
+  const filtered = initialData.filter((a) => {
     if (!showArchived && a.deletedAt !== null) return false;
     if (showArchived && a.deletedAt === null) return false;
     if (!search) return true;
@@ -87,11 +88,7 @@ export function AnalysesClient({ initialData }: Props) {
       const result = await archiveAnalysis(row.id);
       if (result.success) {
         toast.success("Analisi archiviata");
-        setData((prev) =>
-          prev.map((a) =>
-            a.id === row.id ? { ...a, deletedAt: new Date() } : a,
-          ),
-        );
+        router.refresh();
       } else {
         toast.error(result.error);
       }
@@ -104,9 +101,7 @@ export function AnalysesClient({ initialData }: Props) {
       const result = await restoreAnalysis(row.id);
       if (result.success) {
         toast.success("Analisi ripristinata");
-        setData((prev) =>
-          prev.map((a) => (a.id === row.id ? { ...a, deletedAt: null } : a)),
-        );
+        router.refresh();
       } else {
         toast.error(result.error);
       }
@@ -237,7 +232,7 @@ export function AnalysesClient({ initialData }: Props) {
             Listino analisi
           </h1>
           <p className="text-sm text-muted-foreground">
-            {data.filter((a) => a.deletedAt === null).length} analisi nel listino attivo
+            {initialData.filter((a) => a.deletedAt === null).length} analisi nel listino attivo
           </p>
         </div>
 
@@ -256,7 +251,7 @@ export function AnalysesClient({ initialData }: Props) {
             </SheetHeader>
             <AnalysisForm
               existing={editing ?? undefined}
-              onSuccess={() => setSheetOpen(false)}
+              onSuccess={() => { setSheetOpen(false); router.refresh(); }}
             />
           </SheetContent>
         </Sheet>

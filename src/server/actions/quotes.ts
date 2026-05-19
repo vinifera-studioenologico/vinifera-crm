@@ -366,3 +366,49 @@ export async function deleteQuote(id: string): Promise<ActionResult<void>> {
     return { success: false, error: "Errore durante l'eliminazione. Riprova." };
   }
 }
+
+// ── Invia preventivo via email ────────────────────────────────────────
+export async function sendQuoteByEmail(
+  quoteId: string,
+  opts: { to: string; subject?: string; body?: string },
+): Promise<ActionResult<void>> {
+  await requireAdmin();
+
+  try {
+    const quote = await getQuote(quoteId);
+    if (!quote) return { success: false, error: "Preventivo non trovato" };
+
+    const { getCompanySettings } = await import("./settings");
+    const company = await getCompanySettings();
+
+    const { renderToBuffer } = await import("@react-pdf/renderer");
+    const React = await import("react");
+    const { QuotePdfDocument } = await import("@/components/pdf/QuotePdfDocument");
+
+    const element = React.createElement(QuotePdfDocument, { quote, company });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pdfBuffer = await renderToBuffer(element as any);
+
+    const { Resend } = await import("resend");
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
+    const fromEmail = process.env.RESEND_FROM_EMAIL ?? "noreply@vinifera.app";
+    const subject = opts.subject ?? `Preventivo ${quote.number} — ${quote.clientSnapshot.displayName}`;
+    const bodyText = opts.body ?? `In allegato il preventivo ${quote.number}.\n\nGrazie per aver scelto il nostro laboratorio.`;
+    const filename = `preventivo-${quote.number.replace("/", "-")}.pdf`;
+
+    await resend.emails.send({
+      from: fromEmail,
+      to: opts.to,
+      subject,
+      text: bodyText,
+      attachments: [{ filename, content: pdfBuffer }],
+    });
+
+    logger.info("Preventivo inviato via email", { quoteId, to: opts.to });
+    return { success: true, data: undefined };
+  } catch (err) {
+    logger.error("sendQuoteByEmail failed", { err });
+    return { success: false, error: "Errore durante l'invio email" };
+  }
+}

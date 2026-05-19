@@ -12,6 +12,8 @@ import {
   CheckSquare2,
   Square,
   FileText,
+  FlaskConical,
+  Receipt,
 } from "lucide-react";
 import type { z } from "zod";
 
@@ -34,6 +36,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
 import { SampleStatusBadge } from "@/components/widgets/SampleStatusBadge";
 
 type FormInput = z.input<typeof ReportFormSchema>;
@@ -53,6 +56,7 @@ export function NewReportForm({ clients, completedSamples }: Props) {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [isSending, startSend] = useTransition();
+  const [pdfType, setPdfType] = useState<"technical" | "commercial">("technical");
 
   const form = useForm<FormInput>({
     resolver: zodResolver(ReportFormSchema),
@@ -124,6 +128,7 @@ export function NewReportForm({ clients, completedSamples }: Props) {
         to: emailTo,
         subject: emailSubject,
         body: emailBody,
+        type: pdfType,
       });
       if (result.success) {
         toast.success("Referto inviato via email");
@@ -146,9 +151,32 @@ export function NewReportForm({ clients, completedSamples }: Props) {
           </p>
         </div>
 
+        {/* Selettore tipo PDF */}
+        <div className="grid grid-cols-2 gap-3">
+          {([
+            { value: "technical", label: "Tecnico", desc: "Solo risultati", Icon: FlaskConical },
+            { value: "commercial", label: "Commerciale", desc: "Con prezzi", Icon: Receipt },
+          ] as const).map(({ value, label, desc, Icon }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setPdfType(value)}
+              className={`flex flex-col items-center gap-1.5 rounded-lg border p-4 text-sm transition-colors ${
+                pdfType === value
+                  ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300"
+                  : "border-border hover:bg-muted text-muted-foreground"
+              }`}
+            >
+              <Icon className="size-5" strokeWidth={1.5} />
+              <span className="font-medium">{label}</span>
+              <span className="text-xs opacity-70">{desc}</span>
+            </button>
+          ))}
+        </div>
+
         <div className="flex flex-col gap-3">
           <a
-            href={`/api/pdf/report/${createdId}`}
+            href={`/api/pdf/report/${createdId}${pdfType === "commercial" ? "?type=commercial" : ""}`}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -172,31 +200,31 @@ export function NewReportForm({ clients, completedSamples }: Props) {
           <div className="space-y-4 pt-2">
             <Separator />
             <div className="space-y-3">
-              <FormItem>
-                <FormLabel>A (email)</FormLabel>
+              <div className="space-y-1.5">
+                <Label>A (email)</Label>
                 <Input
                   type="email"
                   value={emailTo}
                   onChange={(e) => setEmailTo(e.target.value)}
                   placeholder="cliente@email.com"
                 />
-              </FormItem>
-              <FormItem>
-                <FormLabel>Oggetto</FormLabel>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Oggetto</Label>
                 <Input
                   value={emailSubject}
                   onChange={(e) => setEmailSubject(e.target.value)}
                 />
-              </FormItem>
-              <FormItem>
-                <FormLabel>Corpo messaggio</FormLabel>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Corpo messaggio</Label>
                 <Textarea
                   rows={4}
                   className="resize-none"
                   value={emailBody}
                   onChange={(e) => setEmailBody(e.target.value)}
                 />
-              </FormItem>
+              </div>
             </div>
             <Button
               className="w-full"

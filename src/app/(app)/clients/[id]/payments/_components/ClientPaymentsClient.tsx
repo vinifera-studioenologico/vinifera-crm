@@ -15,6 +15,13 @@ import { cn } from "@/lib/utils";
 
 import type { PaymentDoc, InstallmentDoc, PaymentStatus } from "@/schemas/payment";
 import type { ClientDoc } from "@/schemas/client";
+
+const METHOD_LABELS: Record<string, string> = {
+  cash: "Contanti",
+  bank_transfer: "Bonifico",
+  card: "Carta",
+  other: "Altro",
+};
 import {
   getPaymentInstallments,
   cancelPayment,
@@ -322,7 +329,7 @@ function InstallmentRow({
               {formatDate(
                 installment.paidAt as Parameters<typeof formatDate>[0],
               )}{" "}
-              · {installment.method ?? ""}
+              · {installment.method ? (METHOD_LABELS[installment.method] ?? installment.method) : ""}
               {installment.note && ` · ${installment.note}`}
             </p>
           )}

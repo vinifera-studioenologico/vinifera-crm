@@ -8,32 +8,33 @@ import { getClient } from "@/server/actions/clients";
 import { getSample } from "@/server/actions/samples";
 import { getCompanySettings } from "@/server/actions/settings";
 import { ReportPdfDocument } from "@/components/pdf/ReportPdfDocument";
+import { ReportCommercialPdfDocument } from "@/components/pdf/ReportCommercialPdfDocument";
 import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireAdmin();
 
     const { id } = await params;
+    const isCommercial = req.nextUrl.searchParams.get("type") === "commercial";
     const report = await getReport(id);
 
     if (!report) {
       return NextResponse.json({ error: "Referto non trovato" }, { status: 404 });
     }
 
-    // Se il PDF è già su Storage, redirect a signed URL
-    if (report.pdfStorageRef) {
+    // Il PDF tecnico pre-generato su Storage — solo per versione tecnica
+    if (!isCommercial && report.pdfStorageRef) {
       const url = await getReportDownloadUrl(report.pdfStorageRef);
       return NextResponse.redirect(url);
     }
 
-    // Storage non ancora abilitato — genera il PDF al volo
     const [client, company, ...sampleResults] = await Promise.all([
       getClient(report.clientId),
       getCompanySettings(),
@@ -46,21 +47,22 @@ export async function GET(
 
     const samples = sampleResults.filter((s) => s !== null);
 
-    const element = React.createElement(ReportPdfDocument, {
-      reportNumber: report.number,
-      company,
-      client,
-      samples,
-      notes: report.notes,
-    });
+    const props = { reportNumber: report.number, company, client, samples, notes: report.notes };
+    const element = isCommercial
+      ? React.createElement(ReportCommercialPdfDocument, props)
+      : React.createElement(ReportPdfDocument, props);
 
     const buffer = await renderToBuffer(element as React.ReactElement<DocumentProps>);
     const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
 
+    const filename = isCommercial
+      ? `referto-commerciale-${report.number}.pdf`
+      : `referto-${report.number}.pdf`;
+
     return new NextResponse(arrayBuffer, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="referto-${report.number}.pdf"`,
+        "Content-Disposition": `inline; filename="${filename}"`,
         "Content-Length": String(buffer.length),
       },
     });

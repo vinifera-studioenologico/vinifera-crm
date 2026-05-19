@@ -26,6 +26,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import pkg from "../../../package.json";
 
 const NAV_GROUPS = [
   {
@@ -148,6 +149,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Collapse toggle */}
       <div className="shrink-0 border-t border-border p-2">
+        {!collapsed && (
+          <p className="px-2 pb-1 text-[11px] text-muted-foreground/50 select-none">
+            v{pkg.version}
+          </p>
+        )}
         <Button
           variant="ghost"
           size="icon"

@@ -182,10 +182,10 @@ export function ClientsClient({ initialData }: Props) {
     },
     {
       id: "remainingAnalyses",
-      header: "Analisi rimaste",
+      header: "Campioni attivi",
       size: 130,
       cell: ({ row }) => {
-        const n = row.original.stats.remainingAnalyses;
+        const n = row.original.stats.samplesPending;
         return (
           <span
             className={cn(

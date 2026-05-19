@@ -9,6 +9,9 @@ import {
   ChevronRight,
   FileText,
   Trash2,
+  Mail,
+  Send,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -16,7 +19,7 @@ import type { QuoteDoc, QuoteStatus } from "@/schemas/quote";
 import type { ClientDoc } from "@/schemas/client";
 import type { AnalysisDoc } from "@/schemas/analysis";
 import type { PackageDoc } from "@/schemas/package";
-import { deleteQuote } from "@/server/actions/quotes";
+import { deleteQuote, sendQuoteByEmail } from "@/server/actions/quotes";
 import { formatEUR } from "@/lib/utils/money";
 
 import { DataTable } from "@/components/data-table/DataTable";
@@ -24,6 +27,8 @@ import { QuoteForm } from "@/components/forms/QuoteForm";
 import { QuoteStatusBadge } from "@/components/widgets/QuoteStatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Sheet,
   SheetContent,
@@ -70,7 +75,36 @@ export function QuotesClient({ initialData, clients, analyses, packages, default
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | "all">("all");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleting, setDeleting] = useState<QuoteDoc | null>(null);
+  const [emailTarget, setEmailTarget] = useState<QuoteDoc | null>(null);
+  const [emailTo, setEmailTo] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
   const [, startTransition] = useTransition();
+  const [isSending, startSend] = useTransition();
+
+  function openEmail(quote: QuoteDoc) {
+    setEmailTarget(quote);
+    setEmailTo(quote.clientSnapshot.email ?? "");
+    setEmailSubject(`Preventivo ${quote.number} — ${quote.clientSnapshot.displayName}`);
+    setEmailBody(`Gentile cliente,\n\nin allegato il preventivo ${quote.number}.\n\nCordiali saluti`);
+  }
+
+  function handleSendEmail() {
+    if (!emailTarget) return;
+    startSend(async () => {
+      const result = await sendQuoteByEmail(emailTarget.id, {
+        to: emailTo,
+        subject: emailSubject,
+        body: emailBody,
+      });
+      if (result.success) {
+        toast.success("Preventivo inviato via email");
+        setEmailTarget(null);
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
 
   const filtered = data.filter((q) => {
     if (statusFilter !== "all" && q.status !== statusFilter) return false;
@@ -135,6 +169,14 @@ export function QuotesClient({ initialData, clients, analyses, packages, default
       size: 100,
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => openEmail(row.original)}
+            aria-label="Invia via email"
+          >
+            <Mail className="size-3.5" strokeWidth={1.75} />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -278,6 +320,55 @@ export function QuotesClient({ initialData, clients, analyses, packages, default
               onClick={() => deleting && handleDelete(deleting)}
             >
               Elimina
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog invio email */}
+      <Dialog open={!!emailTarget} onOpenChange={(open) => !open && setEmailTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invia preventivo via email</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label>A (email)</Label>
+              <Input
+                type="email"
+                value={emailTo}
+                onChange={(e) => setEmailTo(e.target.value)}
+                placeholder="cliente@email.com"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Oggetto</Label>
+              <Input
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Corpo messaggio</Label>
+              <Textarea
+                rows={4}
+                className="resize-none"
+                value={emailBody}
+                onChange={(e) => setEmailBody(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEmailTarget(null)}>
+              Annulla
+            </Button>
+            <Button disabled={isSending || !emailTo} onClick={handleSendEmail}>
+              {isSending ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Send className="size-3.5" strokeWidth={1.75} />
+              )}
+              {isSending ? "Invio..." : "Invia"}
             </Button>
           </DialogFooter>
         </DialogContent>

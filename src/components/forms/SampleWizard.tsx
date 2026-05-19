@@ -190,8 +190,18 @@ function Step2({
   );
 
   function addAnalysis(analysis: AnalysisDoc) {
-    // Suggerisci il primo pacchetto disponibile con analisi rimaste
-    const availablePkg = activePackages.find((p) => p.remainingAnalyses > 0);
+    // Conta gli slot già consumati nel form corrente (non ancora salvati)
+    const currentItems = form.getValues("items") ?? [];
+    const usedByPackage: Record<string, number> = {};
+    for (const it of currentItems) {
+      if (it.coveredByPackageId && !it.chargeAnyway) {
+        usedByPackage[it.coveredByPackageId] = (usedByPackage[it.coveredByPackageId] ?? 0) + 1;
+      }
+    }
+    // Primo pacchetto con slot effettivi rimasti
+    const availablePkg = activePackages.find(
+      (p) => p.remainingAnalyses - (usedByPackage[p.id] ?? 0) > 0,
+    );
     append({
       analysisId: analysis.id,
       analysisCodeSnapshot: analysis.code,
@@ -213,6 +223,21 @@ function Step2({
             {fields.map((field, index) => {
               const item = items?.[index];
               const isCovered = item?.coveredByPackageId && !item.chargeAnyway;
+
+              // Slot usati dagli ALTRI item (escluso questo) per ogni pacchetto
+              const usedByOthers: Record<string, number> = {};
+              for (let i = 0; i < (items ?? []).length; i++) {
+                if (i === index) continue;
+                const it = items![i];
+                if (it?.coveredByPackageId && !it.chargeAnyway) {
+                  usedByOthers[it.coveredByPackageId] = (usedByOthers[it.coveredByPackageId] ?? 0) + 1;
+                }
+              }
+              const effectiveRemaining = (pkg: ActivePackage) =>
+                Math.max(0, pkg.remainingAnalyses - (usedByOthers[pkg.id] ?? 0));
+              const packagesForRow = activePackages.filter(
+                (p) => effectiveRemaining(p) > 0 || p.id === item?.coveredByPackageId,
+              );
 
               return (
                 <div key={field.id} className="p-3 space-y-2">
@@ -259,13 +284,11 @@ function Step2({
                                 }
                               >
                                 <option value="">Non coperto da pacchetto</option>
-                                {activePackages
-                                  .filter((p) => p.remainingAnalyses > 0)
-                                  .map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                      {p.packageNameSnapshot} ({p.remainingAnalyses} rimaste)
-                                    </option>
-                                  ))}
+                                {packagesForRow.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.packageNameSnapshot} ({effectiveRemaining(p)} rimaste)
+                                  </option>
+                                ))}
                               </select>
                             </FormControl>
                           </FormItem>

@@ -72,7 +72,6 @@ export function ClientPackagesClient({
   packageTemplates,
 }: Props) {
   const router = useRouter();
-  const [packages] = useState(initialPackages);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<ClientPackageDoc | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -96,16 +95,16 @@ export function ClientPackagesClient({
     });
   }
 
-  const active = packages.filter((p) => p.status === "active");
-  const exhausted = packages.filter((p) => p.status === "exhausted");
-  const cancelled = packages.filter((p) => p.status === "cancelled");
+  const active = initialPackages.filter((p) => p.status === "active");
+  const exhausted = initialPackages.filter((p) => p.status === "exhausted");
+  const cancelled = initialPackages.filter((p) => p.status === "cancelled");
 
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-foreground">
-          Pacchetti cliente ({packages.length})
+          Pacchetti cliente ({initialPackages.length})
         </h2>
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetTrigger
@@ -131,7 +130,7 @@ export function ClientPackagesClient({
       </div>
 
       {/* Empty state */}
-      {packages.length === 0 && (
+      {initialPackages.length === 0 && (
         <div className="rounded-xl border border-dashed border-border p-12 flex flex-col items-center gap-3 text-center">
           <Package className="size-6 text-muted-foreground" strokeWidth={1.5} />
           <p className="text-sm text-muted-foreground">

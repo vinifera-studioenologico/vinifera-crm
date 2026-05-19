@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   Plus,
@@ -51,7 +52,7 @@ interface Props {
 }
 
 export function PackagesClient({ initialData }: Props) {
-  const [data, setData] = useState(initialData);
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -59,7 +60,7 @@ export function PackagesClient({ initialData }: Props) {
   const [archiving, setArchiving] = useState<PackageDoc | null>(null);
   const [, startTransition] = useTransition();
 
-  const filtered = data.filter((p) => {
+  const filtered = initialData.filter((p) => {
     if (!showArchived && p.deletedAt !== null) return false;
     if (showArchived && p.deletedAt === null) return false;
     if (!search) return true;
@@ -85,11 +86,7 @@ export function PackagesClient({ initialData }: Props) {
       const result = await archivePackage(row.id);
       if (result.success) {
         toast.success("Pacchetto archiviato");
-        setData((prev) =>
-          prev.map((p) =>
-            p.id === row.id ? { ...p, deletedAt: new Date() } : p,
-          ),
-        );
+        router.refresh();
       } else {
         toast.error(result.error);
       }
@@ -102,9 +99,7 @@ export function PackagesClient({ initialData }: Props) {
       const result = await restorePackage(row.id);
       if (result.success) {
         toast.success("Pacchetto ripristinato");
-        setData((prev) =>
-          prev.map((p) => (p.id === row.id ? { ...p, deletedAt: null } : p)),
-        );
+        router.refresh();
       } else {
         toast.error(result.error);
       }
@@ -217,7 +212,7 @@ export function PackagesClient({ initialData }: Props) {
             Listino pacchetti
           </h1>
           <p className="text-sm text-muted-foreground">
-            {data.filter((p) => p.deletedAt === null).length} pacchetti nel listino attivo
+            {initialData.filter((p) => p.deletedAt === null).length} pacchetti nel listino attivo
           </p>
         </div>
 
@@ -236,7 +231,7 @@ export function PackagesClient({ initialData }: Props) {
             </SheetHeader>
             <PackageForm
               existing={editing ?? undefined}
-              onSuccess={() => setSheetOpen(false)}
+              onSuccess={() => { setSheetOpen(false); router.refresh(); }}
             />
           </SheetContent>
         </Sheet>
