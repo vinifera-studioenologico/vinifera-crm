@@ -17,6 +17,7 @@ import type { ActionResult, PaginatedResult } from "@/types";
 import { getClient } from "./clients";
 import { getSample } from "./samples";
 import { getCompanySettings } from "./settings";
+import { getClientPackages } from "./clientPackages";
 import { ReportPdfDocument } from "@/components/pdf/ReportPdfDocument";
 import type { SampleDoc } from "@/schemas/sample";
 
@@ -115,6 +116,9 @@ export async function createReport(
   const samples = sampleResults.filter((s): s is SampleDoc => s !== null);
   if (samples.length === 0) return { success: false, error: "Nessun campione valido" };
 
+  const allPackages = await getClientPackages(data.clientId);
+  const activePackages = allPackages.filter((p) => p.status === "active");
+
   const year = new Date().getFullYear();
 
   try {
@@ -157,6 +161,7 @@ export async function createReport(
       client,
       samples,
       notes: data.notes,
+      clientPackages: activePackages,
     });
     const buffer = await renderToBuffer(element as React.ReactElement<DocumentProps>);
 
@@ -233,7 +238,10 @@ export async function sendReportByEmail(
 
       if (!client) return { success: false, error: "Cliente non trovato" };
       const samples = sampleResults.filter((s) => s !== null);
-      const props = { reportNumber: report.number, company, client, samples, notes: report.notes };
+      const { getClientPackages } = await import("./clientPackages");
+      const allPkgs = await getClientPackages(report.clientId);
+      const activePackages = allPkgs.filter((p) => p.status === "active");
+      const props = { reportNumber: report.number, company, client, samples, notes: report.notes, clientPackages: activePackages };
 
       const element = isCommercial
         ? React.createElement((await import("@/components/pdf/ReportCommercialPdfDocument")).ReportCommercialPdfDocument, props)

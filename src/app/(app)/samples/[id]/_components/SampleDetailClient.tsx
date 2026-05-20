@@ -81,11 +81,25 @@ export function SampleDetailClient({ sample }: Props) {
     ),
   );
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [version, setVersion] = useState(sample.version);
   const [isPending, startTransition] = useTransition();
   const [isSavingResults, startSaveResults] = useTransition();
 
   function handleTransition(to: SampleStatus) {
     startTransition(async () => {
+      // Quando si completa il campione, salva prima i risultati in sospeso
+      if (to === "completed") {
+        const payload = Object.entries(results).map(([analysisId, result]) => ({
+          analysisId,
+          result,
+        }));
+        const saveRes = await saveSampleResults(sample.id, payload, version);
+        if (!saveRes.success) {
+          toast.error(saveRes.error);
+          return;
+        }
+      }
+
       const result = await updateSampleStatus(sample.id, to);
       if (result.success) {
         toast.success(
@@ -109,9 +123,10 @@ export function SampleDetailClient({ sample }: Props) {
         analysisId,
         result,
       }));
-      const res = await saveSampleResults(sample.id, payload, sample.version);
+      const res = await saveSampleResults(sample.id, payload, version);
       if (res.success) {
         toast.success("Risultati salvati");
+        setVersion((v) => v + 1);
       } else {
         toast.error(res.error);
       }
@@ -215,7 +230,7 @@ export function SampleDetailClient({ sample }: Props) {
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <h2 className="text-sm font-semibold">Analisi richieste</h2>
-          {sample.status === "in_progress" && (
+          {(sample.status === "in_progress" || sample.status === "completed") && (
             <Button
               size="sm"
               variant="outline"
@@ -235,7 +250,7 @@ export function SampleDetailClient({ sample }: Props) {
         <div className="divide-y divide-border">
           {sample.items.map((item) => {
             const isCovered = item.coveredByPackageId && !item.chargeAnyway;
-            const canEdit = sample.status === "in_progress";
+            const canEdit = sample.status === "in_progress" || sample.status === "completed";
 
             return (
               <div

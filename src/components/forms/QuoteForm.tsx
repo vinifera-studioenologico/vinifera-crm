@@ -83,7 +83,10 @@ export function QuoteForm({
                 .slice(0, 10)
             : "",
           items: existing.items as never,
-          discounts: existing.discounts,
+          discounts: existing.discounts.map((d) => ({
+            ...d,
+            value: d.type === "fixed" ? d.value / 100 : d.value,
+          })),
           taxes: existing.taxes,
           notes: existing.notes ?? "",
         }

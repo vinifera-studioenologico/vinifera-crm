@@ -30,13 +30,14 @@ const S = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
+    marginTop: 40,
     marginBottom: 28,
   },
   headerLeft: { flex: 1 },
   headerRight: { alignItems: "flex-end" },
   companyName: { fontSize: 14, fontFamily: "Helvetica-Bold", marginBottom: 3 },
   companyDetail: { fontSize: 8, color: "#555", lineHeight: 1.5 },
-  logo: { width: 80, height: 40, objectFit: "contain", marginBottom: 6 },
+  logo: { width: 120, height: 60, objectFit: "contain" },
 
   // Titolo preventivo
   quoteTitle: {
@@ -129,16 +130,6 @@ const S = StyleSheet.create({
   notesText: { fontSize: 8.5, color: "#444", lineHeight: 1.5 },
 
   // Footer
-  footer: {
-    position: "absolute",
-    bottom: 28,
-    left: 48,
-    right: 48,
-    borderTop: "0.5pt solid #ddd",
-    paddingTop: 6,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
   footerText: { fontSize: 7, color: "#999" },
 
   // Pagina finale — riepilogo
@@ -248,56 +239,29 @@ export function QuotePdfDocument({ quote, company }: Props) {
       <Page size="A4" style={S.page}>
         {/* ── HEADER ── */}
         <View style={S.header}>
-          {/* Sinistra: logo + dati azienda */}
+          {/* Sinistra: logo */}
           <View style={S.headerLeft}>
             {company?.logoUrl ? (
               <Image src={company.logoUrl} style={S.logo} />
             ) : null}
+          </View>
+
+          {/* Destra: dati azienda */}
+          <View style={S.headerRight}>
             <Text style={S.companyName}>{company?.displayName ?? "Laboratorio"}</Text>
             {company && (
               <>
-              <Text style={S.companyDetail}>
-                {[company.address.street, company.address.zip, company.address.city]
-                  .filter(Boolean)
-                  .join(" · ")}
-                {company.address.province ? ` (${company.address.province})` : ""}
-              </Text>
-                <Text style={S.companyDetail}>P.IVA {company.vatNumber}</Text>
-                <Text style={S.companyDetail}>{company.email}</Text>
-                {company.pec && <Text style={S.companyDetail}>PEC {company.pec}</Text>}
+                <Text style={[S.companyDetail, { textAlign: "right" }]}>
+                  {[company.address.street, company.address.zip, company.address.city]
+                    .filter(Boolean)
+                    .join(" · ")}
+                  {company.address.province ? ` (${company.address.province})` : ""}
+                </Text>
+                <Text style={[S.companyDetail, { textAlign: "right" }]}>P.IVA {company.vatNumber}</Text>
+                <Text style={[S.companyDetail, { textAlign: "right" }]}>{company.email}</Text>
+                {company.pec && <Text style={[S.companyDetail, { textAlign: "right" }]}>PEC {company.pec}</Text>}
               </>
             )}
-          </View>
-
-          {/* Destra: numero preventivo + stato */}
-          <View style={S.headerRight}>
-            <Text style={S.quoteTitle}>PREVENTIVO</Text>
-            <Text style={[S.quoteTitle, { fontSize: 14, marginTop: 6 }]}>N° {quote.number}</Text>
-            <Text style={S.quoteMeta}>Emesso il {formatDatePdf(quote.issuedAt)}</Text>
-            {quote.validUntil && (
-              <Text style={S.quoteMeta}>Valido fino al {formatDatePdf(quote.validUntil)}</Text>
-            )}
-            <View
-              style={[
-                S.badge,
-                {
-                  backgroundColor:
-                    quote.status === "approved"
-                      ? "#d1fae5"
-                      : quote.status === "rejected" || quote.status === "cancelled"
-                        ? "#fee2e2"
-                        : "#fef3c7",
-                  color:
-                    quote.status === "approved"
-                      ? "#065f46"
-                      : quote.status === "rejected" || quote.status === "cancelled"
-                        ? "#991b1b"
-                        : "#92400e",
-                },
-              ]}
-            >
-              <Text>{STATUS_LABELS[quote.status] ?? quote.status}</Text>
-            </View>
           </View>
         </View>
 
@@ -333,6 +297,35 @@ export function QuotePdfDocument({ quote, company }: Props) {
               </Text>
             </View>
           )}
+
+          <View style={{ alignItems: "flex-end", justifyContent: "center" }}>
+            <Text style={S.quoteTitle}>PREVENTIVO</Text>
+            <Text style={[S.quoteTitle, { fontSize: 14, marginTop: 4 }]}>N° {quote.number}</Text>
+            <Text style={S.quoteMeta}>Emesso il {formatDatePdf(quote.issuedAt)}</Text>
+            {quote.validUntil && (
+              <Text style={S.quoteMeta}>Valido fino al {formatDatePdf(quote.validUntil)}</Text>
+            )}
+            <View
+              style={[
+                S.badge,
+                {
+                  backgroundColor:
+                    quote.status === "approved"
+                      ? "#d1fae5"
+                      : quote.status === "rejected" || quote.status === "cancelled"
+                        ? "#fee2e2"
+                        : "#fef3c7",
+                  color:
+                    quote.status === "approved"
+                      ? "#065f46"
+                      : quote.status === "rejected" || quote.status === "cancelled"
+                        ? "#991b1b"
+                        : "#92400e",
+                },
+              ]}>
+              <Text>{STATUS_LABELS[quote.status] ?? quote.status}</Text>
+            </View>
+          </View>
         </View>
 
         {/* ── TABELLA VOCI ── */}
@@ -374,8 +367,6 @@ export function QuotePdfDocument({ quote, company }: Props) {
         })}
 
         {/* ── FOOTER ── */}
-        <View fixed style={{ position: "absolute", bottom: 44, left: 48, right: 48, height: 0.5, backgroundColor: "#ddd" }} />
-        <Text fixed style={[S.footerText, { position: "absolute", bottom: 28, left: 48, right: 150 }]}>{footerNote}</Text>
         <Text
           fixed
           style={[S.footerText, { position: "absolute", bottom: 28, right: 48 }]}
@@ -383,6 +374,9 @@ export function QuotePdfDocument({ quote, company }: Props) {
             `Pag. ${pageNumber} / ${totalPages}`
           }
         />
+        <Text fixed style={[S.footerText, { position: "absolute", bottom: 14, left: 48, right: 48, textAlign: "center" }]}>
+          {footerNote}
+        </Text>
       </Page>
 
       {/* ══ PAGINA FINALE: NOTE + RIEPILOGO + FIRMA ══ */}
@@ -452,8 +446,6 @@ export function QuotePdfDocument({ quote, company }: Props) {
         </View>
 
         {/* ── FOOTER ── */}
-        <View fixed style={{ position: "absolute", bottom: 44, left: 48, right: 48, height: 0.5, backgroundColor: "#ddd" }} />
-        <Text fixed style={[S.footerText, { position: "absolute", bottom: 28, left: 48, right: 150 }]}>{footerNote}</Text>
         <Text
           fixed
           style={[S.footerText, { position: "absolute", bottom: 28, right: 48 }]}
@@ -461,6 +453,9 @@ export function QuotePdfDocument({ quote, company }: Props) {
             `Pag. ${pageNumber} / ${totalPages}`
           }
         />
+        <Text fixed style={[S.footerText, { position: "absolute", bottom: 14, left: 48, right: 48, textAlign: "center" }]}>
+          {footerNote}
+        </Text>
       </Page>
     </Document>
   );

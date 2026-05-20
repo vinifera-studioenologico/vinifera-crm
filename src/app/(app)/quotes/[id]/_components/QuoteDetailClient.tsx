@@ -332,7 +332,7 @@ export function QuoteDetailClient({ quote, clients, analyses, packages, defaultE
               <span className="tabular-nums text-red-600 dark:text-red-400">
                 {d.type === "percent"
                   ? `−${d.value}%`
-                  : `−${formatEUR(Math.round(d.value * 100))}`}
+                  : `−${formatEUR(d.value)}`}
               </span>
             </div>
           ))}

@@ -29,6 +29,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
+  const [resetLoading, setResetLoading] = useState(false);
 
   // Se l'utente è già autenticato e il session cookie è pronto, reindirizza.
   // Questo gestisce il caso in cui onAuthStateChanged ha aggiornato il cookie
@@ -42,6 +43,7 @@ function LoginForm() {
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors },
   } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
 
@@ -69,6 +71,28 @@ function LoginForm() {
       toast.error("Account dev non configurato. Crealo negli emulatori Firebase.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    const email = getValues("email");
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Inserisci prima un indirizzo email valido nel campo Email.");
+      return;
+    }
+    setResetLoading(true);
+    try {
+      const res = await fetch("/api/auth/password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(`Email di recupero inviata a ${email}. Controlla la tua casella.`);
+    } catch {
+      toast.error("Impossibile inviare l'email di recupero. Controlla l'indirizzo inserito.");
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -118,6 +142,19 @@ function LoginForm() {
               {errors.password && (
                 <p className="text-sm text-destructive">{errors.password.message}</p>
               )}
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+                  disabled={resetLoading}
+                  onClick={handlePasswordReset}
+                >
+                  {resetLoading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                  Hai dimenticato la password?
+                </Button>
+              </div>
             </div>
 
             <Button type="submit" className="w-full" size="lg" disabled={loading}>

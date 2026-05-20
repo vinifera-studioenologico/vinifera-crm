@@ -11,6 +11,7 @@ import {
 import type { CompanySettingsValues } from "@/schemas/client";
 import type { SampleDoc } from "@/schemas/sample";
 import type { ClientDoc } from "@/schemas/client";
+import type { ClientPackageDoc } from "@/schemas/package";
 
 Font.registerHyphenationCallback((word) => [word]);
 
@@ -27,11 +28,12 @@ const S = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
+    marginTop: 40,
     marginBottom: 24,
   },
   headerLeft: { flex: 1 },
   headerRight: { alignItems: "flex-end" },
-  logo: { width: 80, height: 40, objectFit: "contain", marginBottom: 6 },
+  logo: { width: 120, height: 60, objectFit: "contain" },
   companyName: { fontSize: 14, fontFamily: "Helvetica-Bold", marginBottom: 3 },
   companyDetail: { fontSize: 8, color: "#555", lineHeight: 1.5 },
   reportTitle: { fontSize: 14, fontFamily: "Helvetica-Bold", color: "#1A4D3E" },
@@ -100,6 +102,33 @@ const S = StyleSheet.create({
   },
   sampleNotesText: { fontSize: 8, color: "#666" },
 
+  // Pacchetti attivi
+  packagesSection: {
+    marginTop: 14,
+    border: "0.5pt solid #ddd",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  packagesSectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "6pt 12pt",
+    backgroundColor: "#edf4f1",
+  },
+  packagesSectionTitle: { fontSize: 8, fontFamily: "Helvetica-Bold", color: "#1A4D3E", textTransform: "uppercase", letterSpacing: 0.5 },
+  packagesSectionSub: { fontSize: 7.5, color: "#888" },
+  packageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: "5pt 12pt",
+    borderTop: "0.5pt solid #eee",
+  },
+  packageRowAlt: { backgroundColor: "#fafafa" },
+  packageName: { flex: 1, fontSize: 9 },
+  packageProgress: { fontSize: 8.5, color: "#555", width: 80, textAlign: "right" },
+  packageRemaining: { fontSize: 9, fontFamily: "Helvetica-Bold", color: "#1A4D3E", width: 90, textAlign: "right" },
+
   // Note referto
   reportNotes: {
     marginTop: 14,
@@ -152,6 +181,7 @@ interface Props {
   client: ClientDoc;
   samples: SampleDoc[];
   notes?: string;
+  clientPackages?: ClientPackageDoc[];
 }
 
 export function ReportPdfDocument({
@@ -160,12 +190,8 @@ export function ReportPdfDocument({
   client,
   samples,
   notes,
+  clientPackages,
 }: Props) {
-  const today = new Date().toLocaleDateString("it-IT", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
 
   const footerNote =
     company?.pdfFooterNote ||
@@ -183,48 +209,51 @@ export function ReportPdfDocument({
         <View style={S.header}>
           <View style={S.headerLeft}>
             {company?.logoUrl ? <Image src={company.logoUrl} style={S.logo} /> : null}
+          </View>
+          <View style={S.headerRight}>
             <Text style={S.companyName}>{company?.displayName ?? "Laboratorio"}</Text>
             {company && (
               <>
-                <Text style={S.companyDetail}>
+                <Text style={[S.companyDetail, { textAlign: "right" }]}>
                   {[company.address.street, company.address.zip, company.address.city]
                     .filter(Boolean)
                     .join(" · ")}
                   {company.address.province ? ` (${company.address.province})` : ""}
                 </Text>
-                <Text style={S.companyDetail}>P.IVA {company.vatNumber}</Text>
-                <Text style={S.companyDetail}>{company.email}</Text>
+                <Text style={[S.companyDetail, { textAlign: "right" }]}>P.IVA {company.vatNumber}</Text>
+                <Text style={[S.companyDetail, { textAlign: "right" }]}>{company.email}</Text>
               </>
             )}
-          </View>
-          <View style={S.headerRight}>
-            <Text style={S.reportTitle}>REFERTO</Text>
-            <Text style={S.reportNumber}>N° {reportNumber}</Text>
-            <Text style={S.reportMeta}>Emesso il {today}</Text>
-            <Text style={S.reportMeta}>
-              {samples.length} campion{samples.length === 1 ? "e" : "i"}
-            </Text>
           </View>
         </View>
 
         {/* ── INFO CLIENTE ── */}
-        <View style={S.clientBox}>
-          <Text style={S.clientLabel}>Cliente</Text>
-          <Text style={S.clientName}>{client.displayName}</Text>
-          {"email" in client && client.email ? (
-            <Text style={S.clientSub}>{client.email}</Text>
-          ) : null}
-          {"vatNumber" in client && client.vatNumber ? (
-            <Text style={S.clientSub}>P.IVA {client.vatNumber}</Text>
-          ) : null}
-          {client.address && (
-            <Text style={S.clientSub}>
-              {[client.address.street, client.address.zip, client.address.city]
-                .filter(Boolean)
-                .join(", ")}
-              {client.address.province ? ` (${client.address.province})` : ""}
+        <View style={[S.clientBox, { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={S.clientLabel}>Cliente</Text>
+            <Text style={S.clientName}>{client.displayName}</Text>
+            {"email" in client && client.email ? (
+              <Text style={S.clientSub}>{client.email}</Text>
+            ) : null}
+            {"vatNumber" in client && client.vatNumber ? (
+              <Text style={S.clientSub}>P.IVA {client.vatNumber}</Text>
+            ) : null}
+            {client.address && (
+              <Text style={S.clientSub}>
+                {[client.address.street, client.address.zip, client.address.city]
+                  .filter(Boolean)
+                  .join(", ")}
+                {client.address.province ? ` (${client.address.province})` : ""}
+              </Text>
+            )}
+          </View>
+          <View style={{ alignItems: "flex-end" }}>
+            <Text style={S.reportTitle}>REFERTO — {reportNumber}</Text>
+            <Text style={S.reportMeta}>PER USO INTERNO</Text>
+            <Text style={S.reportMeta}>
+              {samples.length} campion{samples.length === 1 ? "e" : "i"}
             </Text>
-          )}
+          </View>
         </View>
 
         {/* ── CAMPIONI ── */}
@@ -248,9 +277,10 @@ export function ReportPdfDocument({
 
             {/* Tabella analisi */}
             <View style={S.tableHeader}>
-              <Text style={[S.tableHeaderText, S.colCode]}>Codice</Text>
+              <Text style={[S.tableHeaderText, S.colCode]}>Codice OIV</Text>
               <Text style={[S.tableHeaderText, S.colAnalysis]}>Analisi</Text>
               <Text style={[S.tableHeaderText, S.colResult]}>Risultato</Text>
+              <Text style={[S.tableHeaderText, S.colUnit]}>U.M.</Text>
             </View>
 
             {sample.items.map((item, i) => (
@@ -269,6 +299,9 @@ export function ReportPdfDocument({
                 ) : (
                   <Text style={[S.cellNoResult, S.colResult]}>—</Text>
                 )}
+                <Text style={[S.cellText, S.colUnit, { color: "#555" }]}>
+                  {item.unitSnapshot ?? ""}
+                </Text>
               </View>
             ))}
 
@@ -281,6 +314,28 @@ export function ReportPdfDocument({
           </View>
         ))}
 
+        {/* ── PACCHETTI ATTIVI ── */}
+        {clientPackages && clientPackages.length > 0 && (
+          <View style={S.packagesSection}>
+            <View style={S.packagesSectionHeader}>
+              <Text style={S.packagesSectionTitle}>Saldo pacchetti attivi</Text>
+              <Text style={S.packagesSectionSub}>al momento dell&apos;emissione del referto</Text>
+            </View>
+            {clientPackages.map((pkg, i) => {
+              const used = pkg.totalAnalyses - pkg.remainingAnalyses;
+              return (
+                <View key={pkg.id} style={[S.packageRow, i % 2 === 1 ? S.packageRowAlt : {}]}>
+                  <Text style={S.packageName}>{pkg.packageNameSnapshot}</Text>
+                  <Text style={S.packageProgress}>{used}/{pkg.totalAnalyses} utilizzate</Text>
+                  <Text style={S.packageRemaining}>
+                    {pkg.remainingAnalyses} residue
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {/* ── NOTE REFERTO ── */}
         {notes && (
           <View style={S.reportNotes}>
@@ -290,8 +345,6 @@ export function ReportPdfDocument({
         )}
 
         {/* ── FOOTER ── */}
-        <View fixed style={{ position: "absolute", bottom: 44, left: 48, right: 48, height: 0.5, backgroundColor: "#ddd" }} />
-        <Text fixed style={[S.footerText, { position: "absolute", bottom: 28, left: 48, right: 150 }]}>{footerNote}</Text>
         <Text
           fixed
           style={[S.footerText, { position: "absolute", bottom: 28, right: 48 }]}
@@ -299,6 +352,9 @@ export function ReportPdfDocument({
             `Pag. ${pageNumber} / ${totalPages}`
           }
         />
+        <Text fixed style={[S.footerText, { position: "absolute", bottom: 14, left: 48, right: 48, textAlign: "center" }]}>
+          {footerNote}
+        </Text>
       </Page>
     </Document>
   );

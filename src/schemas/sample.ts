@@ -15,6 +15,7 @@ export const SampleItemSchema = z.object({
   analysisId: z.string().min(1, "Analisi obbligatoria"),
   analysisCodeSnapshot: z.string(),
   analysisNameSnapshot: z.string(),
+  unitSnapshot: z.string().optional(),
   unitPriceCents: zCents,
   coveredByPackageId: z.string().optional(),
   chargeAnyway: z.boolean(),

@@ -1,13 +1,12 @@
 #!/usr/bin/env tsx
 /**
- * PULIZIA COMPLETA DEL DATABASE
+ * PULIZIA DEL DATABASE
  *
- * Elimina TUTTI i documenti da tutte le collezioni Firestore.
- * Le impostazioni aziendali (settings/company) vengono mantenute per default.
+ * Elimina tutti i documenti da tutte le collezioni Firestore.
+ * Le impostazioni aziendali (settings e counters) vengono sempre mantenute.
  *
  * Uso:
- *   npx tsx scripts/clear-all.ts            # mantiene settings
- *   npx tsx scripts/clear-all.ts --all      # cancella anche settings e counters
+ *   npx tsx scripts/clear-all.ts
  */
 
 import * as dotenv from "dotenv";
@@ -33,8 +32,6 @@ function getAdminApp() {
 getAdminApp();
 const db = getFirestore();
 
-const includeSettings = process.argv.includes("--all");
-
 // Collezioni top-level da svuotare completamente
 const DATA_COLLECTIONS = [
   "analyses",
@@ -48,7 +45,7 @@ const DATA_COLLECTIONS = [
   "reports",
 ];
 
-const SETTINGS_COLLECTIONS = ["settings", "counters"];
+
 
 async function deleteCollection(name: string) {
   let deleted = 0;
@@ -90,16 +87,12 @@ function confirm(question: string): Promise<boolean> {
 }
 
 async function main() {
-  const targets = includeSettings
-    ? [...DATA_COLLECTIONS, ...SETTINGS_COLLECTIONS]
-    : DATA_COLLECTIONS;
+  const targets = DATA_COLLECTIONS;
 
   console.log("\n⚠️  ATTENZIONE: questa operazione è IRREVERSIBILE.\n");
   console.log("Verranno svuotate le seguenti collezioni:");
   targets.forEach((c) => console.log(`  • ${c}`));
-  if (!includeSettings) {
-    console.log("\n  (settings e counters mantenuti — usa --all per includerli)");
-  }
+  console.log("\n  (settings e counters mantenuti)");
 
   const ok = await confirm("\nProcedere? (s/N): ");
   if (!ok) {

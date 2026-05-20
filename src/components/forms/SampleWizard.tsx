@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import {
   useForm,
   FormProvider,
@@ -16,7 +16,7 @@ import type { z } from "zod";
 import { SampleFormSchema } from "@/schemas/sample";
 import type { ClientDoc } from "@/schemas/client";
 import type { AnalysisDoc } from "@/schemas/analysis";
-import { createSample } from "@/server/actions/samples";
+import { createSample, getClientActivePkgs } from "@/server/actions/samples";
 import { computeSampleTotal } from "@/lib/calc/sample";
 import { formatEUR } from "@/lib/utils/money";
 
@@ -206,6 +206,7 @@ function Step2({
       analysisId: analysis.id,
       analysisCodeSnapshot: analysis.code,
       analysisNameSnapshot: analysis.name,
+      unitSnapshot: analysis.unit ?? undefined,
       unitPriceCents: analysis.defaultPriceCents,
       coveredByPackageId: availablePkg?.id ?? undefined,
       chargeAnyway: false,
@@ -488,6 +489,7 @@ export function SampleWizard({
 }: Props) {
   const [step, setStep] = useState(0);
   const [isPending, startTransition] = useTransition();
+  const [localPackages, setLocalPackages] = useState<ActivePackage[]>(activePackages);
 
   const today = new Date().toISOString().slice(0, 10);
   // eslint-disable-next-line react-hooks/purity
@@ -510,6 +512,18 @@ export function SampleWizard({
   });
 
   const items = useWatch({ control: form.control, name: "items" });
+  const watchedClientId = useWatch({ control: form.control, name: "clientId" });
+  const prevClientIdRef = useRef(defaultClientId ?? "");
+
+  useEffect(() => {
+    if (watchedClientId === prevClientIdRef.current) return;
+    prevClientIdRef.current = watchedClientId;
+    // Clear items when client changes to avoid stale coveredByPackageId refs
+    form.setValue("items", []);
+    Promise.resolve(watchedClientId ? getClientActivePkgs(watchedClientId) : [])
+      .then(setLocalPackages)
+      .catch(() => setLocalPackages([]));
+  }, [watchedClientId, form]);
 
   const estimatedTotal = computeSampleTotal(
     (items ?? []).map((it) => ({
@@ -560,7 +574,7 @@ export function SampleWizard({
         <div className="min-h-64">
           {step === 0 && <Step1 clients={clients} />}
           {step === 1 && (
-            <Step2 analyses={analyses} activePackages={activePackages} />
+            <Step2 analyses={analyses} activePackages={localPackages} />
           )}
           {step === 2 && <Step3 estimatedTotal={estimatedTotal} />}
         </div>

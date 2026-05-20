@@ -12,6 +12,8 @@ import { DataTable } from "@/components/data-table/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -54,9 +56,12 @@ export function PaymentsClient({ initialData }: Props) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<PaymentStatus | "all">("all");
+  const [showCancelled, setShowCancelled] = useState(false);
 
   const filtered = initialData.filter((p) => {
-    if (statusFilter !== "all" && p.status !== statusFilter) return false;
+    if (!showCancelled && p.status === "cancelled") return false;
+    if (showCancelled && p.status !== "cancelled") return false;
+    if (!showCancelled && statusFilter !== "all" && p.status !== statusFilter) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return p.description.toLowerCase().includes(q);
@@ -210,9 +215,9 @@ export function PaymentsClient({ initialData }: Props) {
             className="pl-8"
           />
         </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {(["all", "pending", "partial", "overdue", "paid", "cancelled"] as const).map(
-            (s) => (
+        {!showCancelled && (
+          <div className="flex gap-1.5 flex-wrap">
+            {(["all", "pending", "partial", "overdue", "paid"] as const).map((s) => (
               <Button
                 key={s}
                 variant={statusFilter === s ? "default" : "outline"}
@@ -222,8 +227,21 @@ export function PaymentsClient({ initialData }: Props) {
               >
                 {s === "all" ? "Tutti" : STATUS_CONFIG[s as PaymentStatus]?.label ?? s}
               </Button>
-            ),
-          )}
+            ))}
+          </div>
+        )}
+        <div className="flex items-center gap-2 ml-auto">
+          <Label htmlFor="show-cancelled" className="text-sm text-muted-foreground cursor-pointer">
+            Mostra annullati
+          </Label>
+          <Switch
+            id="show-cancelled"
+            checked={showCancelled}
+            onCheckedChange={(v) => {
+              setShowCancelled(v);
+              setStatusFilter("all");
+            }}
+          />
         </div>
       </div>
 
@@ -233,17 +251,26 @@ export function PaymentsClient({ initialData }: Props) {
           <div className="size-12 rounded-full bg-muted flex items-center justify-center">
             <CreditCard className="size-5 text-muted-foreground" strokeWidth={1.5} />
           </div>
-          <p className="text-sm font-medium text-foreground">Nessun pagamento</p>
-          <p className="text-xs text-muted-foreground max-w-xs">
-            I pagamenti appariranno qui quando vengono creati da campioni, pacchetti o manualmente.
+          <p className="text-sm font-medium text-foreground">
+            {showCancelled ? "Nessun pagamento annullato" : "Nessun pagamento"}
           </p>
+          {!showCancelled && (
+            <p className="text-xs text-muted-foreground max-w-xs">
+              I pagamenti appariranno qui quando vengono creati da campioni, pacchetti o manualmente.
+            </p>
+          )}
         </div>
       ) : (
         <DataTable
           columns={columns}
           data={filtered}
           globalFilter={search}
-          emptyMessage="Nessun pagamento trovato per i filtri selezionati."
+          emptyMessage={
+            showCancelled
+              ? "Nessun pagamento annullato corrisponde alla ricerca."
+              : "Nessun pagamento trovato per i filtri selezionati."
+          }
+          rowClassName={(row) => (row.status === "cancelled" ? "opacity-50" : "")}
         />
       )}
     </div>

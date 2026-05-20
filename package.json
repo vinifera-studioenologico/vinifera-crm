@@ -1,6 +1,6 @@
 {
   "name": "vinifera",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "check": "tsc --noEmit && eslint && vitest run",
     "seed": "tsx --env-file=.env.local scripts/seed-dev.ts",
-    "seed:clean": "tsx --env-file=.env.local scripts/unseed-dev.ts"
+    "seed:clean": "tsx --env-file=.env.local scripts/unseed-dev.ts",
+    "db:clear": "tsx --env-file=.env.local scripts/clear-all.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Search, LogOut } from "lucide-react";
+import { Sun, Moon, Search, LogOut, KeyRound } from "lucide-react";
+import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { cn } from "@/lib/utils";
@@ -74,6 +75,21 @@ export function Topbar() {
     return email.charAt(0).toUpperCase();
   }
 
+  async function handleResetPassword() {
+    if (!user?.email) return;
+    try {
+      const res = await fetch("/api/auth/password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(`Email per il cambio password inviata a ${user.email}`);
+    } catch {
+      toast.error("Impossibile inviare l'email di cambio password.");
+    }
+  }
+
   return (
     <header className="h-14 shrink-0 border-b border-border bg-card flex items-center px-4 gap-3">
       {/* Search trigger */}
@@ -141,6 +157,14 @@ export function Topbar() {
                 </span>
               </div>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => void handleResetPassword()}
+              className="gap-2"
+            >
+              <KeyRound className="size-4" strokeWidth={1.75} />
+              Cambia password
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => void signOut().then(() => { window.location.href = "/login"; })}

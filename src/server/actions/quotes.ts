@@ -180,7 +180,10 @@ export async function createQuote(raw: unknown): Promise<ActionResult<{ id: stri
         validUntil,
         items: data.items,
         subtotalCents,
-        discounts: data.discounts,
+        discounts: data.discounts.map((d) => ({
+          ...d,
+          value: d.type === "fixed" ? Math.round(d.value * 100) : d.value,
+        })),
         taxes: data.taxes,
         totalCents,
         notes: data.notes ?? null,
@@ -253,7 +256,10 @@ export async function updateQuote(
         validUntil,
         items: data.items,
         subtotalCents,
-        discounts: data.discounts,
+        discounts: data.discounts.map((d) => ({
+          ...d,
+          value: d.type === "fixed" ? Math.round(d.value * 100) : d.value,
+        })),
         taxes: data.taxes,
         totalCents,
         notes: data.notes ?? null,

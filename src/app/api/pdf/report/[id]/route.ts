@@ -7,6 +7,7 @@ import { getReport, getReportDownloadUrl } from "@/server/actions/reports";
 import { getClient } from "@/server/actions/clients";
 import { getSample } from "@/server/actions/samples";
 import { getCompanySettings } from "@/server/actions/settings";
+import { getClientPackages } from "@/server/actions/clientPackages";
 import { ReportPdfDocument } from "@/components/pdf/ReportPdfDocument";
 import { ReportCommercialPdfDocument } from "@/components/pdf/ReportCommercialPdfDocument";
 import { logger } from "@/lib/logger";
@@ -47,7 +48,10 @@ export async function GET(
 
     const samples = sampleResults.filter((s) => s !== null);
 
-    const props = { reportNumber: report.number, company, client, samples, notes: report.notes };
+    const allPackages = await getClientPackages(report.clientId);
+    const activePackages = allPackages.filter((p) => p.status === "active");
+
+    const props = { reportNumber: report.number, company, client, samples, notes: report.notes, clientPackages: activePackages };
     const element = isCommercial
       ? React.createElement(ReportCommercialPdfDocument, props)
       : React.createElement(ReportPdfDocument, props);
