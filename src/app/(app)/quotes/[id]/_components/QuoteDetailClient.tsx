@@ -25,6 +25,8 @@ import type { AnalysisDoc } from "@/schemas/analysis";
 import type { ClientDoc } from "@/schemas/client";
 import type { PackageDoc } from "@/schemas/package";
 import { transitionQuote, sendQuoteByEmail } from "@/server/actions/quotes";
+import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
+import { sharePdf } from "@/lib/utils/share";
 import { createManualPayment } from "@/server/actions/payments";
 import { purchasePackage } from "@/server/actions/clientPackages";
 import { isQuoteTransitionAllowed } from "@/schemas/quote";
@@ -131,6 +133,7 @@ export function QuoteDetailClient({ quote, clients, analyses, packages, defaultE
   const [emailBody, setEmailBody] = useState("");
   const [isPending, startTransition] = useTransition();
   const [isSending, startSend] = useTransition();
+  const [isWhatsApp, setIsWhatsApp] = useState(false);
 
   function handleApprove(
     withPayment: boolean,
@@ -181,6 +184,19 @@ export function QuoteDetailClient({ quote, clients, analyses, packages, defaultE
     setEmailSubject(`Preventivo ${quote.number} — ${quote.clientSnapshot.displayName}`);
     setEmailBody(`Gentile cliente,\n\nin allegato il preventivo ${quote.number}.\n\nCordiali saluti`);
     setEmailOpen(true);
+  }
+
+  function handleWhatsApp() {
+    const filename = `preventivo-${quote.number.replace("/", "-")}.pdf`;
+    setIsWhatsApp(true);
+    sharePdf(`/api/pdf/quote/${quote.id}`, filename)
+      .then((result) => {
+        if (result === "downloaded")
+          toast.info("PDF scaricato — allegalo su WhatsApp manualmente");
+        else if (result === "error")
+          toast.error("Errore durante la generazione del PDF");
+      })
+      .finally(() => setIsWhatsApp(false));
   }
 
   function handleSendEmail() {
@@ -268,6 +284,16 @@ export function QuoteDetailClient({ quote, clients, analyses, packages, defaultE
             <Button variant="outline" size="sm" onClick={openEmail}>
               <Mail className="size-3.5" strokeWidth={1.75} />
               Email
+            </Button>
+
+            {/* WhatsApp */}
+            <Button variant="outline" size="sm" onClick={handleWhatsApp} disabled={isWhatsApp}>
+              {isWhatsApp ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <WhatsAppIcon className="size-3.5" />
+              )}
+              WhatsApp
             </Button>
 
             {/* Download PDF */}

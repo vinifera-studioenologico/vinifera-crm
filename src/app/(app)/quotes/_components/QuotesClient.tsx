@@ -21,6 +21,8 @@ import type { AnalysisDoc } from "@/schemas/analysis";
 import type { PackageDoc } from "@/schemas/package";
 import { deleteQuote, sendQuoteByEmail } from "@/server/actions/quotes";
 import { formatEUR } from "@/lib/utils/money";
+import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
+import { sharePdf } from "@/lib/utils/share";
 
 import { DataTable } from "@/components/data-table/DataTable";
 import { QuoteForm } from "@/components/forms/QuoteForm";
@@ -81,12 +83,26 @@ export function QuotesClient({ initialData, clients, analyses, packages, default
   const [emailBody, setEmailBody] = useState("");
   const [, startTransition] = useTransition();
   const [isSending, startSend] = useTransition();
+  const [isWhatsApp, setIsWhatsApp] = useState(false);
 
   function openEmail(quote: QuoteDoc) {
     setEmailTarget(quote);
     setEmailTo(quote.clientSnapshot.email ?? "");
     setEmailSubject(`Preventivo ${quote.number} — ${quote.clientSnapshot.displayName}`);
     setEmailBody(`Gentile cliente,\n\nin allegato il preventivo ${quote.number}.\n\nCordiali saluti`);
+  }
+
+  function handleWhatsApp(quote: QuoteDoc) {
+    setIsWhatsApp(true);
+    const filename = `preventivo-${quote.number.replace("/", "-")}.pdf`;
+    sharePdf(`/api/pdf/quote/${quote.id}`, filename)
+      .then((result) => {
+        if (result === "downloaded")
+          toast.info("PDF scaricato — allegalo su WhatsApp manualmente");
+        else if (result === "error")
+          toast.error("Errore durante la generazione del PDF");
+      })
+      .finally(() => setIsWhatsApp(false));
   }
 
   function handleSendEmail() {
@@ -176,6 +192,15 @@ export function QuotesClient({ initialData, clients, analyses, packages, default
             aria-label="Invia via email"
           >
             <Mail className="size-3.5" strokeWidth={1.75} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleWhatsApp(row.original)}
+            disabled={isWhatsApp}
+            aria-label="Condividi su WhatsApp"
+          >
+            <WhatsAppIcon className="size-3.5" />
           </Button>
           <Button
             variant="ghost"

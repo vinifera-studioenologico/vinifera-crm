@@ -276,3 +276,4 @@ export async function sendReportByEmail(
     return { success: false, error: "Errore durante l'invio email" };
   }
 }
+

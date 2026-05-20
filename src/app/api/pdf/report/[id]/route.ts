@@ -3,7 +3,8 @@ import React from "react";
 import { renderToBuffer } from "@react-pdf/renderer";
 import type { DocumentProps } from "@react-pdf/renderer";
 import { requireAdmin } from "@/server/auth";
-import { getReport, getReportDownloadUrl } from "@/server/actions/reports";
+import { getReport } from "@/server/actions/reports";
+import { adminStorage } from "@/lib/firebase/admin";
 import { getClient } from "@/server/actions/clients";
 import { getSample } from "@/server/actions/samples";
 import { getCompanySettings } from "@/server/actions/settings";
@@ -30,10 +31,19 @@ export async function GET(
       return NextResponse.json({ error: "Referto non trovato" }, { status: 404 });
     }
 
-    // Il PDF tecnico pre-generato su Storage — solo per versione tecnica
+    // Il PDF tecnico pre-generato su Storage — proxy diretto (no redirect, evita CORS)
     if (!isCommercial && report.pdfStorageRef) {
-      const url = await getReportDownloadUrl(report.pdfStorageRef);
-      return NextResponse.redirect(url);
+      const bucket = adminStorage.bucket();
+      const [buffer] = await bucket.file(report.pdfStorageRef).download();
+      const filename = `referto-${report.number}.pdf`;
+      return new NextResponse(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${filename}"`,
+          "Content-Length": String(buffer.length),
+          "Cache-Control": "private, no-store",
+        },
+      });
     }
 
     const [client, company, ...sampleResults] = await Promise.all([

@@ -421,3 +421,4 @@ export async function sendQuoteByEmail(
     return { success: false, error: "Errore durante l'invio email" };
   }
 }
+

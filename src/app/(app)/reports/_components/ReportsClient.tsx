@@ -9,6 +9,8 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { ReportDoc } from "@/schemas/report";
 import { sendReportByEmail } from "@/server/actions/reports";
 import { formatDate } from "@/lib/utils/date";
+import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
+import { sharePdf } from "@/lib/utils/share";
 import { DataTable } from "@/components/data-table/DataTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +31,7 @@ import {
 } from "@/components/ui/breadcrumb";
 
 type PdfType = "technical" | "commercial";
-type PickerAction = "download" | "email";
+type PickerAction = "download" | "email" | "whatsapp";
 
 interface Props {
   initialData: ReportDoc[];
@@ -50,6 +52,7 @@ export function ReportsClient({ initialData }: Props) {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [isSending, startSend] = useTransition();
+  const [isWhatsApp, setIsWhatsApp] = useState(false);
 
   function openPicker(report: ReportDoc, action: PickerAction) {
     setPickerTarget(report);
@@ -64,6 +67,24 @@ export function ReportsClient({ initialData }: Props) {
         : `/api/pdf/report/${pickerTarget.id}`;
       window.open(url, "_blank");
       setPickerTarget(null);
+    } else if (pickerAction === "whatsapp") {
+      const target = pickerTarget;
+      const filename = type === "commercial"
+        ? `referto-commerciale-${target.number}.pdf`
+        : `referto-${target.number}.pdf`;
+      const pdfUrl = type === "commercial"
+        ? `/api/pdf/report/${target.id}?type=commercial`
+        : `/api/pdf/report/${target.id}`;
+      setPickerTarget(null);
+      setIsWhatsApp(true);
+      sharePdf(pdfUrl, filename)
+        .then((result) => {
+          if (result === "downloaded")
+            toast.info("PDF scaricato — allegalo su WhatsApp manualmente");
+          else if (result === "error")
+            toast.error("Errore durante la generazione del PDF");
+        })
+        .finally(() => setIsWhatsApp(false));
     } else {
       // email
       setEmailType(type);
@@ -161,6 +182,15 @@ export function ReportsClient({ initialData }: Props) {
           <Button
             variant="ghost"
             size="icon"
+            aria-label="Condividi su WhatsApp"
+            disabled={isWhatsApp}
+            onClick={() => openPicker(row.original, "whatsapp")}
+          >
+            <WhatsAppIcon className="size-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             aria-label="Scarica PDF"
             onClick={() => openPicker(row.original, "download")}
           >
@@ -232,11 +262,11 @@ export function ReportsClient({ initialData }: Props) {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>
-              {pickerAction === "download" ? "Scarica PDF" : "Invia via email"}
+              {pickerAction === "download" ? "Scarica PDF" : pickerAction === "whatsapp" ? "Condividi su WhatsApp" : "Invia via email"}
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground -mt-2">
-            Scegli la versione del referto da {pickerAction === "download" ? "scaricare" : "inviare"}.
+            Scegli la versione del referto da {pickerAction === "download" ? "scaricare" : pickerAction === "whatsapp" ? "condividere" : "inviare"}.
           </p>
           <div className="grid grid-cols-2 gap-3 py-2">
             <button

@@ -22,6 +22,8 @@ import type { SampleDoc } from "@/schemas/sample";
 import type { ClientDoc } from "@/schemas/client";
 import { createReport, sendReportByEmail } from "@/server/actions/reports";
 import { formatDate } from "@/lib/utils/date";
+import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
+import { sharePdf } from "@/lib/utils/share";
 
 import {
   Form,
@@ -56,6 +58,7 @@ export function NewReportForm({ clients, completedSamples }: Props) {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [isSending, startSend] = useTransition();
+  const [isWhatsApp, setIsWhatsApp] = useState(false);
   const [pdfType, setPdfType] = useState<"technical" | "commercial">("technical");
 
   const form = useForm<FormInput>({
@@ -193,6 +196,37 @@ export function NewReportForm({ clients, completedSamples }: Props) {
           >
             <Send className="size-3.5" strokeWidth={1.75} />
             Invia via email
+          </Button>
+
+          <Button
+            variant="outline"
+            className="w-full"
+            disabled={isWhatsApp}
+            onClick={() => {
+              if (!createdId) return;
+              const filename = pdfType === "commercial"
+                ? `referto-commerciale-${createdNumber}.pdf`
+                : `referto-${createdNumber}.pdf`;
+              const pdfUrl = `/api/pdf/report/${createdId}${
+                pdfType === "commercial" ? "?type=commercial" : ""
+              }`;
+              setIsWhatsApp(true);
+              sharePdf(pdfUrl, filename)
+                .then((result) => {
+                  if (result === "downloaded")
+                    toast.info("PDF scaricato — allegalo su WhatsApp manualmente");
+                  else if (result === "error")
+                    toast.error("Errore durante la generazione del PDF");
+                })
+                .finally(() => setIsWhatsApp(false));
+            }}
+          >
+            {isWhatsApp ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <WhatsAppIcon className="size-3.5" />
+            )}
+            Condividi su WhatsApp
           </Button>
         </div>
 
