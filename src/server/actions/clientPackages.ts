@@ -141,7 +141,7 @@ export async function purchasePackage(
 
         // Genera rate
         const amounts = splitInCents(priceCents, count);
-        const dueDates = generateDueDates(firstDue, count, period);
+        const dueDates = generateDueDates(firstDue, count, period, data.customInterval, data.customUnit);
 
         for (let i = 0; i < count; i++) {
           const installRef = adminDb

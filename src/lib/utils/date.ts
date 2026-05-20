@@ -5,6 +5,7 @@ import {
   addDays,
   addMonths,
   addWeeks,
+  addYears,
   startOfDay,
   isBefore,
   isAfter,
@@ -106,12 +107,14 @@ export function isOverdue(dueDate: Timestamp | Date): boolean {
  * §18.4: usa addMonths/addDays/addWeeks (no aritmetica millis).
  */
 export type RecurrenceType = "monthly" | "biweekly" | "weekly" | "custom";
+export type CustomUnit = "days" | "months" | "years";
 
 export function generateDueDates(
   startDate: string, // "yyyy-MM-dd"
   n: number,
   recurrence: RecurrenceType,
-  customDays?: number,
+  customInterval?: number,
+  customUnit?: CustomUnit,
 ): Date[] {
   const dates: Date[] = [];
   let current = civilDateToEndOfDay(startDate);
@@ -128,9 +131,18 @@ export function generateDueDates(
       case "weekly":
         current = fromZonedTime(addWeeks(toZonedTime(current, TZ), 1), TZ);
         break;
-      case "custom":
-        current = fromZonedTime(addDays(toZonedTime(current, TZ), customDays ?? 30), TZ);
+      case "custom": {
+        const n = customInterval ?? 1;
+        const unit = customUnit ?? "months";
+        if (unit === "days") {
+          current = fromZonedTime(addDays(toZonedTime(current, TZ), n), TZ);
+        } else if (unit === "years") {
+          current = fromZonedTime(addYears(toZonedTime(current, TZ), n), TZ);
+        } else {
+          current = fromZonedTime(addMonths(toZonedTime(current, TZ), n), TZ);
+        }
         break;
+      }
     }
   }
 

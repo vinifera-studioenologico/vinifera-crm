@@ -358,6 +358,8 @@ export async function createManualPayment(
         data.firstDueDate,
         data.installmentsCount,
         data.installmentPeriod,
+        data.customInterval,
+        data.customUnit,
       );
 
       for (let i = 0; i < data.installmentsCount; i++) {

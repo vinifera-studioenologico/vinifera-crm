@@ -49,6 +49,8 @@ export const SamplePaymentFormSchema = z.object({
   installmentsCount: z.number().int().min(1).max(60).optional(),
   firstDueDate: z.string().optional(), // "YYYY-MM-DD"
   installmentPeriod: z.enum(["monthly", "biweekly", "custom"]).optional(),
+  customInterval: z.number().int().min(1).optional(),
+  customUnit: z.enum(["days", "months", "years"]).optional(),
 });
 
 export type SamplePaymentFormValues = z.infer<typeof SamplePaymentFormSchema>;

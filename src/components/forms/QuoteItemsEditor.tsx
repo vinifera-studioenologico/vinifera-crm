@@ -255,45 +255,45 @@ export function QuoteItemsEditor({ analyses, packages }: Props) {
               <CommandInput placeholder="Cerca analisi o pacchetto..." />
               <CommandList>
                 <CommandEmpty>Nessun risultato trovato.</CommandEmpty>
-                {analyses.length > 0 && (
-                  <CommandGroup heading="Analisi">
-                    {analyses.map((a) => (
+                {packages.length > 0 && (
+                  <CommandGroup heading="Pacchetti">
+                    {packages.map((p) => (
                       <CommandItem
-                        key={a.id}
-                        value={`${a.code} ${a.name}`}
-                        onSelect={() => addAnalysisRow(a)}
+                        key={p.id}
+                        value={p.name}
+                        onSelect={() => addPackageRow(p)}
                         className="flex justify-between gap-2"
                       >
                         <span className="flex gap-1.5 items-baseline min-w-0">
-                          <span className="font-mono text-xs text-muted-foreground shrink-0">
-                            {a.code}
-                          </span>
-                          <span className="truncate">{a.name}</span>
+                          <span className="text-xs shrink-0">📦</span>
+                          <span className="truncate">{p.name}</span>
                         </span>
                         <span className="tabular-nums text-xs text-muted-foreground shrink-0">
-                          {formatEUR(a.defaultPriceCents)}
+                          {formatEUR(p.priceCents)}
                         </span>
                       </CommandItem>
                     ))}
                   </CommandGroup>
                 )}
-                {packages.length > 0 && (
+                {analyses.length > 0 && (
                   <>
-                    {analyses.length > 0 && <CommandSeparator />}
-                    <CommandGroup heading="Pacchetti">
-                      {packages.map((p) => (
+                    {packages.length > 0 && <CommandSeparator />}
+                    <CommandGroup heading="Analisi">
+                      {analyses.map((a) => (
                         <CommandItem
-                          key={p.id}
-                          value={p.name}
-                          onSelect={() => addPackageRow(p)}
+                          key={a.id}
+                          value={`${a.code} ${a.name}`}
+                          onSelect={() => addAnalysisRow(a)}
                           className="flex justify-between gap-2"
                         >
                           <span className="flex gap-1.5 items-baseline min-w-0">
-                            <span className="text-xs shrink-0">📦</span>
-                            <span className="truncate">{p.name}</span>
+                            <span className="font-mono text-xs text-muted-foreground shrink-0">
+                              {a.code}
+                            </span>
+                            <span className="truncate">{a.name}</span>
                           </span>
                           <span className="tabular-nums text-xs text-muted-foreground shrink-0">
-                            {formatEUR(p.priceCents)}
+                            {formatEUR(a.defaultPriceCents)}
                           </span>
                         </CommandItem>
                       ))}

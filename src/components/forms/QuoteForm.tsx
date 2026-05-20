@@ -89,6 +89,16 @@ export function QuoteForm({
           })),
           taxes: existing.taxes,
           notes: existing.notes ?? "",
+          paymentTerms: existing.paymentTerms
+            ? {
+                installmentsCount: existing.paymentTerms.installmentsCount,
+                firstDueDate: existing.paymentTerms.firstDueDate ?? "",
+                installmentPeriod: existing.paymentTerms.installmentPeriod,
+                customInterval: existing.paymentTerms.customInterval,
+                customUnit: existing.paymentTerms.customUnit,
+                notes: existing.paymentTerms.notes ?? "",
+              }
+            : { installmentsCount: 1, firstDueDate: "", installmentPeriod: "monthly" as const, notes: "" },
         }
       : {
           clientId: defaultClientId ?? "",
@@ -98,6 +108,7 @@ export function QuoteForm({
           discounts: [],
           taxes: defaultTaxes ?? [],
           notes: "",
+          paymentTerms: { installmentsCount: 1, firstDueDate: "", installmentPeriod: "monthly" as const, notes: "" },
         },
   });
 
@@ -114,6 +125,8 @@ export function QuoteForm({
   const items = useWatch({ control: form.control, name: "items" });
   const discounts = useWatch({ control: form.control, name: "discounts" });
   const taxes = useWatch({ control: form.control, name: "taxes" });
+  const ptCount = useWatch({ control: form.control, name: "paymentTerms.installmentsCount" });
+  const ptPeriod = useWatch({ control: form.control, name: "paymentTerms.installmentPeriod" });
 
   const totals = computeQuoteTotals({
     items: (items ?? []).map((it) => ({
@@ -394,6 +407,141 @@ export function QuoteForm({
             </FormItem>
           )}
         />
+
+        <Separator />
+
+        {/* Condizioni di pagamento */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            Condizioni di pagamento
+          </p>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="paymentTerms.installmentsCount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Numero rate</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={60}
+                        {...field}
+                        value={field.value ?? 1}
+                        onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 1)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="paymentTerms.firstDueDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Prima scadenza</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} value={field.value ?? ""} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {(ptCount ?? 1) > 1 && (
+              <FormField
+                control={form.control}
+                name="paymentTerms.installmentPeriod"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cadenza</FormLabel>
+                    <FormControl>
+                      <select
+                        className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50"
+                        {...field}
+                        value={field.value ?? "monthly"}
+                      >
+                        <option value="monthly">Mensile</option>
+                        <option value="biweekly">Bisettimanale</option>
+                        <option value="custom">Personalizzato</option>
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {(ptCount ?? 1) > 1 && ptPeriod === "custom" && (
+              <div className="flex gap-2">
+                <FormField
+                  control={form.control}
+                  name="paymentTerms.customInterval"
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormLabel>Ogni</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          {...field}
+                          value={field.value ?? ""}
+                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="paymentTerms.customUnit"
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormLabel>Unità</FormLabel>
+                      <FormControl>
+                        <select
+                          className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50"
+                          {...field}
+                          value={field.value ?? "months"}
+                        >
+                          <option value="days">Giorni</option>
+                          <option value="months">Mesi</option>
+                          <option value="years">Anni</option>
+                        </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+
+            <FormField
+              control={form.control}
+              name="paymentTerms.notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Note di pagamento</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Es. Pagamento tramite bonifico bancario a 30 giorni..."
+                      rows={2}
+                      className="resize-none"
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
 
         <div className="flex justify-end gap-3 pt-2">
           <Button type="submit" disabled={isPending}>

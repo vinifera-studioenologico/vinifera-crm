@@ -12,16 +12,23 @@ import {
   Download,
   Mail,
   Send,
+  Package,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { useForm, useWatch } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 import type { QuoteDoc, QuoteStatus } from "@/schemas/quote";
 import type { AnalysisDoc } from "@/schemas/analysis";
 import type { ClientDoc } from "@/schemas/client";
 import type { PackageDoc } from "@/schemas/package";
 import { transitionQuote, sendQuoteByEmail } from "@/server/actions/quotes";
+import { createManualPayment } from "@/server/actions/payments";
+import { purchasePackage } from "@/server/actions/clientPackages";
 import { isQuoteTransitionAllowed } from "@/schemas/quote";
+import { PaymentSourceSchema } from "@/schemas/payment";
 import { formatEUR } from "@/lib/utils/money";
 
 import { Button } from "@/components/ui/button";
@@ -29,6 +36,16 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import {
   Sheet,
   SheetContent,
@@ -54,6 +71,29 @@ import {
 import { QuoteStatusBadge } from "@/components/widgets/QuoteStatusBadge";
 import { QuoteForm } from "@/components/forms/QuoteForm";
 
+// ── Tipo per assegnazione pacchetto al cliente ──────────────────────
+type PackageAssignment = {
+  packageId: string;
+  packageNameSnapshot: string;
+  totalAnalyses: number;
+  priceCents: string; // stringa Euro (es. "100,00") per zEurInput
+};
+
+// ── Schema locale per il form pagamento (senza transform, compatibile zodResolver) ──
+const ApprovePaymentFormSchema = z.object({
+  clientId: z.string().min(1),
+  source: PaymentSourceSchema,
+  description: z.string().min(1, "Descrizione obbligatoria").max(500),
+  totalAmountCents: z.string().min(1, "Importo obbligatorio"),
+  installmentsCount: z.number().int().min(1).max(60),
+  firstDueDate: z.string().min(1, "Data prima scadenza obbligatoria"),
+  installmentPeriod: z.enum(["monthly", "biweekly", "custom"]),
+  customInterval: z.number().int().min(1).optional(),
+  customUnit: z.enum(["days", "months", "years"]).optional(),
+  notes: z.string().max(1000).optional(),
+});
+type ApprovePaymentFormInput = z.infer<typeof ApprovePaymentFormSchema>;
+
 // Configurazione pulsanti transizione stato
 const TRANSITION_BUTTONS: Array<{
   to: QuoteStatus;
@@ -76,16 +116,65 @@ interface Props {
   defaultEnpaiaPercent?: number;
 }
 
+const _defaultFirstDueDate = new Date(Date.now() + 30 * 86_400_000)
+  .toISOString()
+  .slice(0, 10);
+
 export function QuoteDetailClient({ quote, clients, analyses, packages, defaultEnpaiaApplied, defaultEnpaiaPercent }: Props) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [confirmTransition, setConfirmTransition] = useState<QuoteStatus | null>(null);
+  const [approveOpen, setApproveOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailTo, setEmailTo] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [isPending, startTransition] = useTransition();
   const [isSending, startSend] = useTransition();
+
+  function handleApprove(
+    withPayment: boolean,
+    paymentData?: ApprovePaymentFormInput,
+    packageAssignments?: PackageAssignment[],
+  ) {
+    startTransition(async () => {
+      const transitionResult = await transitionQuote(quote.id, "approved", quote.version);
+      if (!transitionResult.success) {
+        toast.error(transitionResult.error);
+        return;
+      }
+
+      // Assegna pacchetti al cliente
+      for (const pkg of packageAssignments ?? []) {
+        const pkgResult = await purchasePackage({
+          clientId: quote.clientId,
+          packageId: pkg.packageId,
+          packageNameSnapshot: pkg.packageNameSnapshot,
+          totalAnalyses: pkg.totalAnalyses,
+          priceCents: pkg.priceCents,
+          createPayment: false,
+        });
+        if (!pkgResult.success) {
+          toast.error(`Errore assegnazione "${pkg.packageNameSnapshot}": ${pkgResult.error}`);
+        }
+      }
+
+      if (withPayment && paymentData) {
+        const paymentResult = await createManualPayment(paymentData);
+        if (paymentResult.success) {
+          toast.success("Preventivo approvato e pagamento creato");
+        } else {
+          toast.success("Preventivo approvato");
+          toast.error(`Errore creazione pagamento: ${paymentResult.error}`);
+        }
+      } else {
+        toast.success("Preventivo approvato");
+      }
+
+      setApproveOpen(false);
+      router.refresh();
+    });
+  }
 
   function openEmail() {
     setEmailTo(quote.clientSnapshot.email ?? "");
@@ -235,6 +324,8 @@ export function QuoteDetailClient({ quote, clients, analyses, packages, defaultE
                 onClick={() => {
                   if (btn.to === "cancelled" || btn.to === "rejected") {
                     setConfirmTransition(btn.to);
+                  } else if (btn.to === "approved") {
+                    setApproveOpen(true);
                   } else {
                     handleTransition(btn.to);
                   }
@@ -438,6 +529,356 @@ export function QuoteDetailClient({ quote, clients, analyses, packages, defaultE
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog approvazione preventivo con opzione pagamento */}
+      <ApproveQuoteDialog
+        open={approveOpen}
+        onOpenChange={(v) => { if (!isPending) setApproveOpen(v); }}
+        quote={quote}
+        packages={packages}
+        isPending={isPending}
+        onConfirm={handleApprove}
+      />
     </div>
+  );
+}
+
+// ── Dialog approvazione con creazione pagamento opzionale ──────────────
+function ApproveQuoteDialog({
+  open,
+  onOpenChange,
+  quote,
+  packages,
+  isPending,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  quote: QuoteDoc;
+  packages: PackageDoc[];
+  isPending: boolean;
+  onConfirm: (withPayment: boolean, data?: ApprovePaymentFormInput, packageAssignments?: PackageAssignment[]) => void;
+}) {
+  const [withPayment, setWithPayment] = useState(true);
+
+  // Indici degli item-pacchetto esclusi dall'assegnazione (default: tutti inclusi)
+  const [excludedIndices, setExcludedIndices] = useState<Set<number>>(new Set());
+
+  // Items di tipo pacchetto presenti nel preventivo
+  const packageItems = quote.items
+    .map((item, idx) => ({ item, idx }))
+    .filter(({ item }) => item.kind === "package") as Array<{
+      item: Extract<typeof quote.items[number], { kind: "package" }>;
+      idx: number;
+    }>;
+
+  function toggleExclude(idx: number) {
+    setExcludedIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  }
+
+  const defaultFirstDueDate = _defaultFirstDueDate;
+
+  const form = useForm<ApprovePaymentFormInput>({
+    resolver: zodResolver(ApprovePaymentFormSchema),
+    defaultValues: {
+      clientId: quote.clientId,
+      source: { kind: "manual", refId: quote.id },
+      description: `Preventivo ${quote.number} — ${quote.clientSnapshot.displayName}`,
+      totalAmountCents: (quote.totalCents / 100).toFixed(2).replace(".", ","),
+      installmentsCount: quote.paymentTerms?.installmentsCount ?? 1,
+      firstDueDate: quote.paymentTerms?.firstDueDate && quote.paymentTerms.firstDueDate !== ""
+        ? quote.paymentTerms.firstDueDate
+        : defaultFirstDueDate,
+      installmentPeriod: quote.paymentTerms?.installmentPeriod ?? "monthly",
+      customInterval: quote.paymentTerms?.customInterval,
+      customUnit: quote.paymentTerms?.customUnit,
+      notes: "",
+    },
+  });
+
+  const count = useWatch({ control: form.control, name: "installmentsCount" });
+  const installmentPeriod = useWatch({ control: form.control, name: "installmentPeriod" });
+  const priceInput = useWatch({ control: form.control, name: "totalAmountCents" });
+  const parsedCents = (() => {
+    const raw = String(priceInput ?? "").replace(",", ".");
+    const n = parseFloat(raw);
+    return isNaN(n) ? 0 : Math.round(n * 100);
+  })();
+
+  function handleSubmit() {
+    // Raccogli assegnazioni pacchetti (non esclusi)
+    const packageAssignments: PackageAssignment[] = packageItems
+      .filter(({ idx }) => !excludedIndices.has(idx))
+      .map(({ item }) => {
+        const template = packages.find((p) => p.id === item.packageId);
+        return {
+          packageId: item.packageId,
+          packageNameSnapshot: item.nameSnapshot,
+          totalAnalyses: template?.totalAnalyses ?? 1,
+          priceCents: ((item.unitPriceCents * item.quantity) / 100)
+            .toFixed(2)
+            .replace(".", ","),
+        };
+      });
+
+    if (withPayment) {
+      form.handleSubmit((data) => onConfirm(true, data, packageAssignments))();
+    } else {
+      onConfirm(false, undefined, packageAssignments);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Approva preventivo {quote.number}</DialogTitle>
+          <DialogDescription>
+            Il preventivo sarà approvato e bloccato. Vuoi generare anche un pagamento?
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="max-h-[70vh] overflow-y-auto space-y-4 py-2 pr-1">
+          {/* ── Sezione pacchetti da assegnare ── */}
+          {packageItems.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Pacchetti da assegnare al cliente
+              </p>
+              <div className="rounded-lg border border-border divide-y divide-border">
+                {packageItems.map(({ item, idx }) => {
+                  const excluded = excludedIndices.has(idx);
+                  const totalCents = item.unitPriceCents * item.quantity;
+                  return (
+                    <div
+                      key={idx}
+                      className={`flex items-center gap-3 p-3 transition-opacity ${
+                        excluded ? "opacity-40" : ""
+                      }`}
+                    >
+                      <Package
+                        className="size-4 text-muted-foreground shrink-0"
+                        strokeWidth={1.75}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{item.nameSnapshot}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.quantity} × {formatEUR(item.unitPriceCents)} ={" "}
+                          <span className="font-medium tabular-nums">
+                            {formatEUR(totalCents)}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {excluded && (
+                          <span className="text-xs text-muted-foreground">Non inserire</span>
+                        )}
+                        <Switch
+                          checked={!excluded}
+                          onCheckedChange={() => toggleExclude(idx)}
+                          aria-label={excluded ? "Includi pacchetto" : "Escludi pacchetto"}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {packageItems.length > 0 && <Separator />}
+
+          {/* Toggle crea pagamento */}
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div>
+              <p className="text-sm font-medium">Genera pagamento</p>
+              <p className="text-xs text-muted-foreground">
+                Crea automaticamente un pagamento da {formatEUR(quote.totalCents)}
+              </p>
+            </div>
+            <Switch
+              checked={withPayment}
+              onCheckedChange={setWithPayment}
+            />
+          </div>
+
+          {/* Form pagamento (visibile solo se withPayment) */}
+          {withPayment && (
+            <Form {...form}>
+              <div className="space-y-3">
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Descrizione *</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="totalAmountCents"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Importo totale (€) *</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                            €
+                          </span>
+                          <Input
+                            className="pl-7"
+                            placeholder="0,00"
+                            {...field}
+                            value={String(field.value ?? "")}
+                          />
+                        </div>
+                      </FormControl>
+                      {parsedCents > 0 && (
+                        <FormDescription>{formatEUR(parsedCents)}</FormDescription>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="installmentsCount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Rate *</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={60}
+                            {...field}
+                            value={String(field.value ?? 1)}
+                            onChange={(e) =>
+                              field.onChange(parseInt(e.target.value, 10) || 1)
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="firstDueDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Prima scadenza *</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} value={field.value ?? ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {(count ?? 1) > 1 && (
+                  <FormField
+                    control={form.control}
+                    name="installmentPeriod"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cadenza</FormLabel>
+                        <FormControl>
+                          <select
+                            className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50"
+                            {...field}
+                            value={field.value ?? "monthly"}
+                          >
+                            <option value="monthly">Mensile</option>
+                            <option value="biweekly">Bisettimanale</option>
+                            <option value="custom">Personalizzato</option>
+                          </select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {(count ?? 1) > 1 && installmentPeriod === "custom" && (
+                  <div className="flex gap-2">
+                    <FormField
+                      control={form.control}
+                      name="customInterval"
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel>Ogni</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={1}
+                              {...field}
+                              value={field.value ?? ""}
+                              onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="customUnit"
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel>Unità</FormLabel>
+                          <FormControl>
+                            <select
+                              className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50"
+                              {...field}
+                              value={field.value ?? "months"}
+                            >
+                              <option value="days">Giorni</option>
+                              <option value="months">Mesi</option>
+                              <option value="years">Anni</option>
+                            </select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+
+                {parsedCents > 0 && (count ?? 1) > 1 && (
+                  <p className="text-xs text-muted-foreground">
+                    Circa {formatEUR(Math.round(parsedCents / (count ?? 1)))} per rata
+                  </p>
+                )}
+              </div>
+            </Form>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
+            Annulla
+          </Button>
+          <Button disabled={isPending} onClick={handleSubmit}>
+            {isPending && <Loader2 className="size-3.5 animate-spin" />}
+            {withPayment ? "Approva e crea pagamento" : "Approva"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

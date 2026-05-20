@@ -241,7 +241,7 @@ export async function createSample(raw: unknown): Promise<ActionResult<{ id: str
 
         // Genera rate
         const amounts = splitInCents(estimatedTotalCents, count);
-        const dueDates = generateDueDates(firstDue, count, period);
+        const dueDates = generateDueDates(firstDue, count, period, data.customInterval, data.customUnit);
 
         for (let i = 0; i < count; i++) {
           const installRef = adminDb

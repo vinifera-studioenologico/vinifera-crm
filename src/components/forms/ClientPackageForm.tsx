@@ -36,6 +36,8 @@ const ClientPackageClientSchema = z.object({
   installmentsCount: z.number().int().min(1).max(60).optional(),
   firstDueDate: z.string().optional(),
   installmentPeriod: z.enum(["monthly", "biweekly", "custom"]).optional(),
+  customInterval: z.number().int().min(1).optional(),
+  customUnit: z.enum(["days", "months", "years"]).optional(),
 });
 type FormInput = z.infer<typeof ClientPackageClientSchema>;
 
@@ -72,6 +74,7 @@ export function ClientPackageForm({ clientId, clientName, packages, onSuccess }:
   const createPayment = useWatch({ control: form.control, name: "createPayment" });
   const installmentsCount = useWatch({ control: form.control, name: "installmentsCount" });
   const priceInput = useWatch({ control: form.control, name: "priceCents" });
+  const installmentPeriod = useWatch({ control: form.control, name: "installmentPeriod" });
 
   // Quando si seleziona un template, precompila i campi
   useEffect(() => {
@@ -296,6 +299,51 @@ export function ClientPackageForm({ clientId, clientName, packages, onSuccess }:
                     </FormItem>
                   )}
                 />
+
+                {installmentPeriod === "custom" && (
+                  <div className="flex gap-2">
+                    <FormField
+                      control={form.control}
+                      name="customInterval"
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel>Ogni</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={1}
+                              {...field}
+                              value={field.value ?? ""}
+                              onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="customUnit"
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel>Unità</FormLabel>
+                          <FormControl>
+                            <select
+                              className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50"
+                              {...field}
+                              value={field.value ?? "months"}
+                            >
+                              <option value="days">Giorni</option>
+                              <option value="months">Mesi</option>
+                              <option value="years">Anni</option>
+                            </select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
 
                 {perRataEur && (
                   <p className="text-xs text-muted-foreground">

@@ -63,6 +63,18 @@ export const TaxSchema = z.object({
 
 export type Tax = z.infer<typeof TaxSchema>;
 
+// ── Condizioni di pagamento del preventivo ────────────────────────────
+export const QuotePaymentTermsSchema = z.object({
+  installmentsCount: z.number().int().min(1).max(60),
+  firstDueDate: z.string().optional(),          // "YYYY-MM-DD"
+  installmentPeriod: z.enum(["monthly", "biweekly", "custom"]),
+  customInterval: z.number().int().min(1).optional(),
+  customUnit: z.enum(["days", "months", "years"]).optional(),
+  notes: z.string().max(1000).optional(),       // testo libero per il PDF
+});
+
+export type QuotePaymentTerms = z.infer<typeof QuotePaymentTermsSchema>;
+
 // ── Form preventivo (creazione / modifica bozza) ──────────────────────
 export const QuoteFormSchema = z.object({
   clientId: z.string().min(1, "Seleziona un cliente"),
@@ -72,6 +84,7 @@ export const QuoteFormSchema = z.object({
   discounts: z.array(DiscountSchema),
   taxes: z.array(TaxSchema),
   notes: z.string().max(3000).optional(),
+  paymentTerms: QuotePaymentTermsSchema.optional(),
 });
 
 export type QuoteFormValues = z.infer<typeof QuoteFormSchema>;
@@ -93,6 +106,7 @@ export const QuoteDocSchema = z.object({
   taxes: z.array(TaxSchema),
   totalCents: zCents,
   notes: z.string().optional(),
+  paymentTerms: QuotePaymentTermsSchema.optional(),
   pdfStorageRef: z.string().optional(),
   frozenSnapshot: z.any().optional(), // snapshot bloccato all'approvazione
   approvedAt: z.any().optional(),

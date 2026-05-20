@@ -36,6 +36,7 @@ function toQuoteDoc(id: string, data: FirebaseFirestore.DocumentData): QuoteDoc 
     taxes: data["taxes"] ?? [],
     totalCents: data["totalCents"] ?? 0,
     notes: data["notes"],
+    paymentTerms: data["paymentTerms"] ?? undefined,
     pdfStorageRef: data["pdfStorageRef"],
     frozenSnapshot: data["frozenSnapshot"]
       ? {
@@ -187,6 +188,7 @@ export async function createQuote(raw: unknown): Promise<ActionResult<{ id: stri
         taxes: data.taxes,
         totalCents,
         notes: data.notes ?? null,
+        paymentTerms: data.paymentTerms ?? null,
         version: 0,
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
@@ -263,6 +265,7 @@ export async function updateQuote(
         taxes: data.taxes,
         totalCents,
         notes: data.notes ?? null,
+        paymentTerms: data.paymentTerms ?? null,
         version: expectedVersion + 1,
         updatedAt: FieldValue.serverTimestamp(),
         updatedBy: actor.uid,

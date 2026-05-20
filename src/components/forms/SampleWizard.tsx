@@ -378,6 +378,10 @@ function Step3({ estimatedTotal }: { estimatedTotal: number }) {
   const form = useFormContext<FormInput>();
   const createPayment = useWatch({ control: form.control, name: "createPayment" });
   const installmentsCount = useWatch({ control: form.control, name: "installmentsCount" });
+  const installmentPeriod = useWatch({ control: form.control, name: "installmentPeriod" });
+  const firstDueDate = useWatch({ control: form.control, name: "firstDueDate" });
+  const customInterval = useWatch({ control: form.control, name: "customInterval" });
+  const customUnit = useWatch({ control: form.control, name: "customUnit" });
 
   return (
     <div className="space-y-5">
@@ -468,10 +472,93 @@ function Step3({ estimatedTotal }: { estimatedTotal: number }) {
             )}
           />
 
-          {estimatedTotal > 0 && (installmentsCount ?? 1) > 1 && (
-            <p className="text-xs text-muted-foreground">
-              Circa {formatEUR(Math.round(estimatedTotal / (installmentsCount ?? 1)))} per rata
-            </p>
+          {installmentPeriod === "custom" && (
+            <div className="flex gap-2">
+              <FormField
+                control={form.control}
+                name="customInterval"
+                render={({ field }) => (
+                  <FormItem className="flex-1">
+                    <FormLabel>Ogni</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        {...field}
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="customUnit"
+                render={({ field }) => (
+                  <FormItem className="flex-1">
+                    <FormLabel>Unità</FormLabel>
+                    <FormControl>
+                      <select
+                        className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50"
+                        {...field}
+                        value={field.value ?? "months"}
+                      >
+                        <option value="days">Giorni</option>
+                        <option value="months">Mesi</option>
+                        <option value="years">Anni</option>
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          )}
+
+          {estimatedTotal > 0 && createPayment && (
+            <div className="rounded-xl bg-muted/40 p-4 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Riepilogo pagamento</p>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Totale</span>
+                <span className="tabular-nums font-medium">{formatEUR(estimatedTotal)}</span>
+              </div>
+              <Separator className="my-1" />
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {(installmentsCount ?? 1) === 1 ? "Soluzione unica" : `${installmentsCount ?? 1} rate da`}
+                </span>
+                <span className="tabular-nums">
+                  {(installmentsCount ?? 1) === 1
+                    ? formatEUR(estimatedTotal)
+                    : `~${formatEUR(Math.round(estimatedTotal / (installmentsCount ?? 1)))} cad.`}
+                </span>
+              </div>
+              {(installmentsCount ?? 1) > 1 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Cadenza</span>
+                  <span>
+                    {installmentPeriod === "monthly" && "Mensile"}
+                    {installmentPeriod === "biweekly" && "Bisettimanale"}
+                    {installmentPeriod === "custom" &&
+                      (customInterval
+                        ? `Ogni ${customInterval} ${customUnit === "days" ? "giorni" : customUnit === "years" ? "anni" : "mesi"}`
+                        : "Personalizzato")}
+                  </span>
+                </div>
+              )}
+              {firstDueDate && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    {(installmentsCount ?? 1) === 1 ? "Scadenza" : "Prima scadenza"}
+                  </span>
+                  <span className="tabular-nums">
+                    {new Date(firstDueDate + "T00:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                  </span>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}

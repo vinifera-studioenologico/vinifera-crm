@@ -59,6 +59,8 @@ export const PaymentFormSchema = z.object({
     .max(60, "Massimo 60 rate"),
   firstDueDate: z.string().min(1, "Data prima scadenza obbligatoria"), // "YYYY-MM-DD"
   installmentPeriod: z.enum(["monthly", "biweekly", "custom"]),
+  customInterval: z.number().int().min(1).optional(),
+  customUnit: z.enum(["days", "months", "years"]).optional(),
   notes: z.string().max(1000).optional(),
 });
 

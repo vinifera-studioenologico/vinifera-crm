@@ -129,6 +129,20 @@ const S = StyleSheet.create({
   notesLabel: { fontSize: 7, fontFamily: "Helvetica-Bold", color: "#888", textTransform: "uppercase", marginBottom: 4 },
   notesText: { fontSize: 8.5, color: "#444", lineHeight: 1.5 },
 
+  // Condizioni di pagamento
+  paymentSection: {
+    marginTop: 14,
+    padding: "10pt 12pt",
+    backgroundColor: "#f0f5f2",
+    borderLeft: "2pt solid #1A4D3E",
+    borderRadius: 2,
+  },
+  paymentLabel: { fontSize: 7, fontFamily: "Helvetica-Bold", color: "#888", textTransform: "uppercase", marginBottom: 6 },
+  paymentRow: { flexDirection: "row" as const, justifyContent: "space-between" as const, paddingVertical: 2 },
+  paymentKey: { fontSize: 8.5, color: "#555" },
+  paymentValue: { fontSize: 8.5, fontFamily: "Helvetica-Bold" },
+  paymentNotes: { fontSize: 8, color: "#555", marginTop: 6, lineHeight: 1.5 },
+
   // Footer
   footerText: { fontSize: 7, color: "#999" },
 
@@ -192,6 +206,23 @@ function formatDatePdf(ts: unknown): string {
       ? (ts as { toDate: () => Date }).toDate()
       : new Date(ts as string);
   return d.toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" });
+}
+
+function formatSimpleDatePdf(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function formatPaymentTermsLabel(pt: NonNullable<QuoteDoc["paymentTerms"]>): string {
+  if (pt.installmentsCount === 1) return "Unica soluzione";
+  let cadence = "";
+  if (pt.installmentPeriod === "monthly") cadence = "mensili";
+  else if (pt.installmentPeriod === "biweekly") cadence = "bisettimanali";
+  else if (pt.installmentPeriod === "custom" && pt.customInterval && pt.customUnit) {
+    const unit = pt.customUnit === "days" ? "giorni" : pt.customUnit === "years" ? "anni" : "mesi";
+    cadence = `ogni ${pt.customInterval} ${unit}`;
+  }
+  return `${pt.installmentsCount} rate ${cadence}`.trim();
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -305,26 +336,24 @@ export function QuotePdfDocument({ quote, company }: Props) {
             {quote.validUntil && (
               <Text style={S.quoteMeta}>Valido fino al {formatDatePdf(quote.validUntil)}</Text>
             )}
-            <View
-              style={[
-                S.badge,
-                {
-                  backgroundColor:
-                    quote.status === "approved"
-                      ? "#d1fae5"
-                      : quote.status === "rejected" || quote.status === "cancelled"
+            {quote.status !== "pending_approval" && quote.status !== "approved" && (
+              <View
+                style={[
+                  S.badge,
+                  {
+                    backgroundColor:
+                      quote.status === "rejected" || quote.status === "cancelled"
                         ? "#fee2e2"
                         : "#fef3c7",
-                  color:
-                    quote.status === "approved"
-                      ? "#065f46"
-                      : quote.status === "rejected" || quote.status === "cancelled"
+                    color:
+                      quote.status === "rejected" || quote.status === "cancelled"
                         ? "#991b1b"
                         : "#92400e",
-                },
-              ]}>
-              <Text>{STATUS_LABELS[quote.status] ?? quote.status}</Text>
-            </View>
+                  },
+                ]}>
+                <Text>{STATUS_LABELS[quote.status] ?? quote.status}</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -432,6 +461,38 @@ export function QuotePdfDocument({ quote, company }: Props) {
             <Text style={S.totalValue}>{formatEurPdf(quote.totalCents)}</Text>
           </View>
         </View>
+
+        {/* ── CONDIZIONI DI PAGAMENTO ── */}
+        {quote.paymentTerms && (
+          <View style={S.paymentSection}>
+            <Text style={S.paymentLabel}>Condizioni di pagamento</Text>
+            <View style={S.paymentRow}>
+              <Text style={S.paymentKey}>Modalità</Text>
+              <Text style={S.paymentValue}>
+                {formatPaymentTermsLabel(quote.paymentTerms)}
+              </Text>
+            </View>
+            {quote.paymentTerms.installmentsCount > 1 && quote.paymentTerms.firstDueDate && (
+              <View style={S.paymentRow}>
+                <Text style={S.paymentKey}>Prima scadenza</Text>
+                <Text style={S.paymentValue}>
+                  {formatSimpleDatePdf(quote.paymentTerms.firstDueDate)}
+                </Text>
+              </View>
+            )}
+            {quote.paymentTerms.installmentsCount === 1 && quote.paymentTerms.firstDueDate && (
+              <View style={S.paymentRow}>
+                <Text style={S.paymentKey}>Scadenza</Text>
+                <Text style={S.paymentValue}>
+                  {formatSimpleDatePdf(quote.paymentTerms.firstDueDate)}
+                </Text>
+              </View>
+            )}
+            {quote.paymentTerms.notes ? (
+              <Text style={S.paymentNotes}>{quote.paymentTerms.notes}</Text>
+            ) : null}
+          </View>
+        )}
 
         {/* ── FIRMA ── */}
         <View style={S.signatureRow}>
