@@ -49,6 +49,8 @@ export const ClientPackageFormSchema = z.object({
   installmentPeriod: z
     .enum(["monthly", "biweekly", "custom"])
     .optional(),
+  customInterval: z.number().int().min(1).optional(),
+  customUnit: z.enum(["days", "months", "years"]).optional(),
 });
 
 export type ClientPackageFormValues = z.infer<typeof ClientPackageFormSchema>;
