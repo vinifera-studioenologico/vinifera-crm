@@ -19,6 +19,11 @@ export default async function ClientDetailLayout({ children, params }: Props) {
       {/* Header */}
       <ClientDetailHeader client={client} />
 
+      {/* Mobile tabs — visibili solo < md */}
+      <div className="md:hidden border-b border-border bg-card px-4 pt-2">
+        <ClientDetailNav clientId={id} orientation="horizontal" />
+      </div>
+
       {/* Body: left nav + content */}
       <div className="flex flex-1 min-h-0">
         {/* Left rail — visibile su md+ */}

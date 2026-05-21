@@ -160,7 +160,7 @@ export function Topbar() {
         variant="outline"
         size="sm"
         onClick={() => setCommandOpen(true)}
-        className="flex-1 max-w-64 justify-between text-muted-foreground font-normal"
+        className="flex-1 md:max-w-64 justify-between text-muted-foreground font-normal"
       >
         <span className="flex items-center gap-2">
           <Search className="size-3.5 shrink-0" strokeWidth={1.75} />

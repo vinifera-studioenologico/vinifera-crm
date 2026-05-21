@@ -38,10 +38,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <Sidebar collapsed={collapsed} onToggle={toggle} />
 
       {/* Area principale */}
-      <div className="flex flex-1 flex-col min-h-0">
+      <div className="flex flex-1 flex-col min-h-0 min-w-0">
         <Topbar />
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-screen-2xl mx-auto px-6 py-6 pb-20 md:pb-6">
+          <div className="max-w-screen-2xl mx-auto md:px-6 md:py-6 pb-20 md:pb-6">
             {children}
           </div>
         </main>

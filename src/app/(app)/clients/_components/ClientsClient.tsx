@@ -129,12 +129,13 @@ export function ClientsClient({ initialData }: Props) {
                 <User className="size-4" strokeWidth={1.5} />
               )}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="font-medium text-sm text-foreground truncate">
                 {c.displayName}
               </p>
               <p className="text-xs text-muted-foreground truncate">{c.email}</p>
             </div>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground md:hidden" strokeWidth={1.5} />
           </div>
         );
       },
@@ -143,6 +144,7 @@ export function ClientsClient({ initialData }: Props) {
       accessorKey: "type",
       header: "Tipo",
       size: 100,
+      meta: { className: "hidden md:table-cell" },
       cell: ({ row }) => (
         <Badge variant="secondary" className="font-normal text-xs">
           {row.original.type === "business" ? "Azienda" : "Privato"}
@@ -153,6 +155,7 @@ export function ClientsClient({ initialData }: Props) {
       id: "vatNumber",
       header: "P.IVA / CF",
       size: 150,
+      meta: { className: "hidden md:table-cell" },
       cell: ({ row }) => {
         const c = row.original;
         const code =
@@ -166,6 +169,7 @@ export function ClientsClient({ initialData }: Props) {
       id: "pendingAmount",
       header: "Pendente",
       size: 110,
+      meta: { className: "hidden md:table-cell" },
       cell: ({ row }) => {
         const cents = row.original.stats.pendingAmountCents;
         return (
@@ -184,6 +188,7 @@ export function ClientsClient({ initialData }: Props) {
       id: "remainingAnalyses",
       header: "Campioni attivi",
       size: 130,
+      meta: { className: "hidden md:table-cell" },
       cell: ({ row }) => {
         const n = row.original.stats.samplesPending;
         return (
@@ -201,6 +206,7 @@ export function ClientsClient({ initialData }: Props) {
     {
       id: "actions",
       size: 100,
+      meta: { className: "hidden md:table-cell" },
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-1">
           <Button
@@ -240,8 +246,8 @@ export function ClientsClient({ initialData }: Props) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-4">
+        <div className="min-w-0">
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
@@ -260,7 +266,7 @@ export function ClientsClient({ initialData }: Props) {
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetTrigger
             render={
-              <Button>
+              <Button className="w-full md:w-auto">
                 <Plus className="size-3.5" strokeWidth={1.75} />
                 Nuovo cliente
               </Button>
@@ -284,8 +290,8 @@ export function ClientsClient({ initialData }: Props) {
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-48 max-w-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-3 md:flex-wrap">
+        <div className="relative w-full md:flex-1 md:min-w-48 md:max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="Cerca per nome, email o P.IVA..."
@@ -294,7 +300,7 @@ export function ClientsClient({ initialData }: Props) {
             className="pl-8"
           />
         </div>
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2 md:ml-auto">
           <Label
             htmlFor="show-archived-clients"
             className="text-sm text-muted-foreground cursor-pointer"
@@ -335,6 +341,7 @@ export function ClientsClient({ initialData }: Props) {
               : "Nessun cliente trovato per questa ricerca."
           }
           rowClassName={(row) => (row.deletedAt !== null ? "opacity-50" : "")}
+          onRowClick={(row) => router.push(`/clients/${row.id}`)}
         />
       )}
 

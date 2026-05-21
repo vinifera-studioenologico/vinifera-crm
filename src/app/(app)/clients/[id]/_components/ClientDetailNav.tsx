@@ -23,11 +23,42 @@ const NAV_ITEMS = [
 
 interface Props {
   clientId: string;
+  orientation?: "vertical" | "horizontal";
 }
 
-export function ClientDetailNav({ clientId }: Props) {
+export function ClientDetailNav({ clientId, orientation = "vertical" }: Props) {
   const pathname = usePathname();
   const base = `/clients/${clientId}`;
+
+  if (orientation === "horizontal") {
+    return (
+      <nav
+        className="flex gap-1 overflow-x-auto -mx-4 px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        aria-label="Sezioni cliente"
+      >
+        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+          const fullHref = `${base}${href}`;
+          const isActive = href === "" ? pathname === base : pathname.startsWith(fullHref);
+
+          return (
+            <Link
+              key={href}
+              href={fullHref}
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm whitespace-nowrap transition-colors shrink-0 min-h-10",
+                isActive
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              <Icon className="size-4 shrink-0" strokeWidth={isActive ? 2 : 1.75} />
+              {label}
+            </Link>
+          );
+        })}
+      </nav>
+    );
+  }
 
   return (
     <nav className="flex flex-col gap-0.5">

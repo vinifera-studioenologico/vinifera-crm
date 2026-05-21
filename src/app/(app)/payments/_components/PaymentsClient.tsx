@@ -205,8 +205,8 @@ export function PaymentsClient({ initialData }: Props) {
       </div>
 
       {/* Filtri */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-48 max-w-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-3 md:flex-wrap">
+        <div className="relative w-full md:flex-1 md:min-w-48 md:max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="Cerca per descrizione..."
@@ -230,7 +230,7 @@ export function PaymentsClient({ initialData }: Props) {
             ))}
           </div>
         )}
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2 md:ml-auto">
           <Label htmlFor="show-cancelled" className="text-sm text-muted-foreground cursor-pointer">
             Mostra annullati
           </Label>

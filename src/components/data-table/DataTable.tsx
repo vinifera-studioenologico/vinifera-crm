@@ -31,6 +31,7 @@ interface DataTableProps<TData> {
   loading?: boolean;
   emptyMessage?: string;
   rowClassName?: (row: TData) => string;
+  onRowClick?: (row: TData) => void;
 }
 
 export function DataTable<TData>({
@@ -40,6 +41,7 @@ export function DataTable<TData>({
   loading = false,
   emptyMessage = "Nessun elemento trovato.",
   rowClassName,
+  onRowClick,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -87,6 +89,7 @@ export function DataTable<TData>({
 
   return (
     <div className="rounded-xl border border-border overflow-hidden">
+      <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -94,7 +97,10 @@ export function DataTable<TData>({
               {headerGroup.headers.map((header) => (
                 <TableHead
                   key={header.id}
-                  className="h-10 text-xs font-medium text-muted-foreground"
+                  className={cn(
+                    "h-10 text-xs font-medium text-muted-foreground",
+                    (header.column.columnDef.meta as { className?: string } | undefined)?.className,
+                  )}
                   style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}
                 >
                   {header.isPlaceholder ? null : (
@@ -132,10 +138,18 @@ export function DataTable<TData>({
                 className={cn(
                   "h-14",
                   rowClassName?.(row.original),
+                  onRowClick && "cursor-pointer",
                 )}
+                onClick={() => onRowClick?.(row.original)}
               >
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="py-3">
+                  <TableCell
+                    key={cell.id}
+                    className={cn(
+                      "py-3",
+                      (cell.column.columnDef.meta as { className?: string } | undefined)?.className,
+                    )}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
@@ -150,6 +164,7 @@ export function DataTable<TData>({
           )}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }

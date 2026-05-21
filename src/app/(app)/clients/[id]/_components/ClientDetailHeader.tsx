@@ -101,7 +101,7 @@ export function ClientDetailHeader({ client }: Props) {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
         <div className="flex items-center gap-3 min-w-0">
           {/* Avatar */}
           <div
@@ -138,12 +138,12 @@ export function ClientDetailHeader({ client }: Props) {
         </div>
 
         {/* Azioni */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 self-stretch md:self-auto">
           {/* Pulsante Modifica */}
           <Sheet open={editOpen} onOpenChange={setEditOpen}>
             <SheetTrigger
               render={
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="flex-1 md:flex-none">
                   <Pencil className="size-3.5" strokeWidth={1.75} />
                   Modifica
                 </Button>

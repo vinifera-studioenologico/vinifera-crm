@@ -105,7 +105,7 @@ export function StatsClient({ initialRevenue, samplesByMonth, currentYear }: Pro
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-        <div className="flex items-center justify-between mt-1">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mt-1">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
               Statistiche

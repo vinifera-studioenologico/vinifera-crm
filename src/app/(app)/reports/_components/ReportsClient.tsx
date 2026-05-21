@@ -204,8 +204,8 @@ export function ReportsClient({ initialData }: Props) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-4">
+        <div className="min-w-0">
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
@@ -217,14 +217,14 @@ export function ReportsClient({ initialData }: Props) {
             Referti
           </h1>
         </div>
-        <Button onClick={() => router.push("/reports/new")}>
+        <Button onClick={() => router.push("/reports/new")} className="w-full md:w-auto">
           <Plus className="size-3.5" strokeWidth={1.75} />
           Nuovo referto
         </Button>
       </div>
 
       {/* Ricerca */}
-      <div className="relative max-w-sm">
+      <div className="relative w-full md:max-w-sm">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
         <Input
           placeholder="Cerca per numero o cliente..."

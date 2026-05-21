@@ -137,8 +137,8 @@ export function SamplesClient({ initialData, clients, analyses }: Props) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-4">
+        <div className="min-w-0">
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
@@ -158,7 +158,7 @@ export function SamplesClient({ initialData, clients, analyses }: Props) {
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetTrigger
             render={
-              <Button>
+              <Button className="w-full md:w-auto">
                 <Plus className="size-3.5" strokeWidth={1.75} />
                 Nuovo campione
               </Button>
@@ -185,8 +185,8 @@ export function SamplesClient({ initialData, clients, analyses }: Props) {
       </div>
 
       {/* Filtri */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-48 max-w-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-3 md:flex-wrap">
+        <div className="relative w-full md:flex-1 md:min-w-48 md:max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="Cerca per codice, campione o cliente..."
