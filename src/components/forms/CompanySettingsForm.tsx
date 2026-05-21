@@ -72,7 +72,7 @@ export function CompanySettingsForm({ defaultValues }: Props) {
         if (result.fieldErrors) {
           for (const [field, messages] of Object.entries(result.fieldErrors)) {
             form.setError(field as keyof CompanySettingsValues, {
-              message: messages[0],
+              message: (messages as string[])[0],
             });
           }
         }

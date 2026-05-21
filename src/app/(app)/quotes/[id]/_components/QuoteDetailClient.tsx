@@ -92,7 +92,17 @@ const ApprovePaymentFormSchema = z.object({
   installmentPeriod: z.enum(["monthly", "biweekly", "custom"]),
   customInterval: z.number().int().min(1).optional(),
   customUnit: z.enum(["days", "months", "years"]).optional(),
+  accontoCents: z.string().optional(),
+  accontoDate: z.string().optional(),
   notes: z.string().max(1000).optional(),
+}).superRefine((data, ctx) => {
+  if (data.accontoDate && data.firstDueDate && data.accontoDate >= data.firstDueDate) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "La data acconto deve essere precedente alla prima scadenza",
+      path: ["accontoDate"],
+    });
+  }
 });
 type ApprovePaymentFormInput = z.infer<typeof ApprovePaymentFormSchema>;
 
@@ -623,6 +633,10 @@ function ApproveQuoteDialog({
       installmentPeriod: quote.paymentTerms?.installmentPeriod ?? "monthly",
       customInterval: quote.paymentTerms?.customInterval,
       customUnit: quote.paymentTerms?.customUnit,
+      accontoCents: quote.paymentTerms?.accontoCents
+        ? (quote.paymentTerms.accontoCents / 100).toFixed(2).replace(".", ",")
+        : "",
+      accontoDate: "",
       notes: "",
     },
   });
@@ -630,11 +644,20 @@ function ApproveQuoteDialog({
   const count = useWatch({ control: form.control, name: "installmentsCount" });
   const installmentPeriod = useWatch({ control: form.control, name: "installmentPeriod" });
   const priceInput = useWatch({ control: form.control, name: "totalAmountCents" });
+  const accontoInput = useWatch({ control: form.control, name: "accontoCents" });
+  const accontoDate = useWatch({ control: form.control, name: "accontoDate" });
   const parsedCents = (() => {
     const raw = String(priceInput ?? "").replace(",", ".");
     const n = parseFloat(raw);
     return isNaN(n) ? 0 : Math.round(n * 100);
   })();
+  const parsedAccontoCents = (() => {
+    const raw = String(accontoInput ?? "").replace(",", ".");
+    const n = parseFloat(raw);
+    return isNaN(n) ? 0 : Math.round(n * 100);
+  })();
+  const hasAcconto = parsedAccontoCents > 0 && (count ?? 1) > 1;
+  const residuoCents = hasAcconto ? Math.max(0, parsedCents - parsedAccontoCents) : parsedCents;
 
   function handleSubmit() {
     // Raccogli assegnazioni pacchetti (non esclusi)
@@ -808,7 +831,7 @@ function ApproveQuoteDialog({
                       <FormItem>
                         <FormLabel>Prima scadenza *</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} value={field.value ?? ""} />
+                          <Input type="date" {...field} value={field.value ?? ""} min={accontoDate || undefined} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -885,9 +908,61 @@ function ApproveQuoteDialog({
                   </div>
                 )}
 
+                {(count ?? 1) > 1 && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      control={form.control}
+                      name="accontoCents"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Acconto già incassato (€)</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                                €
+                              </span>
+                              <Input
+                                className="pl-7"
+                                placeholder="0,00"
+                                {...field}
+                                value={String(field.value ?? "")}
+                              />
+                            </div>
+                          </FormControl>
+                          <FormDescription>
+                            Importo già pagato — rata 0 saldata
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {hasAcconto && (
+                      <FormField
+                        control={form.control}
+                        name="accontoDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Data acconto</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="date"
+                                {...field}
+                                value={field.value ?? ""}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+                )}
+
                 {parsedCents > 0 && (count ?? 1) > 1 && (
                   <p className="text-xs text-muted-foreground">
-                    Circa {formatEUR(Math.round(parsedCents / (count ?? 1)))} per rata
+                    {hasAcconto
+                      ? `Residuo ${formatEUR(residuoCents)} su ${count ?? 1} rate da ~${formatEUR(Math.round(residuoCents / (count ?? 1)))} cad.`
+                      : `Circa ${formatEUR(Math.round(parsedCents / (count ?? 1)))} per rata`}
                   </p>
                 )}
               </div>

@@ -11,9 +11,24 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Trash2, ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
-import type { z } from "zod";
+import { z } from "zod";
 
 import { SampleFormSchema } from "@/schemas/sample";
+
+// Local client schema: replaces zEurInput transform with z.string() so the
+// form field values (strings) match the resolver's TFieldValues type.
+// The server action accepts `unknown` and runs its own SampleFormSchema.parse().
+const SampleWizardClientSchema = SampleFormSchema
+  .extend({ accontoCents: z.string().optional() })
+  .superRefine((data, ctx) => {
+    if (data.accontoDate && data.firstDueDate && data.accontoDate >= data.firstDueDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "La data acconto deve essere precedente alla prima scadenza",
+        path: ["accontoDate"],
+      });
+    }
+  });
 import type { ClientDoc } from "@/schemas/client";
 import type { AnalysisDoc } from "@/schemas/analysis";
 import { createSample, getClientActivePkgs } from "@/server/actions/samples";
@@ -34,7 +49,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 
-type FormInput = z.input<typeof SampleFormSchema>;
+type FormInput = z.infer<typeof SampleWizardClientSchema>;
 
 interface ActivePackage {
   id: string;
@@ -382,6 +397,16 @@ function Step3({ estimatedTotal }: { estimatedTotal: number }) {
   const firstDueDate = useWatch({ control: form.control, name: "firstDueDate" });
   const customInterval = useWatch({ control: form.control, name: "customInterval" });
   const customUnit = useWatch({ control: form.control, name: "customUnit" });
+  const accontoInput = useWatch({ control: form.control, name: "accontoCents" });
+  const accontoDate = useWatch({ control: form.control, name: "accontoDate" });
+
+  const parsedAccontoCents = (() => {
+    const raw = String(accontoInput ?? "").replace(",", ".");
+    const n = parseFloat(raw);
+    return isNaN(n) ? 0 : Math.round(n * 100);
+  })();
+  const hasAcconto = parsedAccontoCents > 0 && (installmentsCount ?? 1) > 1;
+  const residuoCents = hasAcconto ? Math.max(0, estimatedTotal - parsedAccontoCents) : estimatedTotal;
 
   return (
     <div className="space-y-5">
@@ -442,13 +467,63 @@ function Step3({ estimatedTotal }: { estimatedTotal: number }) {
                 <FormItem>
                   <FormLabel>Prima scadenza *</FormLabel>
                   <FormControl>
-                    <Input type="date" {...field} value={field.value ?? ""} />
+                    <Input type="date" {...field} value={field.value ?? ""} min={accontoDate || undefined} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
           </div>
+
+          {(installmentsCount ?? 1) > 1 && (
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="accontoCents"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Acconto già incassato (€)</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                          €
+                        </span>
+                        <Input
+                          className="pl-7"
+                          placeholder="0,00"
+                          {...field}
+                          value={String(field.value ?? "")}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormDescription>
+                      Importo già pagato — rata 0 saldata
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {hasAcconto && (
+                <FormField
+                  control={form.control}
+                  name="accontoDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Data acconto</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          {...field}
+                          value={field.value ?? ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
+          )}
 
           <FormField
             control={form.control}
@@ -524,6 +599,12 @@ function Step3({ estimatedTotal }: { estimatedTotal: number }) {
                 <span className="text-muted-foreground">Totale</span>
                 <span className="tabular-nums font-medium">{formatEUR(estimatedTotal)}</span>
               </div>
+              {hasAcconto && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Acconto già incassato</span>
+                  <span className="tabular-nums text-green-600 dark:text-green-400">−{formatEUR(parsedAccontoCents)}</span>
+                </div>
+              )}
               <Separator className="my-1" />
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">
@@ -532,7 +613,7 @@ function Step3({ estimatedTotal }: { estimatedTotal: number }) {
                 <span className="tabular-nums">
                   {(installmentsCount ?? 1) === 1
                     ? formatEUR(estimatedTotal)
-                    : `~${formatEUR(Math.round(estimatedTotal / (installmentsCount ?? 1)))} cad.`}
+                    : `~${formatEUR(Math.round(residuoCents / (installmentsCount ?? 1)))} cad.`}
                 </span>
               </div>
               {(installmentsCount ?? 1) > 1 && (
@@ -583,7 +664,7 @@ export function SampleWizard({
   const nextMonth = new Date(Date.now() + 30 * 86400 * 1000).toISOString().slice(0, 10);
 
   const form = useForm<FormInput>({
-    resolver: zodResolver(SampleFormSchema),
+    resolver: zodResolver(SampleWizardClientSchema),
     defaultValues: {
       clientId: defaultClientId ?? "",
       sampleName: "",
@@ -594,6 +675,8 @@ export function SampleWizard({
       installmentsCount: 1,
       firstDueDate: nextMonth,
       installmentPeriod: "monthly",
+      accontoCents: "",
+      accontoDate: "",
     },
     mode: "onTouched",
   });
@@ -646,7 +729,7 @@ export function SampleWizard({
         toast.error(result.error);
         if (result.fieldErrors) {
           for (const [field, messages] of Object.entries(result.fieldErrors)) {
-            form.setError(field as keyof FormInput, { message: messages[0] });
+            form.setError(field as keyof FormInput, { message: (messages as string[])[0] });
           }
         }
       }
@@ -688,7 +771,7 @@ export function SampleWizard({
             <Button
               type="button"
               onClick={() => form.handleSubmit(onSubmit)()}
-              disabled={isPending}
+              disabled={isPending || !!form.formState.errors.accontoDate}
             >
               {isPending && <Loader2 className="size-3.5 animate-spin" />}
               {isPending ? "Creazione..." : "Crea campione"}

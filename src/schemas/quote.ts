@@ -70,6 +70,7 @@ export const QuotePaymentTermsSchema = z.object({
   installmentPeriod: z.enum(["monthly", "biweekly", "custom"]),
   customInterval: z.number().int().min(1).optional(),
   customUnit: z.enum(["days", "months", "years"]).optional(),
+  accontoCents: z.number().int().min(0).optional(), // acconto concordato (cents)
   notes: z.string().max(1000).optional(),       // testo libero per il PDF
 });
 

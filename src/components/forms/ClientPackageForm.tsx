@@ -33,11 +33,21 @@ const ClientPackageClientSchema = z.object({
   totalAnalyses: z.number().int().min(1),
   priceCents: z.string().min(1, "Importo obbligatorio"),
   createPayment: z.boolean(),
+  accontoCents: z.string().optional(),
+  accontoDate: z.string().optional(),
   installmentsCount: z.number().int().min(1).max(60).optional(),
   firstDueDate: z.string().optional(),
   installmentPeriod: z.enum(["monthly", "biweekly", "custom"]).optional(),
   customInterval: z.number().int().min(1).optional(),
   customUnit: z.enum(["days", "months", "years"]).optional(),
+}).superRefine((data, ctx) => {
+  if (data.accontoDate && data.firstDueDate && data.accontoDate >= data.firstDueDate) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "La data acconto deve essere precedente alla prima scadenza",
+      path: ["accontoDate"],
+    });
+  }
 });
 type FormInput = z.infer<typeof ClientPackageClientSchema>;
 
@@ -62,6 +72,8 @@ export function ClientPackageForm({ clientId, clientName, packages, onSuccess }:
       totalAnalyses: 1,
       priceCents: "",
       createPayment: false,
+      accontoCents: "",
+      accontoDate: "",
       installmentsCount: 1,
       // eslint-disable-next-line react-hooks/purity
       firstDueDate: new Date(Date.now() + 30 * 86400 * 1000).toISOString().slice(0, 10),
@@ -74,6 +86,8 @@ export function ClientPackageForm({ clientId, clientName, packages, onSuccess }:
   const createPayment = useWatch({ control: form.control, name: "createPayment" });
   const installmentsCount = useWatch({ control: form.control, name: "installmentsCount" });
   const priceInput = useWatch({ control: form.control, name: "priceCents" });
+  const accontoInput = useWatch({ control: form.control, name: "accontoCents" });
+  const accontoDate = useWatch({ control: form.control, name: "accontoDate" });
   const installmentPeriod = useWatch({ control: form.control, name: "installmentPeriod" });
 
   // Quando si seleziona un template, precompila i campi
@@ -97,9 +111,18 @@ export function ClientPackageForm({ clientId, clientName, packages, onSuccess }:
     return isNaN(n) ? 0 : Math.round(n * 100);
   })();
 
+  const parsedAccontoCents = (() => {
+    const raw = String(accontoInput ?? "").replace(",", ".");
+    const n = parseFloat(raw);
+    return isNaN(n) ? 0 : Math.round(n * 100);
+  })();
+
+  const hasAcconto = parsedAccontoCents > 0 && (installmentsCount ?? 1) > 1;
+  const residuoCents = hasAcconto ? Math.max(0, parsedCents - parsedAccontoCents) : parsedCents;
+
   const perRataEur =
     createPayment && (installmentsCount ?? 1) > 1
-      ? formatEUR(Math.round(parsedCents / (installmentsCount ?? 1)))
+      ? formatEUR(Math.round(residuoCents / (installmentsCount ?? 1)))
       : null;
 
   function onSubmit() {
@@ -113,7 +136,7 @@ export function ClientPackageForm({ clientId, clientName, packages, onSuccess }:
         toast.error(result.error);
         if (result.fieldErrors) {
           for (const [field, messages] of Object.entries(result.fieldErrors)) {
-            form.setError(field as keyof FormInput, { message: messages[0] });
+            form.setError(field as keyof FormInput, { message: (messages as string[])[0] });
           }
         }
       }
@@ -270,6 +293,7 @@ export function ClientPackageForm({ clientId, clientName, packages, onSuccess }:
                             type="date"
                             {...field}
                             value={field.value ?? ""}
+                            min={accontoDate || undefined}
                           />
                         </FormControl>
                         <FormMessage />
@@ -345,9 +369,61 @@ export function ClientPackageForm({ clientId, clientName, packages, onSuccess }:
                   </div>
                 )}
 
+                {(installmentsCount ?? 1) > 1 && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="accontoCents"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Acconto già incassato (€)</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                                €
+                              </span>
+                              <Input
+                                className="pl-7"
+                                placeholder="0,00"
+                                {...field}
+                                value={String(field.value ?? "")}
+                              />
+                            </div>
+                          </FormControl>
+                          <FormDescription>
+                            Importo già pagato — rata 0 saldata
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {hasAcconto && (
+                      <FormField
+                        control={form.control}
+                        name="accontoDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Data acconto</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="date"
+                                {...field}
+                                value={field.value ?? ""}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+                )}
+
                 {perRataEur && (
                   <p className="text-xs text-muted-foreground">
-                    Circa {perRataEur} per rata
+                    {hasAcconto
+                      ? `Residuo ${formatEUR(residuoCents)} su ${installmentsCount ?? 1} rate da ~${perRataEur} cad.`
+                      : `Circa ${perRataEur} per rata`}
                   </p>
                 )}
               </div>

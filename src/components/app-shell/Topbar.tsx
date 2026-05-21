@@ -1,22 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Search, LogOut, KeyRound } from "lucide-react";
+import { Sun, Moon, Search, LogOut, KeyRound, Users, FlaskConical, FileText, ClipboardList, Loader2, Package, TestTube, Bell, Banknote } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { cn } from "@/lib/utils";
+import { formatEUR } from "@/lib/utils/money";
+import { formatDate } from "@/lib/utils/date";
+import { searchGlobal } from "@/server/actions/search";
+import type { GlobalSearchResults } from "@/lib/search";
 import { Button } from "@/components/ui/button";
 import {
   Command,
   CommandDialog,
-  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import {
   DropdownMenu,
@@ -27,6 +31,28 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+
+const SAMPLE_STATUS_LABELS: Record<string, string> = {
+  pending: "In attesa",
+  in_progress: "In lavorazione",
+  completed: "Completato",
+  cancelled: "Annullato",
+};
+
+const REMINDER_STATUS_LABELS: Record<string, string> = {
+  pending: "In attesa",
+  done: "Completato",
+  snoozed: "Posticipato",
+  cancelled: "Annullato",
+};
+
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  pending: "In attesa",
+  partial: "Parziale",
+  paid: "Pagato",
+  overdue: "Scaduto",
+  cancelled: "Annullato",
+};
 
 const COMMAND_NAV = [
   { href: "/dashboard", label: "Dashboard" },
@@ -47,10 +73,38 @@ export function Topbar() {
   const { resolvedTheme, setTheme } = useTheme();
   const router = useRouter();
   const [commandOpen, setCommandOpen] = useState(false);
+  const [commandQuery, setCommandQuery] = useState("");
+  const [_searchResults, setSearchResults] = useState<GlobalSearchResults | null>(null);
+  const [_isSearching, setIsSearching] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Derived: suppress stale state when the query is too short to search
+  const queryTrimmed = commandQuery.trim();
+  const searchResults = queryTrimmed.length >= 2 ? _searchResults : null;
+  const isSearching = queryTrimmed.length >= 2 && _isSearching;
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setMounted(true); }, []);
+
+  // Ricerca con debounce 300ms — chiama il Server Action solo quando la query
+  // è di almeno 2 caratteri.
+  useEffect(() => {
+    const q = commandQuery.trim();
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (q.length < 2) return;
+    searchTimerRef.current = setTimeout(() => {
+      setSearchResults(null);
+      setIsSearching(true);
+      void searchGlobal(q).then((res) => {
+        setSearchResults(res);
+        setIsSearching(false);
+      });
+    }, 300);
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, [commandQuery]);
 
   // Cmd+K / Ctrl+K � questo e` il pattern corretto: setState e` chiamato
   // nel callback dell'evento, non direttamente nel corpo dell'effect.
@@ -67,7 +121,16 @@ export function Topbar() {
 
   function handleNavigate(href: string) {
     setCommandOpen(false);
+    setCommandQuery("");
+    setSearchResults(null);
     router.push(href);
+  }
+
+  function handleGlobalSearch(q: string) {
+    setCommandOpen(false);
+    setCommandQuery("");
+    setSearchResults(null);
+    router.push(`/search?q=${encodeURIComponent(q.trim())}`);
   }
 
   function getInitials(email: string | null | undefined) {
@@ -180,25 +243,293 @@ export function Topbar() {
       {/* Command palette */}
       <CommandDialog
         open={commandOpen}
-        onOpenChange={(open) => setCommandOpen(open)}
+        onOpenChange={(open) => {
+          setCommandOpen(open);
+          if (!open) {
+            setCommandQuery("");
+            setSearchResults(null);
+          }
+        }}
         className="sm:max-w-2xl"
       >
-        <Command>
-          <CommandInput placeholder="Cerca o vai a una sezione…" className="text-base h-12" />
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Cerca clienti, campioni, preventivi…"
+            className="text-base h-12"
+            value={commandQuery}
+            onValueChange={setCommandQuery}
+          />
           <CommandList className="max-h-[420px] py-2">
-            <CommandEmpty>Nessun risultato trovato.</CommandEmpty>
-            <CommandGroup heading="Navigazione">
-              {COMMAND_NAV.map((item) => (
-                <CommandItem
-                  key={item.href}
-                  value={item.label}
-                  onSelect={() => handleNavigate(item.href)}
-                  className="py-3.5 px-4 text-base rounded-lg"
-                >
-                  {item.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
+
+            {/* ── Navigazione (query vuota / corta) ─────────────────── */}
+            {commandQuery.trim().length < 2 && (
+              <CommandGroup heading="Navigazione">
+                {COMMAND_NAV.map((item) => (
+                  <CommandItem
+                    key={item.href}
+                    value={item.label}
+                    onSelect={() => handleNavigate(item.href)}
+                    className="py-3.5 px-4 text-base rounded-lg"
+                  >
+                    {item.label}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+
+            {/* ── Risultati ricerca (query >= 2 caratteri) ──────────── */}
+            {commandQuery.trim().length >= 2 && (
+              <>
+                {/* Loading */}
+                {isSearching && (
+                  <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" strokeWidth={1.75} />
+                    Ricerca in corso…
+                  </div>
+                )}
+
+                {/* Nessun risultato */}
+                {!isSearching && searchResults && searchResults.total === 0 && (
+                  <div className="py-8 text-center text-sm text-muted-foreground">
+                    Nessun risultato per &ldquo;{commandQuery}&rdquo;
+                  </div>
+                )}
+
+                {/* Clienti */}
+                {!isSearching && searchResults && searchResults.clients.length > 0 && (
+                  <CommandGroup heading="Clienti">
+                    {searchResults.clients.map((hit) => (
+                      <CommandItem
+                        key={hit.id}
+                        value={`client-${hit.id}`}
+                        onSelect={() => handleNavigate(`/clients/${hit.id}`)}
+                        className="px-4 py-2.5 rounded-lg gap-3"
+                      >
+                        <Users className="size-4 text-muted-foreground shrink-0" strokeWidth={1.75} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{hit.displayName}</p>
+                          <p className="text-xs text-muted-foreground truncate">{hit.email}</p>
+                        </div>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {hit.type === "business" ? "Azienda" : "Privato"}
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+
+                {/* Campioni */}
+                {!isSearching && searchResults && searchResults.samples.length > 0 && (
+                  <CommandGroup heading="Campioni">
+                    {searchResults.samples.map((hit) => (
+                      <CommandItem
+                        key={hit.id}
+                        value={`sample-${hit.id}`}
+                        onSelect={() => handleNavigate(`/samples/${hit.id}`)}
+                        className="px-4 py-2.5 rounded-lg gap-3"
+                      >
+                        <FlaskConical className="size-4 text-muted-foreground shrink-0" strokeWidth={1.75} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-mono font-medium truncate">{hit.code}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {hit.sampleName}{hit.clientName ? ` · ${hit.clientName}` : ""}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {SAMPLE_STATUS_LABELS[hit.status] ?? hit.status}
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+
+                {/* Preventivi */}
+                {!isSearching && searchResults && searchResults.quotes.length > 0 && (
+                  <CommandGroup heading="Preventivi">
+                    {searchResults.quotes.map((hit) => (
+                      <CommandItem
+                        key={hit.id}
+                        value={`quote-${hit.id}`}
+                        onSelect={() => handleNavigate(`/quotes/${hit.id}`)}
+                        className="px-4 py-2.5 rounded-lg gap-3"
+                      >
+                        <FileText className="size-4 text-muted-foreground shrink-0" strokeWidth={1.75} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-mono font-medium truncate">{hit.number}</p>
+                          {hit.clientName && (
+                            <p className="text-xs text-muted-foreground truncate">{hit.clientName}</p>
+                          )}
+                        </div>
+                        <span className="shrink-0 text-sm font-medium tabular-nums">
+                          {formatEUR(hit.totalCents)}
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+
+                {/* Referti */}
+                {!isSearching && searchResults && searchResults.reports.length > 0 && (
+                  <CommandGroup heading="Referti">
+                    {searchResults.reports.map((hit) => (
+                      <CommandItem
+                        key={hit.id}
+                        value={`report-${hit.id}`}
+                        onSelect={() => handleNavigate(`/reports/${hit.id}`)}
+                        className="px-4 py-2.5 rounded-lg gap-3"
+                      >
+                        <ClipboardList className="size-4 text-muted-foreground shrink-0" strokeWidth={1.75} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-mono font-medium truncate">{hit.number}</p>
+                          {hit.clientName && (
+                            <p className="text-xs text-muted-foreground truncate">{hit.clientName}</p>
+                          )}
+                        </div>
+                        {hit.generatedAt && (
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {formatDate(hit.generatedAt)}
+                          </span>
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+
+                {/* Pacchetti */}
+                {!isSearching && searchResults && searchResults.packages.length > 0 && (
+                  <CommandGroup heading="Pacchetti">
+                    {searchResults.packages.map((hit) => (
+                      <CommandItem
+                        key={hit.id}
+                        value={`package-${hit.id}`}
+                        onSelect={() => handleNavigate("/packages")}
+                        className="px-4 py-2.5 rounded-lg gap-3"
+                      >
+                        <Package className="size-4 text-muted-foreground shrink-0" strokeWidth={1.75} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{hit.name}</p>
+                          {hit.description && (
+                            <p className="text-xs text-muted-foreground truncate">{hit.description}</p>
+                          )}
+                        </div>
+                        <span className="shrink-0 text-sm font-medium tabular-nums">
+                          {formatEUR(hit.priceCents)}
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+
+                {/* Analisi */}
+                {!isSearching && searchResults && searchResults.analyses.length > 0 && (
+                  <CommandGroup heading="Analisi">
+                    {searchResults.analyses.map((hit) => (
+                      <CommandItem
+                        key={hit.id}
+                        value={`analysis-${hit.id}`}
+                        onSelect={() => handleNavigate("/analyses")}
+                        className="px-4 py-2.5 rounded-lg gap-3"
+                      >
+                        <TestTube className="size-4 text-muted-foreground shrink-0" strokeWidth={1.75} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-mono font-medium truncate">{hit.code}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {hit.name}{hit.category ? ` · ${hit.category}` : ""}
+                          </p>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+
+                {/* Promemoria */}
+                {!isSearching && searchResults && searchResults.reminders.length > 0 && (
+                  <CommandGroup heading="Promemoria">
+                    {searchResults.reminders.map((hit) => (
+                      <CommandItem
+                        key={hit.id}
+                        value={`reminder-${hit.id}`}
+                        onSelect={() => handleNavigate("/reminders")}
+                        className="px-4 py-2.5 rounded-lg gap-3"
+                      >
+                        <Bell className="size-4 text-muted-foreground shrink-0" strokeWidth={1.75} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{hit.title}</p>
+                          {hit.description && (
+                            <p className="text-xs text-muted-foreground truncate">{hit.description}</p>
+                          )}
+                        </div>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {REMINDER_STATUS_LABELS[hit.status] ?? hit.status}
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+
+                {/* Pagamenti */}
+                {!isSearching && searchResults && searchResults.payments.length > 0 && (
+                  <CommandGroup heading="Pagamenti">
+                    {searchResults.payments.map((hit) => (
+                      <CommandItem
+                        key={hit.id}
+                        value={`payment-${hit.id}`}
+                        onSelect={() => handleNavigate("/payments")}
+                        className="px-4 py-2.5 rounded-lg gap-3"
+                      >
+                        <Banknote className="size-4 text-muted-foreground shrink-0" strokeWidth={1.75} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{hit.description}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {PAYMENT_STATUS_LABELS[hit.status] ?? hit.status}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-sm font-medium tabular-nums">
+                          {formatEUR(hit.totalAmountCents)}
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+
+                {/* Footer: vedi tutti */}
+                {!isSearching && searchResults && searchResults.total > 0 && (
+                  <>
+                    <CommandSeparator />
+                    <CommandGroup>
+                      <CommandItem
+                        value={`search-all-${commandQuery}`}
+                        onSelect={() => handleGlobalSearch(commandQuery)}
+                        className="px-4 py-2.5 rounded-lg gap-3"
+                      >
+                        <Search className="size-4 text-muted-foreground shrink-0" strokeWidth={1.75} />
+                        <span className="text-sm text-muted-foreground">
+                          Tutti i risultati per{" "}
+                          <span className="font-medium text-foreground">&ldquo;{commandQuery}&rdquo;</span>
+                        </span>
+                      </CommandItem>
+                    </CommandGroup>
+                  </>
+                )}
+
+                {/* Cerca ovunque anche se nessun risultato */}
+                {!isSearching && searchResults && searchResults.total === 0 && (
+                  <CommandGroup>
+                    <CommandItem
+                      value={`search-all-empty-${commandQuery}`}
+                      onSelect={() => handleGlobalSearch(commandQuery)}
+                      className="px-4 py-2.5 rounded-lg gap-3"
+                    >
+                      <Search className="size-4 text-muted-foreground shrink-0" strokeWidth={1.75} />
+                      <span className="text-sm text-muted-foreground">
+                        Cerca <span className="font-medium text-foreground">&ldquo;{commandQuery}&rdquo;</span> in tutto il CRM
+                      </span>
+                    </CommandItem>
+                  </CommandGroup>
+                )}
+              </>
+            )}
+
           </CommandList>
         </Command>
       </CommandDialog>

@@ -10,9 +10,8 @@ import { requireAdmin } from "@/server/auth";
 import { logger } from "@/lib/logger";
 import { ClientPackageFormSchema } from "@/schemas/package";
 import type { ClientPackageDoc } from "@/schemas/package";
-import { tsToISO } from "@/lib/utils/date";
+import { tsToISO, civilDateToEndOfDay, generateDueDates } from "@/lib/utils/date";
 import type { ActionResult } from "@/types";
-import { generateDueDates } from "@/lib/utils/date";
 import { splitInCents } from "@/lib/utils/money";
 import { getClient } from "./clients";
 
@@ -120,6 +119,10 @@ export async function purchasePackage(
         const count = data.installmentsCount ?? 1;
         const firstDue = data.firstDueDate ?? new Date().toISOString().slice(0, 10);
         const period = data.installmentPeriod ?? "monthly";
+        const accontoCents = (data.accontoCents as number | undefined) ?? 0;
+        const hasAcconto = accontoCents > 0 && count > 1;
+        const remaining = hasAcconto ? Math.max(0, priceCents - accontoCents) : priceCents;
+        const isFullyPaid = hasAcconto && remaining === 0;
 
         const paymentRef = adminDb.collection("payments").doc();
         tx.set(paymentRef, {
@@ -127,9 +130,9 @@ export async function purchasePackage(
           source: { kind: "package", refId: cpRef.id },
           description: `Pacchetto ${data.packageNameSnapshot} – ${client.displayName}`,
           totalAmountCents: priceCents,
-          paidAmountCents: 0,
-          status: "pending",
-          installmentsCount: count,
+          paidAmountCents: hasAcconto ? (isFullyPaid ? priceCents : accontoCents) : 0,
+          status: hasAcconto ? (isFullyPaid ? "paid" : "partial") : "pending",
+          installmentsCount: hasAcconto ? (isFullyPaid ? 1 : count + 1) : count,
           version: 0,
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
@@ -139,32 +142,55 @@ export async function purchasePackage(
         // Collega payment al clientPackage
         tx.update(cpRef, { paymentId: paymentRef.id });
 
-        // Genera rate
-        const amounts = splitInCents(priceCents, count);
-        const dueDates = generateDueDates(firstDue, count, period, data.customInterval, data.customUnit);
-
-        for (let i = 0; i < count; i++) {
-          const installRef = adminDb
+        // Rata 0: acconto già pagato
+        if (hasAcconto) {
+          const accontoRef = adminDb
             .collection("payments")
             .doc(paymentRef.id)
             .collection("installments")
             .doc();
-          tx.set(installRef, {
-            index: i + 1,
-            amountCents: amounts[i] ?? 0,
-            paidAmountCents: 0,
-            dueAt: Timestamp.fromDate(dueDates[i]!),
-            status: "pending",
+          const accontoPaidAt = data.accontoDate
+            ? Timestamp.fromDate(civilDateToEndOfDay(data.accontoDate))
+            : Timestamp.now();
+          tx.set(accontoRef, {
+            index: 0,
+            amountCents: accontoCents,
+            paidAmountCents: accontoCents,
+            dueAt: accontoPaidAt,
+            paidAt: accontoPaidAt,
+            status: "paid",
             createdAt: FieldValue.serverTimestamp(),
           });
         }
 
-        // Aggiorna stats cliente
-        const clientRef = adminDb.collection("clients").doc(data.clientId);
-        tx.update(clientRef, {
-          "stats.pendingAmountCents": FieldValue.increment(priceCents),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
+        // Rate ordinarie sul residuo (o sull'intero se nessun acconto)
+        if (!isFullyPaid) {
+          const amounts = splitInCents(remaining, count);
+          const dueDates = generateDueDates(firstDue, count, period, data.customInterval, data.customUnit);
+
+          for (let i = 0; i < count; i++) {
+            const installRef = adminDb
+              .collection("payments")
+              .doc(paymentRef.id)
+              .collection("installments")
+              .doc();
+            tx.set(installRef, {
+              index: i + 1,
+              amountCents: amounts[i] ?? 0,
+              paidAmountCents: 0,
+              dueAt: Timestamp.fromDate(dueDates[i]!),
+              status: "pending",
+              createdAt: FieldValue.serverTimestamp(),
+            });
+          }
+
+          // Aggiorna stats cliente solo per il residuo pendente
+          const clientRef = adminDb.collection("clients").doc(data.clientId);
+          tx.update(clientRef, {
+            "stats.pendingAmountCents": FieldValue.increment(remaining),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        }
       }
     });
 

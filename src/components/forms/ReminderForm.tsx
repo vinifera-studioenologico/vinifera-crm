@@ -101,7 +101,7 @@ export function ReminderForm({ existing, defaultRelatedTo, onSuccess }: Props) {
         toast.error(result.error);
         if (result.fieldErrors) {
           for (const [field, messages] of Object.entries(result.fieldErrors)) {
-            form.setError(field as keyof FormInput, { message: messages[0] });
+            form.setError(field as keyof FormInput, { message: (messages as string[])[0] });
           }
         }
       }

@@ -220,6 +220,10 @@ export async function createSample(raw: unknown): Promise<ActionResult<{ id: str
         const count = data.installmentsCount ?? 1;
         const firstDue = data.firstDueDate ?? new Date().toISOString().slice(0, 10);
         const period = data.installmentPeriod ?? "monthly";
+        const accontoCents = (data.accontoCents as number | undefined) ?? 0;
+        const hasAcconto = accontoCents > 0 && count > 1;
+        const remaining = hasAcconto ? Math.max(0, estimatedTotalCents - accontoCents) : estimatedTotalCents;
+        const isFullyPaid = hasAcconto && remaining === 0;
 
         const paymentRef = adminDb.collection("payments").doc();
         tx.set(paymentRef, {
@@ -227,9 +231,9 @@ export async function createSample(raw: unknown): Promise<ActionResult<{ id: str
           source: { kind: "sample", refId: sampleRef.id, sampleCode: code },
           description: data.sampleName,
           totalAmountCents: estimatedTotalCents,
-          paidAmountCents: 0,
-          status: "pending",
-          installmentsCount: count,
+          paidAmountCents: hasAcconto ? (isFullyPaid ? estimatedTotalCents : accontoCents) : 0,
+          status: hasAcconto ? (isFullyPaid ? "paid" : "partial") : "pending",
+          installmentsCount: hasAcconto ? (isFullyPaid ? 1 : count + 1) : count,
           version: 0,
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
@@ -239,33 +243,62 @@ export async function createSample(raw: unknown): Promise<ActionResult<{ id: str
         // Collega il payment al campione
         tx.update(sampleRef, { paymentId: paymentRef.id });
 
-        // Genera rate
-        const amounts = splitInCents(estimatedTotalCents, count);
-        const dueDates = generateDueDates(firstDue, count, period, data.customInterval, data.customUnit);
-
-        for (let i = 0; i < count; i++) {
-          const installRef = adminDb
+        // Rata 0: acconto già pagato
+        if (hasAcconto) {
+          const accontoRef = adminDb
             .collection("payments")
             .doc(paymentRef.id)
             .collection("installments")
             .doc();
-          tx.set(installRef, {
-            index: i + 1,
-            amountCents: amounts[i] ?? 0,
-            paidAmountCents: 0,
-            dueAt: Timestamp.fromDate(dueDates[i]!),
-            status: "pending",
+          const accontoPaidAt = data.accontoDate
+            ? Timestamp.fromDate(civilDateToEndOfDay(data.accontoDate))
+            : Timestamp.now();
+          tx.set(accontoRef, {
+            index: 0,
+            amountCents: accontoCents,
+            paidAmountCents: accontoCents,
+            dueAt: accontoPaidAt,
+            paidAt: accontoPaidAt,
+            status: "paid",
             createdAt: FieldValue.serverTimestamp(),
           });
         }
 
-        // Aggiorna stats cliente
-        const clientRef = adminDb.collection("clients").doc(data.clientId);
-        tx.update(clientRef, {
-          "stats.pendingAmountCents": FieldValue.increment(estimatedTotalCents),
-          "stats.samplesPending": FieldValue.increment(1),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
+        // Rate ordinarie sul residuo (o sull'intero se nessun acconto)
+        if (!isFullyPaid) {
+          const amounts = splitInCents(remaining, count);
+          const dueDates = generateDueDates(firstDue, count, period, data.customInterval, data.customUnit);
+
+          for (let i = 0; i < count; i++) {
+            const installRef = adminDb
+              .collection("payments")
+              .doc(paymentRef.id)
+              .collection("installments")
+              .doc();
+            tx.set(installRef, {
+              index: i + 1,
+              amountCents: amounts[i] ?? 0,
+              paidAmountCents: 0,
+              dueAt: Timestamp.fromDate(dueDates[i]!),
+              status: "pending",
+              createdAt: FieldValue.serverTimestamp(),
+            });
+          }
+
+          // Aggiorna stats cliente solo per il residuo pendente
+          const clientRef = adminDb.collection("clients").doc(data.clientId);
+          tx.update(clientRef, {
+            "stats.pendingAmountCents": FieldValue.increment(remaining),
+            "stats.samplesPending": FieldValue.increment(1),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        } else {
+          const clientRef = adminDb.collection("clients").doc(data.clientId);
+          tx.update(clientRef, {
+            "stats.samplesPending": FieldValue.increment(1),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        }
       } else {
         // Aggiorna solo samplesPending
         const clientRef = adminDb.collection("clients").doc(data.clientId);

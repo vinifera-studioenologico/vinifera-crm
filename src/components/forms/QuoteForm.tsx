@@ -16,7 +16,7 @@ import { createQuote, updateQuote } from "@/server/actions/quotes";
 import { computeQuoteTotals } from "@/lib/calc/quote";
 import { formatEUR } from "@/lib/utils/money";
 
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -96,6 +96,7 @@ export function QuoteForm({
                 installmentPeriod: existing.paymentTerms.installmentPeriod,
                 customInterval: existing.paymentTerms.customInterval,
                 customUnit: existing.paymentTerms.customUnit,
+                accontoCents: existing.paymentTerms.accontoCents,
                 notes: existing.paymentTerms.notes ?? "",
               }
             : { installmentsCount: 1, firstDueDate: "", installmentPeriod: "monthly" as const, notes: "" },
@@ -163,7 +164,7 @@ export function QuoteForm({
         toast.error(result.error);
         if (result.fieldErrors) {
           for (const [field, messages] of Object.entries(result.fieldErrors)) {
-            form.setError(field as keyof FormInput, { message: messages[0] });
+            form.setError(field as keyof FormInput, { message: (messages as string[])[0] });
           }
         }
       }
@@ -519,6 +520,42 @@ export function QuoteForm({
                   )}
                 />
               </div>
+            )}
+
+            {(ptCount ?? 1) > 1 && (
+              <FormField
+                control={form.control}
+                name="paymentTerms.accontoCents"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Acconto concordato (€)</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                          €
+                        </span>
+                        <Input
+                          className="pl-7"
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          placeholder="0,00"
+                          {...field}
+                          value={field.value != null ? (field.value / 100).toFixed(2) : ""}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value);
+                            field.onChange(isNaN(v) ? undefined : Math.round(v * 100));
+                          }}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormDescription>
+                      Importo che il cliente paga all’inizio, prima delle rate
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
 
             <FormField

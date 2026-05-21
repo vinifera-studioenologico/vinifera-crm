@@ -338,14 +338,19 @@ export async function createManualPayment(
       const paymentRef = adminDb.collection(COL).doc();
       createdId = paymentRef.id;
 
+      const accontoCents = (data.accontoCents as number | undefined) ?? 0;
+      const hasAcconto = accontoCents > 0 && data.installmentsCount > 1;
+      const remaining = hasAcconto ? Math.max(0, totalAmountCents - accontoCents) : totalAmountCents;
+      const isFullyPaid = hasAcconto && remaining === 0;
+
       tx.set(paymentRef, {
         clientId: data.clientId,
         source: { kind: "manual" },
         description: data.description,
         totalAmountCents,
-        paidAmountCents: 0,
-        status: "pending",
-        installmentsCount: data.installmentsCount,
+        paidAmountCents: hasAcconto ? (isFullyPaid ? totalAmountCents : accontoCents) : 0,
+        status: hasAcconto ? (isFullyPaid ? "paid" : "partial") : "pending",
+        installmentsCount: hasAcconto ? (isFullyPaid ? 1 : data.installmentsCount + 1) : data.installmentsCount,
         notes: data.notes ?? null,
         version: 0,
         createdAt: FieldValue.serverTimestamp(),
@@ -353,40 +358,65 @@ export async function createManualPayment(
         createdBy: actor.uid,
       });
 
-      const amounts = splitInCents(totalAmountCents, data.installmentsCount);
-      const dueDates = generateDueDates(
-        data.firstDueDate,
-        data.installmentsCount,
-        data.installmentPeriod,
-        data.customInterval,
-        data.customUnit,
-      );
-
-      for (let i = 0; i < data.installmentsCount; i++) {
-        const installRef = adminDb
+      // Rata 0: acconto già pagato
+      if (hasAcconto) {
+        const accontoRef = adminDb
           .collection(COL)
           .doc(paymentRef.id)
           .collection("installments")
           .doc();
-        tx.set(installRef, {
-          index: i + 1,
-          amountCents: amounts[i] ?? 0,
-          paidAmountCents: 0,
-          dueAt: Timestamp.fromDate(
-            dueDates[i] ?? civilDateToEndOfDay(data.firstDueDate),
-          ),
-          status: "pending",
+        const accontoPaidAt = data.accontoDate
+          ? Timestamp.fromDate(civilDateToEndOfDay(data.accontoDate))
+          : Timestamp.now();
+        tx.set(accontoRef, {
+          index: 0,
+          amountCents: accontoCents,
+          paidAmountCents: accontoCents,
+          dueAt: accontoPaidAt,
+          paidAt: accontoPaidAt,
+          status: "paid",
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
         });
       }
 
-      // Aggiorna stats cliente
-      const clientRef = adminDb.collection("clients").doc(data.clientId);
-      tx.update(clientRef, {
-        "stats.pendingAmountCents": FieldValue.increment(totalAmountCents),
-        updatedAt: FieldValue.serverTimestamp(),
-      });
+      // Rate ordinarie sul residuo (o sull'intero se nessun acconto)
+      if (!isFullyPaid) {
+        const amounts = splitInCents(remaining, data.installmentsCount);
+        const dueDates = generateDueDates(
+          data.firstDueDate,
+          data.installmentsCount,
+          data.installmentPeriod,
+          data.customInterval,
+          data.customUnit,
+        );
+
+        for (let i = 0; i < data.installmentsCount; i++) {
+          const installRef = adminDb
+            .collection(COL)
+            .doc(paymentRef.id)
+            .collection("installments")
+            .doc();
+          tx.set(installRef, {
+            index: i + 1,
+            amountCents: amounts[i] ?? 0,
+            paidAmountCents: 0,
+            dueAt: Timestamp.fromDate(
+              dueDates[i] ?? civilDateToEndOfDay(data.firstDueDate),
+            ),
+            status: "pending",
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        }
+
+        // Aggiorna stats cliente solo per il residuo pendente
+        const clientRef = adminDb.collection("clients").doc(data.clientId);
+        tx.update(clientRef, {
+          "stats.pendingAmountCents": FieldValue.increment(remaining),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
     });
 
     revalidatePath(`/clients/${data.clientId}/payments`);

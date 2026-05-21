@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { zNonEmptyString, zCents } from "./validators";
+import { zNonEmptyString, zCents, zEurInput } from "./validators";
 
 // ── Status campione ───────────────────────────────────────────────────
 export const SampleStatusSchema = z.enum([
@@ -51,12 +51,16 @@ export const SamplePaymentFormSchema = z.object({
   installmentPeriod: z.enum(["monthly", "biweekly", "custom"]).optional(),
   customInterval: z.number().int().min(1).optional(),
   customUnit: z.enum(["days", "months", "years"]).optional(),
+  accontoCents: zEurInput.optional(), // acconto già incassato — crea rata 0 già pagata
+  accontoDate: z.string().optional(),  // "YYYY-MM-DD" — data pagamento acconto
 });
 
 export type SamplePaymentFormValues = z.infer<typeof SamplePaymentFormSchema>;
 
 // ── Schema completo form campione (usato per invio finale) ────────────
-export const SampleFormSchema = SampleBaseFormSchema.merge(SampleItemsFormSchema).merge(SamplePaymentFormSchema);
+export const SampleFormSchema = SampleBaseFormSchema
+  .merge(SampleItemsFormSchema)
+  .merge(SamplePaymentFormSchema);
 
 export type SampleFormValues = z.infer<typeof SampleFormSchema>;
 
