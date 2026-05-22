@@ -19,6 +19,7 @@ import { formatEUR } from "@/lib/utils/money";
 import { cn } from "@/lib/utils";
 
 import { DataTable } from "@/components/data-table/DataTable";
+import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import { PackageForm } from "@/components/forms/PackageForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -249,6 +250,17 @@ export function PackagesClient({ initialData }: Props) {
           />
         </div>
         <div className="flex items-center gap-2 md:ml-auto">
+          <CsvExportButton
+            data={filtered}
+            columns={[
+              { header: "Nome", accessor: (p: PackageDoc) => p.name },
+              { header: "Descrizione", accessor: (p: PackageDoc) => p.description ?? "" },
+              { header: "N. analisi", accessor: (p: PackageDoc) => String(p.totalAnalyses) },
+              { header: "Prezzo (\u20ac)", accessor: (p: PackageDoc) => (p.priceCents / 100).toFixed(2).replace(".", ",") },
+              { header: "Stato", accessor: (p: PackageDoc) => p.active ? "Attivo" : "Inattivo" },
+            ]}
+            filenamePrefix="pacchetti"
+          />
           <Label htmlFor="show-archived-pkg" className="text-sm text-muted-foreground cursor-pointer">
             Mostra archiviati
           </Label>

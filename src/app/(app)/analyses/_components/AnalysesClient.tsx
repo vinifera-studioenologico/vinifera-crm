@@ -19,6 +19,7 @@ import { formatEUR } from "@/lib/utils/money";
 import { cn } from "@/lib/utils";
 
 import { DataTable } from "@/components/data-table/DataTable";
+import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import { AnalysisForm } from "@/components/forms/AnalysisForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -269,6 +270,18 @@ export function AnalysesClient({ initialData }: Props) {
           />
         </div>
         <div className="flex items-center gap-2 md:ml-auto">
+          <CsvExportButton
+            data={filtered}
+            columns={[
+              { header: "Codice", accessor: (a: AnalysisDoc) => a.code },
+              { header: "Nome", accessor: (a: AnalysisDoc) => a.name },
+              { header: "Categoria", accessor: (a: AnalysisDoc) => a.category ?? "" },
+              { header: "Prezzo (\u20ac)", accessor: (a: AnalysisDoc) => (a.defaultPriceCents / 100).toFixed(2).replace(".", ",") },
+              { header: "Unit\u00e0", accessor: (a: AnalysisDoc) => a.unit ?? "" },
+              { header: "Stato", accessor: (a: AnalysisDoc) => a.active ? "Attiva" : "Inattiva" },
+            ]}
+            filenamePrefix="analisi"
+          />
           <Label htmlFor="show-archived" className="text-sm text-muted-foreground cursor-pointer">
             Mostra archiviate
           </Label>

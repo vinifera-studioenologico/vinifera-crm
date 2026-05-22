@@ -12,6 +12,7 @@ import { formatDate } from "@/lib/utils/date";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { sharePdf } from "@/lib/utils/share";
 import { DataTable } from "@/components/data-table/DataTable";
+import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -224,13 +225,26 @@ export function ReportsClient({ initialData }: Props) {
       </div>
 
       {/* Ricerca */}
-      <div className="relative w-full md:max-w-sm">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-        <Input
-          placeholder="Cerca per numero o cliente..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-8"
+      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="relative w-full md:max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Cerca per numero o cliente..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        <CsvExportButton
+          data={filtered}
+          columns={[
+            { header: "Numero", accessor: (r: ReportDoc) => r.number },
+            { header: "Cliente", accessor: (r: ReportDoc) => r.clientSnapshot.displayName },
+            { header: "Email cliente", accessor: (r: ReportDoc) => r.clientSnapshot.email ?? "" },
+            { header: "N. campioni", accessor: (r: ReportDoc) => String(r.sampleIds.length) },
+            { header: "Generato il", accessor: (r: ReportDoc) => r.generatedAt ? formatDate(r.generatedAt as Parameters<typeof formatDate>[0]) : "" },
+          ]}
+          filenamePrefix="referti"
         />
       </div>
 

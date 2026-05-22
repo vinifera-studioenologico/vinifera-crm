@@ -15,6 +15,7 @@ import { formatEUR } from "@/lib/utils/money";
 import { QuoteForm } from "@/components/forms/QuoteForm";
 import { QuoteStatusBadge } from "@/components/widgets/QuoteStatusBadge";
 import { Button } from "@/components/ui/button";
+import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import {
   Sheet,
   SheetContent,
@@ -73,33 +74,45 @@ export function ClientQuotesClient({
         <h2 className="text-sm font-semibold text-foreground">
           Preventivi ({quotes.length})
         </h2>
-        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <SheetTrigger
-            render={
-              <Button size="sm">
-                <Plus className="size-3.5" strokeWidth={1.75} />
-                Nuovo preventivo
-              </Button>
-            }
+        <div className="flex items-center gap-2">
+          <CsvExportButton
+            data={quotes}
+            columns={[
+              { header: "Numero", accessor: (q: QuoteDoc) => q.number },
+              { header: "Stato", accessor: (q: QuoteDoc) => ({ draft: "Bozza", pending_approval: "In approvazione", approved: "Approvato", rejected: "Rifiutato", cancelled: "Annullato" } as Record<string, string>)[q.status] ?? q.status },
+              { header: "Totale (\u20ac)", accessor: (q: QuoteDoc) => (q.totalCents / 100).toFixed(2).replace(".", ",") },
+              { header: "Note", accessor: (q: QuoteDoc) => q.notes ?? "" },
+            ]}
+            filenamePrefix="preventivi_cliente"
           />
-          <SheetContent side="right" className="overflow-y-auto">
-            <SheetHeader className="mb-6">
-              <SheetTitle>Nuovo preventivo — {client.displayName}</SheetTitle>
-            </SheetHeader>
-            <QuoteForm
-              clients={[client]}
-              analyses={analyses}
-              packages={packages}
-              defaultClientId={client.id}
-              defaultEnpaiaApplied={defaultEnpaiaApplied}
-              defaultEnpaiaPercent={defaultEnpaiaPercent}
-              onSuccess={(id) => {
-                setSheetOpen(false);
-                router.push(`/quotes/${id}`);
-              }}
+          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+            <SheetTrigger
+              render={
+                <Button size="sm">
+                  <Plus className="size-3.5" strokeWidth={1.75} />
+                  Nuovo preventivo
+                </Button>
+              }
             />
-          </SheetContent>
-        </Sheet>
+            <SheetContent side="right" className="overflow-y-auto">
+              <SheetHeader className="mb-6">
+                <SheetTitle>Nuovo preventivo — {client.displayName}</SheetTitle>
+              </SheetHeader>
+              <QuoteForm
+                clients={[client]}
+                analyses={analyses}
+                packages={packages}
+                defaultClientId={client.id}
+                defaultEnpaiaApplied={defaultEnpaiaApplied}
+                defaultEnpaiaPercent={defaultEnpaiaPercent}
+                onSuccess={(id) => {
+                  setSheetOpen(false);
+                  router.push(`/quotes/${id}`);
+                }}
+              />
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
 
       {quotes.length === 0 ? (

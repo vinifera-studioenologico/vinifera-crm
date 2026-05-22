@@ -9,6 +9,7 @@ import type { PaymentDoc, PaymentStatus } from "@/schemas/payment";
 import { formatEUR } from "@/lib/utils/money";
 import { formatDate } from "@/lib/utils/date";
 import { DataTable } from "@/components/data-table/DataTable";
+import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -231,6 +232,19 @@ export function PaymentsClient({ initialData }: Props) {
           </div>
         )}
         <div className="flex items-center gap-2 md:ml-auto">
+          <CsvExportButton
+            data={filtered}
+            columns={[
+              { header: "Descrizione", accessor: (p: PaymentDoc) => p.description },
+              { header: "Stato", accessor: (p: PaymentDoc) => STATUS_CONFIG[p.status].label },
+              { header: "Importo totale (\u20ac)", accessor: (p: PaymentDoc) => (p.totalAmountCents / 100).toFixed(2).replace(".", ",") },
+              { header: "Incassato (\u20ac)", accessor: (p: PaymentDoc) => (p.paidAmountCents / 100).toFixed(2).replace(".", ",") },
+              { header: "Residuo (\u20ac)", accessor: (p: PaymentDoc) => ((p.totalAmountCents - p.paidAmountCents) / 100).toFixed(2).replace(".", ",") },
+              { header: "N. rate", accessor: (p: PaymentDoc) => String(p.installmentsCount) },
+              { header: "Creato il", accessor: (p: PaymentDoc) => p.createdAt ? formatDate(p.createdAt as Parameters<typeof formatDate>[0]) : "" },
+            ]}
+            filenamePrefix="pagamenti"
+          />
           <Label htmlFor="show-cancelled" className="text-sm text-muted-foreground cursor-pointer">
             Mostra annullati
           </Label>

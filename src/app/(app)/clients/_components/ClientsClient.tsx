@@ -20,6 +20,7 @@ import { archiveClient, restoreClient } from "@/server/actions/clients";
 import { cn } from "@/lib/utils";
 
 import { DataTable } from "@/components/data-table/DataTable";
+import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import { ClientForm } from "@/components/forms/ClientForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -301,6 +302,18 @@ export function ClientsClient({ initialData }: Props) {
           />
         </div>
         <div className="flex items-center gap-2 md:ml-auto">
+          <CsvExportButton
+            data={filtered}
+            columns={[
+              { header: "Nome", accessor: (c: ClientDoc) => c.displayName },
+              { header: "Tipo", accessor: (c: ClientDoc) => c.type === "business" ? "Azienda" : "Privato" },
+              { header: "Email", accessor: (c: ClientDoc) => c.email },
+              { header: "P.IVA / CF", accessor: (c: ClientDoc) => c.type === "business" ? c.vatNumber : (c.taxCode ?? "") },
+              { header: "Telefono", accessor: (c: ClientDoc) => c.phone ?? "" },
+              { header: "Pendente (\u20ac)", accessor: (c: ClientDoc) => (c.stats.pendingAmountCents / 100).toFixed(2).replace(".", ",") },
+            ]}
+            filenamePrefix="clienti"
+          />
           <Label
             htmlFor="show-archived-clients"
             className="text-sm text-muted-foreground cursor-pointer"

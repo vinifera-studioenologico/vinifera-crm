@@ -14,6 +14,7 @@ import { formatDate } from "@/lib/utils/date";
 import { SampleWizard } from "@/components/forms/SampleWizard";
 import { SampleStatusBadge } from "@/components/widgets/SampleStatusBadge";
 import { Button } from "@/components/ui/button";
+import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import {
   Sheet,
   SheetContent,
@@ -56,31 +57,45 @@ export function ClientSamplesClient({ client, initialSamples, analyses }: Props)
         <h2 className="text-sm font-semibold text-foreground">
           Campioni ({samples.length})
         </h2>
-        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <SheetTrigger
-            render={
-              <Button size="sm" onClick={handleOpenSheet}>
-                <Plus className="size-3.5" strokeWidth={1.75} />
-                Nuovo campione
-              </Button>
-            }
+        <div className="flex items-center gap-2">
+          <CsvExportButton
+            data={samples}
+            columns={[
+              { header: "Codice", accessor: (s: SampleDoc) => s.code },
+              { header: "Campione", accessor: (s: SampleDoc) => s.sampleName },
+              { header: "Stato", accessor: (s: SampleDoc) => s.status },
+              { header: "N. analisi", accessor: (s: SampleDoc) => String(s.items.length) },
+              { header: "Totale stimato (\u20ac)", accessor: (s: SampleDoc) => (s.estimatedTotalCents / 100).toFixed(2).replace(".", ",") },
+              { header: "Ricevuto il", accessor: (s: SampleDoc) => s.receivedAt ? formatDate(s.receivedAt as Parameters<typeof formatDate>[0]) : "" },
+            ]}
+            filenamePrefix="campioni_cliente"
           />
-          <SheetContent side="right" className="overflow-y-auto">
-            <SheetHeader className="mb-6">
-              <SheetTitle>Nuovo campione — {client.displayName}</SheetTitle>
-            </SheetHeader>
-            <SampleWizard
-              clients={[client]}
-              analyses={analyses}
-              activePackages={activePkgs}
-              defaultClientId={client.id}
-              onSuccess={(id) => {
-                setSheetOpen(false);
-                router.push(`/samples/${id}`);
-              }}
+          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+            <SheetTrigger
+              render={
+                <Button size="sm" onClick={handleOpenSheet}>
+                  <Plus className="size-3.5" strokeWidth={1.75} />
+                  Nuovo campione
+                </Button>
+              }
             />
-          </SheetContent>
-        </Sheet>
+            <SheetContent side="right" className="overflow-y-auto">
+              <SheetHeader className="mb-6">
+                <SheetTitle>Nuovo campione — {client.displayName}</SheetTitle>
+              </SheetHeader>
+              <SampleWizard
+                clients={[client]}
+                analyses={analyses}
+                activePackages={activePkgs}
+                defaultClientId={client.id}
+                onSuccess={(id) => {
+                  setSheetOpen(false);
+                  router.push(`/samples/${id}`);
+                }}
+              />
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
 
       {samples.length === 0 ? (

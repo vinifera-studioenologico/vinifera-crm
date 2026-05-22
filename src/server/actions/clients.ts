@@ -255,3 +255,96 @@ export async function restoreClient(id: string): Promise<ActionResult<void>> {
     return { success: false, error: "Errore durante il ripristino. Riprova." };
   }
 }
+
+// ── Esporta tutti i dati del cliente (GDPR Art. 15 / Art. 20) ─────────
+export async function exportClientData(
+  clientId: string,
+): Promise<ActionResult<Record<string, unknown>>> {
+  await requireAdmin();
+
+  function serializeValue(value: unknown): unknown {
+    if (value == null) return value;
+    if (typeof value === "object") {
+      const v = value as Record<string, unknown>;
+      if (typeof v["toDate"] === "function") {
+        return (v["toDate"] as () => Date)().toISOString();
+      }
+      if (Array.isArray(value)) return (value as unknown[]).map(serializeValue);
+      const result: Record<string, unknown> = {};
+      for (const [k, val] of Object.entries(v)) result[k] = serializeValue(val);
+      return result;
+    }
+    return value;
+  }
+
+  function toDoc(
+    snap: FirebaseFirestore.DocumentSnapshot,
+  ): Record<string, unknown> {
+    return {
+      id: snap.id,
+      ...(serializeValue(snap.data()!) as Record<string, unknown>),
+    };
+  }
+
+  try {
+    const clientSnap = await adminDb.collection("clients").doc(clientId).get();
+    if (!clientSnap.exists) return { success: false, error: "Cliente non trovato" };
+
+    const [samples, payments, quotes, reports, packages, reminders] =
+      await Promise.all([
+        adminDb
+          .collection("samples")
+          .where("clientId", "==", clientId)
+          .orderBy("createdAt", "desc")
+          .limit(500)
+          .get(),
+        adminDb
+          .collection("payments")
+          .where("clientId", "==", clientId)
+          .orderBy("createdAt", "desc")
+          .limit(500)
+          .get(),
+        adminDb
+          .collection("quotes")
+          .where("clientId", "==", clientId)
+          .orderBy("createdAt", "desc")
+          .limit(500)
+          .get(),
+        adminDb
+          .collection("reports")
+          .where("clientId", "==", clientId)
+          .orderBy("createdAt", "desc")
+          .limit(500)
+          .get(),
+        adminDb
+          .collection("clientPackages")
+          .where("clientId", "==", clientId)
+          .limit(500)
+          .get(),
+        adminDb
+          .collection("reminders")
+          .where("relatedTo.kind", "==", "client")
+          .where("relatedTo.id", "==", clientId)
+          .orderBy("dueAt", "desc")
+          .limit(500)
+          .get(),
+      ]);
+
+    return {
+      success: true,
+      data: {
+        exportedAt: new Date().toISOString(),
+        cliente: toDoc(clientSnap),
+        campioni: samples.docs.map(toDoc),
+        pagamenti: payments.docs.map(toDoc),
+        preventivi: quotes.docs.map(toDoc),
+        referti: reports.docs.map(toDoc),
+        pacchetti: packages.docs.map(toDoc),
+        promemoria: reminders.docs.map(toDoc),
+      },
+    };
+  } catch (err) {
+    logger.error("Errore export dati cliente", err);
+    return { success: false, error: "Errore durante l'esportazione. Riprova." };
+  }
+}

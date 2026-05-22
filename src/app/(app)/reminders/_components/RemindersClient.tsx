@@ -25,6 +25,7 @@ import {
 
 import { ReminderForm } from "@/components/forms/ReminderForm";
 import { Button } from "@/components/ui/button";
+import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -387,6 +388,18 @@ export function RemindersClient({ initialData, defaultClientId }: Props) {
             </Button>
           ))}
         </div>
+        <CsvExportButton
+          data={filtered}
+          columns={[
+            { header: "Titolo", accessor: (r: ReminderDoc) => r.title },
+            { header: "Descrizione", accessor: (r: ReminderDoc) => r.description ?? "" },
+            { header: "Stato", accessor: (r: ReminderDoc) => STATUS_CONFIG[r.status].label },
+            { header: "Scadenza", accessor: (r: ReminderDoc) => r.dueAt ? formatDueAt(r.dueAt) : "" },
+            { header: "Telegram", accessor: (r: ReminderDoc) => r.notifyChannels.telegram ? "S\u00ec" : "No" },
+            { header: "Email", accessor: (r: ReminderDoc) => r.notifyChannels.email ? "S\u00ec" : "No" },
+          ]}
+          filenamePrefix="promemoria"
+        />
       </div>
 
       {/* Lista */}

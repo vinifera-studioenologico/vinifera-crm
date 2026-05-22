@@ -9,12 +9,13 @@ import {
   Pencil,
   Archive,
   RotateCcw,
+  FileDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
 import type { ClientDoc } from "@/schemas/client";
-import { archiveClient, restoreClient } from "@/server/actions/clients";
+import { archiveClient, restoreClient, exportClientData } from "@/server/actions/clients";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
@@ -79,6 +81,28 @@ export function ClientDetailHeader({ client }: Props) {
       if (result.success) {
         toast.success("Cliente ripristinato");
         router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
+  function handleExport() {
+    startTransition(async () => {
+      const result = await exportClientData(client.id);
+      if (result.success) {
+        const blob = new Blob(
+          [JSON.stringify(result.data, null, 2)],
+          { type: "application/json;charset=utf-8" },
+        );
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const safeName = client.displayName.replace(/[^a-z0-9]/gi, "_");
+        a.href = url;
+        a.download = `dati_cliente_${safeName}_${dateStr}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
       } else {
         toast.error(result.error);
       }
@@ -174,6 +198,11 @@ export function ClientDetailHeader({ client }: Props) {
               </Button>
             } />
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExport}>
+                <FileDown className="size-3.5" strokeWidth={1.75} />
+                Esporta dati (GDPR)
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               {client.deletedAt === null ? (
                 <DropdownMenuItem
                   className="text-destructive"

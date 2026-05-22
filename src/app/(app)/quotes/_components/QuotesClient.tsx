@@ -25,6 +25,7 @@ import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { sharePdf } from "@/lib/utils/share";
 
 import { DataTable } from "@/components/data-table/DataTable";
+import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import { QuoteForm } from "@/components/forms/QuoteForm";
 import { QuoteStatusBadge } from "@/components/widgets/QuoteStatusBadge";
 import { Button } from "@/components/ui/button";
@@ -304,6 +305,18 @@ export function QuotesClient({ initialData, clients, analyses, packages, default
             ),
           )}
         </div>
+        <CsvExportButton
+          data={filtered}
+          columns={[
+            { header: "Numero", accessor: (q: QuoteDoc) => q.number },
+            { header: "Cliente", accessor: (q: QuoteDoc) => q.clientSnapshot.displayName },
+            { header: "Email cliente", accessor: (q: QuoteDoc) => q.clientSnapshot.email ?? "" },
+            { header: "Stato", accessor: (q: QuoteDoc) => STATUS_LABELS[q.status] },
+            { header: "Totale (\u20ac)", accessor: (q: QuoteDoc) => (q.totalCents / 100).toFixed(2).replace(".", ",") },
+            { header: "Note", accessor: (q: QuoteDoc) => q.notes ?? "" },
+          ]}
+          filenamePrefix="preventivi"
+        />
       </div>
 
       {/* Tabella / empty state */}

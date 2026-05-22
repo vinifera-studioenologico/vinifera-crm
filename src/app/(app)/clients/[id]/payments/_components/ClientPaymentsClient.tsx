@@ -32,6 +32,7 @@ import { formatDate } from "@/lib/utils/date";
 
 import { MarkInstallmentPaidForm } from "@/components/forms/MarkInstallmentPaidForm";
 import { Button } from "@/components/ui/button";
+import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -592,28 +593,43 @@ export function ClientPaymentsClient({ client, initialPayments }: Props) {
         <h2 className="text-sm font-semibold text-foreground">
           Pagamenti ({initialPayments.length})
         </h2>
-        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <SheetTrigger
-            render={
-              <Button size="sm">
-                <Plus className="size-3.5" strokeWidth={1.75} />
-                Nuovo pagamento
-              </Button>
-            }
+        <div className="flex items-center gap-2">
+          <CsvExportButton
+            data={initialPayments}
+            columns={[
+              { header: "Descrizione", accessor: (p: PaymentDoc) => p.description },
+              { header: "Stato", accessor: (p: PaymentDoc) => PAYMENT_STATUS_CONFIG[p.status].label },
+              { header: "Importo totale (\u20ac)", accessor: (p: PaymentDoc) => (p.totalAmountCents / 100).toFixed(2).replace(".", ",") },
+              { header: "Incassato (\u20ac)", accessor: (p: PaymentDoc) => (p.paidAmountCents / 100).toFixed(2).replace(".", ",") },
+              { header: "Residuo (\u20ac)", accessor: (p: PaymentDoc) => ((p.totalAmountCents - p.paidAmountCents) / 100).toFixed(2).replace(".", ",") },
+              { header: "N. rate", accessor: (p: PaymentDoc) => String(p.installmentsCount) },
+              { header: "Creato il", accessor: (p: PaymentDoc) => p.createdAt ? formatDate(p.createdAt as Parameters<typeof formatDate>[0]) : "" },
+            ]}
+            filenamePrefix="pagamenti_cliente"
           />
-          <SheetContent side="right" className="overflow-y-auto">
-            <SheetHeader className="mb-6">
-              <SheetTitle>Pagamento manuale — {client.displayName}</SheetTitle>
-            </SheetHeader>
-            <ManualPaymentForm
-              clientId={client.id}
-              onSuccess={() => {
-                setSheetOpen(false);
-                router.refresh();
-              }}
+          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+            <SheetTrigger
+              render={
+                <Button size="sm">
+                  <Plus className="size-3.5" strokeWidth={1.75} />
+                  Nuovo pagamento
+                </Button>
+              }
             />
-          </SheetContent>
-        </Sheet>
+            <SheetContent side="right" className="overflow-y-auto">
+              <SheetHeader className="mb-6">
+                <SheetTitle>Pagamento manuale — {client.displayName}</SheetTitle>
+              </SheetHeader>
+              <ManualPaymentForm
+                clientId={client.id}
+                onSuccess={() => {
+                  setSheetOpen(false);
+                  router.refresh();
+                }}
+              />
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
 
       {/* Lista pagamenti */}

@@ -13,6 +13,7 @@ import { formatDate } from "@/lib/utils/date";
 
 import { ClientPackageForm } from "@/components/forms/ClientPackageForm";
 import { Button } from "@/components/ui/button";
+import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import { Badge } from "@/components/ui/badge";
 import {
   Sheet,
@@ -106,27 +107,40 @@ export function ClientPackagesClient({
         <h2 className="text-sm font-semibold text-foreground">
           Pacchetti cliente ({initialPackages.length})
         </h2>
-        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <SheetTrigger
-            render={
-              <Button size="sm">
-                <Plus className="size-3.5" strokeWidth={1.75} />
-                Acquista pacchetto
-              </Button>
-            }
+        <div className="flex items-center gap-2">
+          <CsvExportButton
+            data={initialPackages}
+            columns={[
+              { header: "Pacchetto", accessor: (p: ClientPackageDoc) => p.packageNameSnapshot },
+              { header: "Stato", accessor: (p: ClientPackageDoc) => STATUS_CONFIG[p.status].label },
+              { header: "Analisi totali", accessor: (p: ClientPackageDoc) => String(p.totalAnalyses) },
+              { header: "Analisi residue", accessor: (p: ClientPackageDoc) => String(p.remainingAnalyses) },
+              { header: "Prezzo (\u20ac)", accessor: (p: ClientPackageDoc) => (p.priceCents / 100).toFixed(2).replace(".", ",") },
+            ]}
+            filenamePrefix="pacchetti_cliente"
           />
-          <SheetContent side="right" className="overflow-y-auto">
-            <SheetHeader className="mb-6">
-              <SheetTitle>Acquista pacchetto — {client.displayName}</SheetTitle>
-            </SheetHeader>
-            <ClientPackageForm
-              clientId={client.id}
-              clientName={client.displayName}
-              packages={packageTemplates}
-              onSuccess={handlePurchaseSuccess}
+          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+            <SheetTrigger
+              render={
+                <Button size="sm">
+                  <Plus className="size-3.5" strokeWidth={1.75} />
+                  Acquista pacchetto
+                </Button>
+              }
             />
-          </SheetContent>
-        </Sheet>
+            <SheetContent side="right" className="overflow-y-auto">
+              <SheetHeader className="mb-6">
+                <SheetTitle>Acquista pacchetto — {client.displayName}</SheetTitle>
+              </SheetHeader>
+              <ClientPackageForm
+                clientId={client.id}
+                clientName={client.displayName}
+                packages={packageTemplates}
+                onSuccess={handlePurchaseSuccess}
+              />
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
 
       {/* Empty state */}

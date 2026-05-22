@@ -12,6 +12,7 @@ import { formatEUR } from "@/lib/utils/money";
 import { formatDate } from "@/lib/utils/date";
 
 import { DataTable } from "@/components/data-table/DataTable";
+import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import { SampleWizard } from "@/components/forms/SampleWizard";
 import { SampleStatusBadge } from "@/components/widgets/SampleStatusBadge";
 import { Button } from "@/components/ui/button";
@@ -210,6 +211,19 @@ export function SamplesClient({ initialData, clients, analyses }: Props) {
             ),
           )}
         </div>
+        <CsvExportButton
+          data={filtered}
+          columns={[
+            { header: "Codice", accessor: (s: SampleDoc) => s.code },
+            { header: "Campione", accessor: (s: SampleDoc) => s.sampleName },
+            { header: "Cliente", accessor: (s: SampleDoc) => s.clientNameSnapshot },
+            { header: "Stato", accessor: (s: SampleDoc) => STATUS_LABELS[s.status] },
+            { header: "N. analisi", accessor: (s: SampleDoc) => String(s.items.length) },
+            { header: "Totale stimato (\u20ac)", accessor: (s: SampleDoc) => (s.estimatedTotalCents / 100).toFixed(2).replace(".", ",") },
+            { header: "Ricevuto il", accessor: (s: SampleDoc) => s.receivedAt ? formatDate(s.receivedAt as Parameters<typeof formatDate>[0]) : "" },
+          ]}
+          filenamePrefix="campioni"
+        />
       </div>
 
       {/* Tabella / empty state */}
