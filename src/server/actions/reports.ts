@@ -257,9 +257,10 @@ export async function sendReportByEmail(
     const fromEmail = process.env.RESEND_FROM_EMAIL ?? "noreply@vinifera.app";
     const subject = opts.subject ?? `Referto ${report.number} — ${report.clientSnapshot.displayName}`;
     const bodyText = opts.body ?? `In allegato il referto ${report.number}.\n\nGrazie per aver scelto il nostro laboratorio.`;
+    const clientSlug = report.clientSnapshot.displayName.replace(/\s+/g, '_').replace(/[/\\:*?"<>|]/g, '');
     const filename = isCommercial
-      ? `referto-commerciale-${report.number}.pdf`
-      : `referto-${report.number}.pdf`;
+      ? `referto-commerciale-${report.number}_${clientSlug}.pdf`
+      : `referto-${report.number}_${clientSlug}.pdf`;
 
     await resend.emails.send({
       from: fromEmail,

@@ -31,11 +31,13 @@ export async function GET(
       return NextResponse.json({ error: "Referto non trovato" }, { status: 404 });
     }
 
+    const clientSlug = report.clientSnapshot.displayName.replace(/\s+/g, '_').replace(/[\/\\:*?"<>|]/g, '');
+
     // Il PDF tecnico pre-generato su Storage — proxy diretto (no redirect, evita CORS)
     if (!isCommercial && report.pdfStorageRef) {
       const bucket = adminStorage.bucket();
       const [buffer] = await bucket.file(report.pdfStorageRef).download();
-      const filename = `referto-${report.number}.pdf`;
+      const filename = `referto-${report.number}_${clientSlug}.pdf`;
       return new NextResponse(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer, {
         headers: {
           "Content-Type": "application/pdf",
@@ -70,8 +72,8 @@ export async function GET(
     const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
 
     const filename = isCommercial
-      ? `referto-commerciale-${report.number}.pdf`
-      : `referto-${report.number}.pdf`;
+      ? `referto-commerciale-${report.number}_${clientSlug}.pdf`
+      : `referto-${report.number}_${clientSlug}.pdf`;
 
     return new NextResponse(arrayBuffer, {
       headers: {

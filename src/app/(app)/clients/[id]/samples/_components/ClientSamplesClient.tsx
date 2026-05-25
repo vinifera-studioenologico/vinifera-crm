@@ -20,7 +20,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 
 interface ActivePkg {
@@ -71,14 +70,6 @@ export function ClientSamplesClient({ client, initialSamples, analyses }: Props)
             filenamePrefix="campioni_cliente"
           />
           <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-            <SheetTrigger
-              render={
-                <Button size="sm" onClick={handleOpenSheet}>
-                  <Plus className="size-3.5" strokeWidth={1.75} />
-                  Nuovo campione
-                </Button>
-              }
-            />
             <SheetContent side="right" className="overflow-y-auto">
               <SheetHeader className="mb-6">
                 <SheetTitle>Nuovo campione — {client.displayName}</SheetTitle>
@@ -95,6 +86,10 @@ export function ClientSamplesClient({ client, initialSamples, analyses }: Props)
               />
             </SheetContent>
           </Sheet>
+          <Button size="sm" onClick={handleOpenSheet}>
+            <Plus className="size-3.5" strokeWidth={1.75} />
+            Nuovo campione
+          </Button>
         </div>
       </div>
 

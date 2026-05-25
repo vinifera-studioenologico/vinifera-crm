@@ -404,7 +404,8 @@ export async function sendQuoteByEmail(
     const fromEmail = process.env.RESEND_FROM_EMAIL ?? "noreply@vinifera.app";
     const subject = opts.subject ?? `Preventivo ${quote.number} — ${quote.clientSnapshot.displayName}`;
     const bodyText = opts.body ?? `In allegato il preventivo ${quote.number}.\n\nGrazie per aver scelto il nostro laboratorio.`;
-    const filename = `preventivo-${quote.number.replace("/", "-")}.pdf`;
+    const clientSlug = quote.clientSnapshot.displayName.replace(/\s+/g, '_').replace(/[/\\:*?"<>|]/g, '');
+    const filename = `preventivo-${quote.number.replace("/", "-")}_${clientSlug}.pdf`;
 
     await resend.emails.send({
       from: fromEmail,

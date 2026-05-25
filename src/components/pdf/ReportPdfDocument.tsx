@@ -256,6 +256,28 @@ export function ReportPdfDocument({
           </View>
         </View>
 
+        {/* ── SALDO PACCHETTI ATTIVI ── */}
+        {clientPackages && clientPackages.length > 0 && (
+          <View style={S.packagesSection}>
+            <View style={S.packagesSectionHeader}>
+              <Text style={S.packagesSectionTitle}>Saldo pacchetti attivi</Text>
+              <Text style={S.packagesSectionSub}>al momento dell&apos;emissione del referto</Text>
+            </View>
+            {clientPackages.map((pkg, i) => {
+              const used = pkg.totalAnalyses - pkg.remainingAnalyses;
+              return (
+                <View key={pkg.id} style={[S.packageRow, i % 2 === 1 ? S.packageRowAlt : {}]}>
+                  <Text style={S.packageName}>{pkg.packageNameSnapshot}</Text>
+                  <Text style={S.packageProgress}>{used}/{pkg.totalAnalyses} utilizzate</Text>
+                  <Text style={S.packageRemaining}>
+                    {pkg.remainingAnalyses} residue
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {/* ── CAMPIONI ── */}
         {samples.map((sample) => (
           <View key={sample.id} style={S.sampleCard} wrap={false}>
@@ -313,28 +335,6 @@ export function ReportPdfDocument({
             )}
           </View>
         ))}
-
-        {/* ── PACCHETTI ATTIVI ── */}
-        {clientPackages && clientPackages.length > 0 && (
-          <View style={S.packagesSection}>
-            <View style={S.packagesSectionHeader}>
-              <Text style={S.packagesSectionTitle}>Saldo pacchetti attivi</Text>
-              <Text style={S.packagesSectionSub}>al momento dell&apos;emissione del referto</Text>
-            </View>
-            {clientPackages.map((pkg, i) => {
-              const used = pkg.totalAnalyses - pkg.remainingAnalyses;
-              return (
-                <View key={pkg.id} style={[S.packageRow, i % 2 === 1 ? S.packageRowAlt : {}]}>
-                  <Text style={S.packageName}>{pkg.packageNameSnapshot}</Text>
-                  <Text style={S.packageProgress}>{used}/{pkg.totalAnalyses} utilizzate</Text>
-                  <Text style={S.packageRemaining}>
-                    {pkg.remainingAnalyses} residue
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        )}
 
         {/* ── NOTE REFERTO ── */}
         {notes && (

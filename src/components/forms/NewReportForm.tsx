@@ -53,6 +53,7 @@ export function NewReportForm({ clients, completedSamples }: Props) {
   const [isPending, startTransition] = useTransition();
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [createdNumber, setCreatedNumber] = useState<string | null>(null);
+  const [createdClientName, setCreatedClientName] = useState<string>("");
   const [sendMode, setSendMode] = useState(false);
   const [emailTo, setEmailTo] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
@@ -105,9 +106,8 @@ export function NewReportForm({ clients, completedSamples }: Props) {
       if (result.success) {
         setCreatedId(result.data.id);
         setCreatedNumber(result.data.number);
-
-        // Pre-compila l'email
         const client = clients.find((c) => c.id === raw.clientId);
+        setCreatedClientName(client?.displayName ?? "");
         const clientEmail = client && "email" in client ? (client.email ?? "") : "";
         setEmailTo(clientEmail);
         setEmailSubject(
@@ -204,9 +204,10 @@ export function NewReportForm({ clients, completedSamples }: Props) {
             disabled={isWhatsApp}
             onClick={() => {
               if (!createdId) return;
+              const clientSlug = createdClientName.replace(/\s+/g, '_').replace(/[\/\\:*?"<>|]/g, '');
               const filename = pdfType === "commercial"
-                ? `referto-commerciale-${createdNumber}.pdf`
-                : `referto-${createdNumber}.pdf`;
+                ? `referto-commerciale-${createdNumber}_${clientSlug}.pdf`
+                : `referto-${createdNumber}_${clientSlug}.pdf`;
               const pdfUrl = `/api/pdf/report/${createdId}${
                 pdfType === "commercial" ? "?type=commercial" : ""
               }`;

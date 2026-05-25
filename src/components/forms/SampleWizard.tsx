@@ -10,7 +10,7 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Trash2, ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
+import { Trash2, ChevronRight, ChevronLeft, Loader2, Search } from "lucide-react";
 import { z } from "zod";
 
 import { SampleFormSchema } from "@/schemas/sample";
@@ -195,6 +195,7 @@ function Step2({
     name: "items",
   });
   const items = useWatch({ control: form.control, name: "items" });
+  const [analysisSearch, setAnalysisSearch] = useState("");
 
   const estimatedTotal = computeSampleTotal(
     (items ?? []).map((it) => ({
@@ -228,13 +229,85 @@ function Step2({
     } as never);
   }
 
-  const activeAnalyses = analyses.filter((a) => a.active && a.deletedAt === null);
+  function toggleAnalysis(analysis: AnalysisDoc) {
+    const existingIndex = (items ?? []).findIndex((it) => it.analysisId === analysis.id);
+    if (existingIndex >= 0) {
+      remove(existingIndex);
+    } else {
+      addAnalysis(analysis);
+    }
+  }
+
+  const activeAnalyses = analyses
+    .filter((a) => a.active && a.deletedAt === null)
+    .sort((a, b) => a.name.localeCompare(b.name, "it"));
+
+  const filteredAnalyses = analysisSearch
+    ? activeAnalyses.filter((a) => {
+        const q = analysisSearch.toLowerCase();
+        return a.name.toLowerCase().includes(q) || a.code.toLowerCase().includes(q);
+      })
+    : activeAnalyses;
 
   return (
     <div className="space-y-4">
-      {/* Lista analisi aggiunte */}
-      {fields.length > 0 ? (
+      {/* Catalogo analisi — ricerca + checkbox */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+          Seleziona analisi
+        </p>
+        <div className="relative mb-2">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Cerca per nome o codice…"
+            className="pl-8 h-8 text-sm"
+            value={analysisSearch}
+            onChange={(e) => setAnalysisSearch(e.target.value)}
+          />
+        </div>
+        <div className="max-h-56 overflow-y-auto rounded-xl border border-border divide-y divide-border">
+          {filteredAnalyses.length === 0 ? (
+            <p className="px-3 py-4 text-sm text-center text-muted-foreground">
+              Nessuna analisi trovata
+            </p>
+          ) : (
+            filteredAnalyses.map((a) => {
+              const isSelected = (items ?? []).some((it) => it.analysisId === a.id);
+              return (
+                <label
+                  key={a.id}
+                  className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/50 select-none transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    className="size-4 shrink-0 cursor-pointer accent-primary"
+                    checked={isSelected}
+                    onChange={() => toggleAnalysis(a)}
+                  />
+                  <span className="flex-1 min-w-0 text-sm">
+                    <span className="font-mono text-xs text-muted-foreground mr-1.5">
+                      {a.code}
+                    </span>
+                    {a.name}
+                  </span>
+                  <span className="tabular-nums text-xs text-muted-foreground shrink-0">
+                    {formatEUR(a.defaultPriceCents)}
+                  </span>
+                </label>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* Analisi selezionate con impostazioni per riga */}
+      {fields.length > 0 && (
         <div className="rounded-xl border border-border overflow-hidden">
+          <div className="px-3 py-2 border-b border-border bg-muted/20">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Analisi selezionate ({fields.length})
+            </p>
+          </div>
           <div className="divide-y divide-border">
             {fields.map((field, index) => {
               const item = items?.[index];
@@ -342,48 +415,15 @@ function Step2({
             <span className="font-semibold tabular-nums">{formatEUR(estimatedTotal)}</span>
           </div>
         </div>
-      ) : (
-        <div className="rounded-xl border border-border border-dashed p-8 text-center">
+      )}
+
+      {fields.length === 0 && (
+        <div className="rounded-xl border border-border border-dashed p-6 text-center">
           <p className="text-sm text-muted-foreground">
-            Nessuna analisi aggiunta. Usa il listino sotto.
+            Seleziona le analisi dall&apos;elenco sopra.
           </p>
         </div>
       )}
-
-      {/* Listino analisi */}
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          Aggiungi analisi dal listino
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-52 overflow-y-auto rounded-xl border border-border p-2">
-          {activeAnalyses.map((a) => {
-            const alreadyAdded = (items ?? []).some((it) => it.analysisId === a.id);
-            return (
-              <button
-                key={a.id}
-                type="button"
-                onClick={() => !alreadyAdded && addAnalysis(a)}
-                disabled={alreadyAdded}
-                className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                  alreadyAdded
-                    ? "opacity-40 cursor-not-allowed"
-                    : "hover:bg-muted cursor-pointer"
-                }`}
-              >
-                <span>
-                  <span className="font-mono text-xs text-muted-foreground mr-1.5">
-                    {a.code}
-                  </span>
-                  {a.name}
-                </span>
-                <span className="tabular-nums text-xs text-muted-foreground shrink-0">
-                  {formatEUR(a.defaultPriceCents)}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 }
@@ -658,6 +698,12 @@ export function SampleWizard({
   const [step, setStep] = useState(0);
   const [isPending, startTransition] = useTransition();
   const [localPackages, setLocalPackages] = useState<ActivePackage[]>(activePackages);
+
+  // Sync localPackages quando la prop arriva in ritardo (es. Sheet pre-monta il wizard
+  // con activePackages=[] e li carica solo dopo l'apertura)
+  useEffect(() => {
+    setLocalPackages(activePackages);
+  }, [activePackages]);
 
   const today = new Date().toISOString().slice(0, 10);
   // eslint-disable-next-line react-hooks/purity

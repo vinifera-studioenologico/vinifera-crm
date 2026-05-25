@@ -323,6 +323,26 @@ export function ReportCommercialPdfDocument({ reportNumber, company, client, sam
           </View>
         </View>
 
+        {/* Saldo pacchetti attivi */}
+        {clientPackages && clientPackages.length > 0 && (
+          <View style={S.packagesSection}>
+            <View style={S.packagesSectionHeader}>
+              <Text style={S.packagesSectionTitle}>Saldo pacchetti attivi</Text>
+              <Text style={S.packagesSectionSub}>al momento dell&apos;emissione del referto</Text>
+            </View>
+            {clientPackages.map((pkg, i) => {
+              const used = pkg.totalAnalyses - pkg.remainingAnalyses;
+              return (
+                <View key={pkg.id} style={[S.packageRow, i % 2 === 1 ? S.packageRowAlt : {}]}>
+                  <Text style={S.packageName}>{pkg.packageNameSnapshot}</Text>
+                  <Text style={S.packageProgress}>{used}/{pkg.totalAnalyses} utilizzate</Text>
+                  <Text style={S.packageRemaining}>{pkg.remainingAnalyses} residue</Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {/* Campioni */}
         {samples.map((sample) => {
           const sampleTotal = sample.items.reduce((a, item) =>
@@ -395,26 +415,6 @@ export function ReportCommercialPdfDocument({ reportNumber, company, client, sam
           <View style={S.reportNotes}>
             <Text style={S.reportNotesLabel}>Note</Text>
             <Text style={S.reportNotesText}>{notes}</Text>
-          </View>
-        )}
-
-        {/* Pacchetti attivi */}
-        {clientPackages && clientPackages.length > 0 && (
-          <View style={S.packagesSection}>
-            <View style={S.packagesSectionHeader}>
-              <Text style={S.packagesSectionTitle}>Saldo pacchetti attivi</Text>
-              <Text style={S.packagesSectionSub}>al momento dell&apos;emissione del referto</Text>
-            </View>
-            {clientPackages.map((pkg, i) => {
-              const used = pkg.totalAnalyses - pkg.remainingAnalyses;
-              return (
-                <View key={pkg.id} style={[S.packageRow, i % 2 === 1 ? S.packageRowAlt : {}]}>
-                  <Text style={S.packageName}>{pkg.packageNameSnapshot}</Text>
-                  <Text style={S.packageProgress}>{used}/{pkg.totalAnalyses} utilizzate</Text>
-                  <Text style={S.packageRemaining}>{pkg.remainingAnalyses} residue</Text>
-                </View>
-              );
-            })}
           </View>
         )}
 

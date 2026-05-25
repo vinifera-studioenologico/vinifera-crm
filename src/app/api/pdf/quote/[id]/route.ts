@@ -33,7 +33,8 @@ export async function GET(
     const buffer = await renderToBuffer(element as React.ReactElement<DocumentProps>);
     const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
 
-    const filename = `preventivo-${quote.number.replace("/", "-")}.pdf`;
+    const clientSlug = quote.clientSnapshot.displayName.replace(/\s+/g, '_').replace(/[/\\:*?"<>|]/g, '');
+    const filename = `preventivo-${quote.number.replace("/", "-")}_${clientSlug}.pdf`;
 
     return new Response(arrayBuffer, {
       status: 200,

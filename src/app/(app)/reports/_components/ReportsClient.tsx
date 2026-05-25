@@ -70,9 +70,10 @@ export function ReportsClient({ initialData }: Props) {
       setPickerTarget(null);
     } else if (pickerAction === "whatsapp") {
       const target = pickerTarget;
+      const clientSlug = target.clientSnapshot.displayName.replace(/\s+/g, '_').replace(/[/\\:*?"<>|]/g, '');
       const filename = type === "commercial"
-        ? `referto-commerciale-${target.number}.pdf`
-        : `referto-${target.number}.pdf`;
+        ? `referto-commerciale-${target.number}_${clientSlug}.pdf`
+        : `referto-${target.number}_${clientSlug}.pdf`;
       const pdfUrl = type === "commercial"
         ? `/api/pdf/report/${target.id}?type=commercial`
         : `/api/pdf/report/${target.id}`;

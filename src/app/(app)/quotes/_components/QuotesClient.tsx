@@ -95,7 +95,8 @@ export function QuotesClient({ initialData, clients, analyses, packages, default
 
   function handleWhatsApp(quote: QuoteDoc) {
     setIsWhatsApp(true);
-    const filename = `preventivo-${quote.number.replace("/", "-")}.pdf`;
+    const clientSlug = quote.clientSnapshot.displayName.replace(/\s+/g, '_').replace(/[/\\:*?"<>|]/g, '');
+    const filename = `preventivo-${quote.number.replace("/", "-")}_${clientSlug}.pdf`;
     sharePdf(`/api/pdf/quote/${quote.id}`, filename)
       .then((result) => {
         if (result === "downloaded")

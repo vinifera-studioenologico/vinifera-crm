@@ -39,7 +39,10 @@ export const ClientPackageFormSchema = z.object({
   totalAnalyses: z.number().int().min(1),
   priceCents: zEurInput,            // prezzo modificabile in fase di acquisto
   createPayment: z.boolean(),
-  accontoCents: zEurInput.optional(), // acconto già incassato — crea rata 0 già pagata
+  accontoCents: z.preprocess(
+    (val) => (val === "" || val === null ? undefined : val),
+    zEurInput.optional(),
+  ), // acconto già incassato — crea rata 0 già pagata
   accontoDate: z.string().optional(),  // "YYYY-MM-DD" — data pagamento acconto
   installmentsCount: z
     .number()
