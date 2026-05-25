@@ -697,13 +697,10 @@ export function SampleWizard({
 }: Props) {
   const [step, setStep] = useState(0);
   const [isPending, startTransition] = useTransition();
-  const [localPackages, setLocalPackages] = useState<ActivePackage[]>(activePackages);
-
-  // Sync localPackages quando la prop arriva in ritardo (es. Sheet pre-monta il wizard
-  // con activePackages=[] e li carica solo dopo l'apertura)
-  useEffect(() => {
-    setLocalPackages(activePackages);
-  }, [activePackages]);
+  // overriddenPackages è null finché non cambia il cliente; in quel caso si usa activePackages
+  // direttamente (rimane in sync automaticamente senza useEffect sincrono).
+  const [overriddenPackages, setOverriddenPackages] = useState<ActivePackage[] | null>(null);
+  const localPackages = overriddenPackages ?? activePackages;
 
   const today = new Date().toISOString().slice(0, 10);
   // eslint-disable-next-line react-hooks/purity
@@ -737,8 +734,8 @@ export function SampleWizard({
     // Clear items when client changes to avoid stale coveredByPackageId refs
     form.setValue("items", []);
     Promise.resolve(watchedClientId ? getClientActivePkgs(watchedClientId) : [])
-      .then(setLocalPackages)
-      .catch(() => setLocalPackages([]));
+      .then(setOverriddenPackages)
+      .catch(() => setOverriddenPackages([]));
   }, [watchedClientId, form]);
 
   const estimatedTotal = computeSampleTotal(
