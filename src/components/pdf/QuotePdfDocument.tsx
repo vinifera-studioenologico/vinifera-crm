@@ -179,6 +179,59 @@ const S = StyleSheet.create({
   },
   signatureLine: { borderBottom: "0.5pt solid #999" },
 
+  // Numero riga tabella
+  colNum: { width: 18, textAlign: "right" as const },
+
+  // Nota fiscale
+  fiscalNoteSection: {
+    marginTop: 14,
+    padding: "10pt 12pt",
+    backgroundColor: "#f5f9f7",
+    borderLeft: "2pt solid #2d6a4f",
+    borderRadius: 2,
+  },
+  fiscalNoteLabel: { fontSize: 7, fontFamily: "Helvetica-Bold", color: "#888", textTransform: "uppercase" as const, marginBottom: 6 },
+  fiscalNoteText: { fontSize: 8, color: "#444", lineHeight: 1.6 },
+
+  // Pagina condizioni generali
+  conditionsPage: {
+    fontFamily: "Helvetica",
+    fontSize: 9,
+    color: "#111",
+    padding: "36pt 48pt",
+    lineHeight: 1.4,
+  },
+  condTitle: {
+    fontSize: 13,
+    fontFamily: "Helvetica-Bold",
+    color: "#1A4D3E",
+    marginBottom: 12,
+    borderBottom: "1pt solid #1A4D3E",
+    paddingBottom: 5,
+  },
+  condSection: { marginBottom: 8 },
+  condSectionTitle: {
+    fontSize: 8.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#1A4D3E",
+    marginBottom: 2,
+    textTransform: "uppercase" as const,
+  },
+  condText: { fontSize: 8, color: "#333", lineHeight: 1.5 },
+  acceptanceBox: {
+    marginTop: 12,
+    padding: "10pt 12pt",
+    border: "1pt solid #ccc",
+    borderRadius: 4,
+  },
+  acceptTitle: {
+    fontSize: 10,
+    fontFamily: "Helvetica-Bold",
+    color: "#1A4D3E",
+    marginBottom: 6,
+  },
+  acceptText: { fontSize: 8, color: "#444", lineHeight: 1.5, marginBottom: 8 },
+
   // Badge stato
   badge: {
     paddingHorizontal: 8,
@@ -259,6 +312,16 @@ export function QuotePdfDocument({ quote, company }: Props) {
     },
     { amounts: [], running: quote.subtotalCents },
   ).amounts;
+
+  // Imponibile post-sconto e importi tasse effettivi
+  const afterDiscountsCents = discountAmounts.reduce((acc, amt) => acc - amt, quote.subtotalCents);
+  const taxAmountsMap = quote.taxes
+    .filter((t) => t.applied)
+    .map((t) => ({
+      label: t.label,
+      percent: t.percent,
+      amountCents: Math.round(afterDiscountsCents * t.percent / 100),
+    }));
 
   return (
     <Document
@@ -360,7 +423,8 @@ export function QuotePdfDocument({ quote, company }: Props) {
         {/* ── TABELLA VOCI ── */}
         {/* Intestazioni colonne */}
         <View style={S.tableHeader}>
-          <Text style={[S.tableHeaderText, S.colDesc]}>Descrizione</Text>
+          <Text style={[S.tableHeaderText, S.colNum]}>#</Text>
+          <Text style={[S.tableHeaderText, S.colDesc, { marginLeft: 8 }]}>Descrizione</Text>
           <Text style={[S.tableHeaderText, S.colQty]}>Q.tà</Text>
           <Text style={[S.tableHeaderText, S.colPrice]}>Prezzo unit.</Text>
           <Text style={[S.tableHeaderText, S.colTotal]}>Totale</Text>
@@ -376,11 +440,12 @@ export function QuotePdfDocument({ quote, company }: Props) {
 
           return (
             <View key={i} style={[S.tableRow, i % 2 === 1 ? S.tableRowAlt : {}]}>
-              <View style={S.colDesc}>
+              <Text style={[S.cellText, S.colNum, { color: "#999", fontSize: 8 }]}>{i + 1}</Text>
+              <View style={[S.colDesc, { marginLeft: 8 }]}>
                 <Text style={S.itemName}>{name}</Text>
                 {item.kind !== "free" && (
                   <Text style={S.itemSub}>
-                    {item.kind === "analysis" ? "Analisi" : "Pacchetto"}
+                    {item.kind === "analysis" ? "Analisi di laboratorio" : "Pacchetto analisi"}
                   </Text>
                 )}
               </View>
@@ -443,15 +508,21 @@ export function QuotePdfDocument({ quote, company }: Props) {
             );
           })}
 
-          {/* Tasse applicate */}
-          {quote.taxes
-            .filter((t) => t.applied)
-            .map((t, i) => (
-              <View key={i} style={S.totalsRow}>
-                <Text style={S.totalsLabel}>{t.label}</Text>
-                <Text style={S.totalsValue}>+{t.percent}%</Text>
-              </View>
-            ))}
+          {/* Imponibile post-sconto (solo se ci sono contributi/tasse) */}
+          {taxAmountsMap.length > 0 && (
+            <View style={[S.totalsRow, { borderTop: "0.5pt solid #ddd", marginTop: 3, paddingTop: 5 }]}>
+              <Text style={[S.totalsLabel, { fontFamily: "Helvetica-Bold" }]}>Imponibile</Text>
+              <Text style={[S.totalsValue, { fontFamily: "Helvetica-Bold" }]}>{formatEurPdf(afterDiscountsCents)}</Text>
+            </View>
+          )}
+
+          {/* Contributi previdenziali e tasse applicate — mostra importo effettivo */}
+          {taxAmountsMap.map((t, i) => (
+            <View key={i} style={S.totalsRow}>
+              <Text style={S.totalsLabel}>{t.label}{t.percent > 0 ? ` (${t.percent}%)` : ""}</Text>
+              <Text style={S.totalsValue}>+{formatEurPdf(t.amountCents)}</Text>
+            </View>
+          ))}
 
           <View style={S.totalsDivider} />
 
@@ -494,6 +565,25 @@ export function QuotePdfDocument({ quote, company }: Props) {
           </View>
         )}
 
+        {/* ── NOTA FISCALE ── */}
+        <View style={S.fiscalNoteSection}>
+          <Text style={S.fiscalNoteLabel}>Note fiscali e previdenziali</Text>
+          <Text style={S.fiscalNoteText}>
+            Operazione senza applicazione dell{"'"}IVA ai sensi dell{"'"}art. 1, commi 54-89, L. 190/2014 — regime forfettario.
+          </Text>
+          {taxAmountsMap.length > 0 && (
+            <Text style={[S.fiscalNoteText, { marginTop: 3 }]}>
+              Compenso soggetto a contributo previdenziale ENPAIA/Cassa agrotecnici nella misura indicata, da applicare sull{"'"}imponibile. Il contributo è a carico del committente ai sensi dell{"'"}art. 1, c. 212, L. 662/1996.
+            </Text>
+          )}
+          <Text style={[S.fiscalNoteText, { marginTop: 3 }]}>
+            Il compenso non è soggetto a ritenuta d{"'"}acconto ai sensi dell{"'"}art. 1, comma 67, L. 190/2014.
+          </Text>
+          <Text style={[S.fiscalNoteText, { marginTop: 3 }]}>
+            L{"'"}eventuale imposta di bollo su fattura elettronica (€ 2,00) è dovuta nei casi previsti dalla normativa vigente.
+          </Text>
+        </View>
+
         {/* ── FIRMA ── */}
         <View style={S.signatureRow}>
           <View style={S.signatureBlock}>
@@ -501,8 +591,137 @@ export function QuotePdfDocument({ quote, company }: Props) {
             <View style={S.signatureLine} />
           </View>
           <View style={S.signatureBlock}>
-            <Text style={S.signatureLabel}>Firma</Text>
+            <Text style={S.signatureLabel}>Timbro e Firma</Text>
             <View style={S.signatureLine} />
+          </View>
+        </View>
+
+        {/* ── FOOTER ── */}
+        <Text
+          fixed
+          style={[S.footerText, { position: "absolute", bottom: 28, right: 48 }]}
+          render={({ pageNumber, totalPages }) =>
+            `Pag. ${pageNumber} / ${totalPages}`
+          }
+        />
+        <Text fixed style={[S.footerText, { position: "absolute", bottom: 14, left: 48, right: 48, textAlign: "center" }]}>
+          {footerNote}
+        </Text>
+      </Page>
+
+      {/* ══ PAGINA CONDIZIONI GENERALI ══ */}
+      <Page size="A4" style={S.conditionsPage}>
+        <Text style={S.condTitle}>Condizioni generali del preventivo N° {quote.number}</Text>
+
+        <View style={S.condSection}>
+          <Text style={S.condSectionTitle}>1. Validità del preventivo</Text>
+          <Text style={S.condText}>
+            Il presente preventivo ha validità 30 giorni dalla data di emissione, salvo espressa proroga
+            concordata per iscritto. Decorso tale termine, il professionista si riserva di aggiornare le
+            condizioni economiche senza preavviso.
+          </Text>
+        </View>
+
+        <View style={S.condSection}>
+          <Text style={S.condSectionTitle}>2. Avvio delle attività</Text>
+          <Text style={S.condText}>
+            Le attività avranno inizio previo ricevimento della presente accettazione firmata e, ove
+            concordato, del relativo acconto. L{"'"}avvio non è subordinato a termini automatici ed è
+            condizionato alla ricezione di tutta la documentazione, dei campioni e delle informazioni
+            necessarie all{"'"}esecuzione dell{"'"}incarico.
+          </Text>
+        </View>
+
+        <View style={S.condSection}>
+          <Text style={S.condSectionTitle}>3. Esclusioni e attività extra</Text>
+          <Text style={S.condText}>
+            Sono escluse dal presente preventivo tutte le attività non esplicitamente descritte.
+            Qualsiasi prestazione aggiuntiva, variazione di scope o analisi supplementare non inclusa
+            nell{"'"}offerta dovrà essere preventivamente concordata per iscritto e sarà oggetto di
+            separata quotazione.
+          </Text>
+        </View>
+
+        <View style={S.condSection}>
+          <Text style={S.condSectionTitle}>4. Costi aggiuntivi</Text>
+          <Text style={S.condText}>
+            Eventuali spese per trasferte, sopralluoghi in cantina, campionamenti, materiali di consumo
+            specifici, spedizioni di campioni, analisi straordinarie o interventi urgenti non inclusi
+            nell{"'"}offerta saranno fatturati separatamente previo accordo tra le parti, sulla base dei
+            costi effettivamente sostenuti.
+          </Text>
+        </View>
+
+        <View style={S.condSection}>
+          <Text style={S.condSectionTitle}>5. Tempistiche</Text>
+          <Text style={S.condText}>
+            Le tempistiche indicate sono da intendersi come puramente indicative in condizioni operative
+            ordinarie. Il professionista non si assume responsabilità per ritardi imputabili al mancato
+            o tardivo conferimento di campioni, dati analitici, documentazione tecnica o informazioni da
+            parte del committente. In tali casi le scadenze potranno slittare proporzionalmente senza
+            che ciò costituisca inadempimento contrattuale.
+          </Text>
+        </View>
+
+        <View style={S.condSection}>
+          <Text style={S.condSectionTitle}>6. Regime fiscale e previdenziale</Text>
+          <Text style={S.condText}>
+            Operazione senza applicazione dell{"'"}IVA ai sensi dell{"'"}art. 1, commi 54-89, L. 190/2014
+            — regime forfettario. Il compenso non è soggetto a ritenuta d{"'"}acconto ai sensi dell{"'"}art. 1,
+            comma 67, L. 190/2014. Al compenso imponibile è applicato il contributo previdenziale
+            ENPAIA/Cassa agrotecnici al 4%, a carico del committente ai sensi dell{"'"}art. 1, c. 212,
+            L. 662/1996. L{"'"}eventuale imposta di bollo su fattura elettronica (€ 2,00) è dovuta nei
+            casi previsti dalla normativa vigente.
+          </Text>
+        </View>
+
+        <View style={S.condSection}>
+          <Text style={S.condSectionTitle}>7. Riservatezza e trattamento dei dati personali (GDPR)</Text>
+          <Text style={S.condText}>
+            I dati personali del committente saranno trattati ai sensi del Regolamento UE 2016/679
+            (GDPR) e della normativa nazionale vigente, esclusivamente per le finalità connesse
+            all{"'"}esecuzione del presente incarico professionale e agli obblighi fiscali e previdenziali
+            conseguenti. I dati non saranno comunicati a terzi, salvo i casi previsti dalla legge.
+            Il committente ha diritto di accesso, rettifica, cancellazione e opposizione al trattamento,
+            rivolgendosi al titolare del trattamento.
+          </Text>
+        </View>
+
+        {/* Accettazione */}
+        <View style={S.acceptanceBox}>
+          <Text style={S.acceptTitle}>Accettazione del preventivo</Text>
+          <Text style={S.acceptText}>
+            Il committente, con la firma del presente documento, dichiara di accettare integralmente le
+            condizioni economiche e contrattuali del preventivo N° {quote.number}, nonché di approvare
+            specificamente, ai sensi degli artt. 1341 e 1342 c.c., le seguenti clausole: art. 3
+            (esclusioni e attività extra), art. 4 (costi aggiuntivi), art. 5 (tempistiche e ritardi),
+            art. 6 (regime fiscale e previdenziale).
+          </Text>
+
+          {/* Riga firme accettazione */}
+          <View style={[S.signatureRow, { marginTop: 20 }]}>
+            <View style={S.signatureBlock}>
+              <Text style={S.signatureLabel}>Data e luogo</Text>
+              <View style={S.signatureLine} />
+            </View>
+            <View style={S.signatureBlock}>
+              <Text style={S.signatureLabel}>Firma del committente — Accettazione</Text>
+              <View style={S.signatureLine} />
+            </View>
+          </View>
+
+          {/* Riga firma approvazione specifica clausole */}
+          <View style={[S.signatureRow, { marginTop: 22 }]}>
+            <View style={S.signatureBlock}>
+              <Text style={S.signatureLabel}>
+                Firma del committente — Approvazione specifica{"\n"}delle clausole (artt. 1341-1342 c.c.)
+              </Text>
+              <View style={S.signatureLine} />
+            </View>
+            <View style={S.signatureBlock}>
+              <Text style={S.signatureLabel}>Il professionista</Text>
+              <View style={S.signatureLine} />
+            </View>
           </View>
         </View>
 

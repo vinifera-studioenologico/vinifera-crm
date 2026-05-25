@@ -51,7 +51,10 @@ export const SamplePaymentFormSchema = z.object({
   installmentPeriod: z.enum(["monthly", "biweekly", "custom"]).optional(),
   customInterval: z.number().int().min(1).optional(),
   customUnit: z.enum(["days", "months", "years"]).optional(),
-  accontoCents: zEurInput.optional(), // acconto già incassato — crea rata 0 già pagata
+  accontoCents: z.preprocess(
+    (val) => (val === "" || val === null ? undefined : val),
+    zEurInput.optional(),
+  ), // acconto già incassato — crea rata 0 già pagata
   accontoDate: z.string().optional(),  // "YYYY-MM-DD" — data pagamento acconto
 });
 

@@ -27,10 +27,22 @@ import {
 } from "@/server/actions/settings";
 import type { NotificationSettingsValues } from "@/schemas/settings";
 
+const WARNING_DAYS_OPTIONS = [
+  { value: 0, label: "Disabilitato" },
+  { value: 1, label: "1 giorno prima" },
+  { value: 2, label: "2 giorni prima" },
+  { value: 3, label: "3 giorni prima" },
+  { value: 5, label: "5 giorni prima" },
+  { value: 7, label: "1 settimana prima" },
+  { value: 14, label: "2 settimane prima" },
+  { value: 30, label: "30 giorni prima" },
+];
+
 const NotificationsSchema = z.object({
   telegramBotToken: z.string().default(""),
   telegramChatId: z.string().default(""),
   notifyEmail: z.string().email("Email non valida").or(z.literal("")).default(""),
+  installmentWarningDays: z.coerce.number().int().min(0).max(30).default(3),
 });
 
 type NotificationsInput = z.input<typeof NotificationsSchema>;
@@ -50,6 +62,7 @@ export function NotificationsSettingsForm({ initialValues }: Props) {
       telegramBotToken: initialValues.telegramBotToken,
       telegramChatId: initialValues.telegramChatId,
       notifyEmail: initialValues.notifyEmail,
+      installmentWarningDays: initialValues.installmentWarningDays,
     },
     mode: "onTouched",
   });
@@ -205,6 +218,48 @@ export function NotificationsSettingsForm({ initialValues }: Props) {
                       value={field.value ?? ""}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <span>💶</span>
+              Rate
+            </CardTitle>
+            <CardDescription>
+              Avviso anticipato quando una rata si avvicina alla scadenza. Il canale usato
+              è lo stesso configurato sopra (Telegram + Email).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FormField
+              control={form.control}
+              name="installmentWarningDays"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Avvisa prima della scadenza</FormLabel>
+                  <FormControl>
+                    <select
+                      className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50"
+                      value={String(field.value ?? 3)}
+                      onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
+                    >
+                      {WARNING_DAYS_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </FormControl>
+                  <FormDescription className="text-xs">
+                    Invia anche una notifica quando una rata diventa scaduta (status overdue),
+                    indipendentemente da questa impostazione.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
