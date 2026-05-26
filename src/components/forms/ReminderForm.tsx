@@ -72,7 +72,7 @@ export function ReminderForm({ existing, defaultRelatedTo, onSuccess }: Props) {
           title: existing.title,
           description: existing.description ?? "",
           dueAt: toDatetimeLocal(existing.dueAt),
-          relatedTo: existing.relatedTo,
+          relatedTo: existing.relatedTo ?? undefined,
           remindBeforeMinutes: existing.remindBeforeMinutes ?? 0,
           notifyChannels: existing.notifyChannels,
         }

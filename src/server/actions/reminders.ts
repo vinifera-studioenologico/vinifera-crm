@@ -23,7 +23,7 @@ function toReminderDoc(id: string, d: FirebaseFirestore.DocumentData): ReminderD
     title: d["title"] ?? "",
     description: d["description"],
     dueAt: tsToISO(d["dueAt"]),
-    relatedTo: d["relatedTo"],
+    relatedTo: d["relatedTo"] ?? undefined,
     status: d["status"] ?? "pending",
     remindBeforeMinutes: d["remindBeforeMinutes"],
     notifyChannels: d["notifyChannels"] ?? { telegram: false, email: false },
