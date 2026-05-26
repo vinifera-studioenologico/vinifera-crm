@@ -10,7 +10,8 @@ import { requireAdmin } from "@/server/auth";
 import { logger } from "@/lib/logger";
 import { ReminderFormSchema } from "@/schemas/reminder";
 import type { ReminderDoc, ReminderStatus } from "@/schemas/reminder";
-import { tsToISO } from "@/lib/utils/date";
+import { tsToISO, TZ } from "@/lib/utils/date"
+import { fromZonedTime } from "date-fns-tz"
 import type { ActionResult, PaginatedResult } from "@/types";
 
 const COL = "reminders";
@@ -90,7 +91,7 @@ export async function createReminder(
     await ref.set({
       title: data.title,
       description: data.description ?? null,
-      dueAt: Timestamp.fromDate(new Date(data.dueAt)),
+      dueAt: Timestamp.fromDate(fromZonedTime(data.dueAt, TZ)),
       relatedTo: data.relatedTo ?? null,
       status: "pending",
       remindBeforeMinutes: data.remindBeforeMinutes ?? null,
@@ -135,7 +136,7 @@ export async function updateReminder(
     await adminDb.collection(COL).doc(id).update({
       title: data.title,
       description: data.description ?? null,
-      dueAt: Timestamp.fromDate(new Date(data.dueAt)),
+      dueAt: Timestamp.fromDate(fromZonedTime(data.dueAt, TZ)),
       relatedTo: data.relatedTo ?? null,
       remindBeforeMinutes: data.remindBeforeMinutes ?? null,
       notifyChannels: data.notifyChannels,
