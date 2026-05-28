@@ -44,9 +44,17 @@ const S = StyleSheet.create({
   logo: { width: 120, height: 60, objectFit: "contain" },
   companyName: { fontSize: 14, fontFamily: "Helvetica-Bold", marginBottom: 3 },
   companyDetail: { fontSize: 8, color: "#555", lineHeight: 1.5 },
-  reportTitle: { fontSize: 14, fontFamily: "Helvetica-Bold", color: GREEN },
-  reportNumber: { fontSize: 13, fontFamily: "Helvetica-Bold", color: GREEN, marginBottom: 2 },
-  reportMeta: { fontSize: 8.5, color: "#666" },
+
+  // Riga titolo referto sopra il box cliente
+  reportTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+    gap: 8,
+  },
+  reportTitleText: { fontSize: 13, fontFamily: "Helvetica-Bold", color: GREEN },
+  reportTitleSep: { fontSize: 13, color: "#ccc" },
+  reportTitleMeta: { fontSize: 10, color: "#666" },
 
   // Box cliente
   clientBox: {
@@ -54,10 +62,23 @@ const S = StyleSheet.create({
     backgroundColor: BG_GREEN,
     borderRadius: 4,
     marginBottom: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
   clientLabel: { fontSize: 7, color: "#888", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 },
   clientName: { fontSize: 11, fontFamily: "Helvetica-Bold" },
   clientSub: { fontSize: 8.5, color: "#555", marginTop: 1 },
+
+  // Saldo pacchetti nel box cliente (colonna DX)
+  pkgSummaryBox: {
+    alignItems: "flex-end",
+    minWidth: 140,
+  },
+  pkgSummaryTitle: { fontSize: 7, color: "#888", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 },
+  pkgSummaryRow: { flexDirection: "row", gap: 4, marginTop: 1 },
+  pkgSummaryLabel: { fontSize: 8.5, color: "#555" },
+  pkgSummaryValue: { fontSize: 8.5, fontFamily: "Helvetica-Bold", color: GREEN },
 
   // Campione card
   sampleCard: {
@@ -83,7 +104,7 @@ const S = StyleSheet.create({
     backgroundColor: BG_TABLE_HEADER,
     padding: "4pt 10pt",
   },
-  tableHeaderText: { fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#666", textTransform: "uppercase" },
+  tableHeaderText: { fontSize: 7, fontFamily: "Helvetica-Bold", color: "#666", textTransform: "uppercase" },
   tableRow: {
     flexDirection: "row",
     borderBottom: "0.5pt solid #eee",
@@ -92,18 +113,18 @@ const S = StyleSheet.create({
   },
   tableRowAlt: { backgroundColor: "#fafafa" },
 
-  colCode: { width: 50 },
-  colAnalysis: { flex: 1 },
-  colResult: { width: 70, textAlign: "right" },
-  colUnit: { width: 40, textAlign: "right" },
-  colPrice: { width: 72, textAlign: "right" },
+  colAnalysis: { width: 90 },
+  colCode: { width: 70 },
+  colResult: { width: 50, textAlign: "right" },
+  colUnit: { width: 30, textAlign: "right" },
+  colMethod: { flex: 1, paddingLeft: 4 },
+  colPrice: { width: 62, textAlign: "right" },
 
-  cellMono: { fontSize: 8.5, fontFamily: "Courier" },
-  cellText: { fontSize: 9 },
-  cellResult: { fontSize: 9, fontFamily: "Helvetica-Bold", color: "#1a1a1a", textAlign: "right" },
-  cellNoResult: { fontSize: 9, color: "#aaa", fontStyle: "italic", textAlign: "right" },
-  cellPrice: { fontSize: 9, fontFamily: "Helvetica-Bold", textAlign: "right" },
-  cellPriceFree: { fontSize: 8, color: "#888", textAlign: "right", fontStyle: "italic" },
+  cellText: { fontSize: 8.5 },
+  cellResult: { fontSize: 8.5, fontFamily: "Helvetica-Bold", color: "#1a1a1a", textAlign: "right" },
+  cellNoResult: { fontSize: 8.5, color: "#aaa", fontStyle: "italic", textAlign: "right" },
+  cellPrice: { fontSize: 8.5, fontFamily: "Helvetica-Bold", textAlign: "right" },
+  cellPriceFree: { fontSize: 7.5, color: "#888", textAlign: "right", fontStyle: "italic" },
 
   // Subtotale campione
   sampleSubtotal: {
@@ -125,23 +146,6 @@ const S = StyleSheet.create({
   },
   sampleNotesText: { fontSize: 8, color: "#666" },
 
-  // Sezione totali globali
-  totalsSection: { alignItems: "flex-end", marginTop: 8, marginBottom: 16 },
-  totalsBox: { width: 220 },
-  totalsRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 },
-  totalsLabel: { fontSize: 8.5, color: "#555" },
-  totalsValue: { fontSize: 8.5, textAlign: "right" },
-  totalsDivider: { borderBottom: "0.5pt solid #ccc", marginVertical: 4 },
-  totalRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 3,
-    borderTop: `1pt solid ${GREEN}`,
-    marginTop: 2,
-  },
-  totalLabel: { fontSize: 11, fontFamily: "Helvetica-Bold" },
-  totalValue: { fontSize: 11, fontFamily: "Helvetica-Bold", color: GREEN, textAlign: "right" },
-
   // Note referto
   reportNotes: {
     marginTop: 14,
@@ -158,33 +162,6 @@ const S = StyleSheet.create({
     marginBottom: 4,
   },
   reportNotesText: { fontSize: 8.5, color: "#444", lineHeight: 1.5 },
-
-  // Pacchetti attivi
-  packagesSection: {
-    marginTop: 14,
-    border: "0.5pt solid #ddd",
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  packagesSectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "6pt 12pt",
-    backgroundColor: BG_TABLE_HEADER,
-  },
-  packagesSectionTitle: { fontSize: 8, fontFamily: "Helvetica-Bold", color: GREEN, textTransform: "uppercase", letterSpacing: 0.5 },
-  packagesSectionSub: { fontSize: 7.5, color: "#888" },
-  packageRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: "5pt 12pt",
-    borderTop: "0.5pt solid #eee",
-  },
-  packageRowAlt: { backgroundColor: "#fafafa" },
-  packageName: { flex: 1, fontSize: 9 },
-  packageProgress: { fontSize: 8.5, color: "#555", width: 80, textAlign: "right" },
-  packageRemaining: { fontSize: 9, fontFamily: "Helvetica-Bold", color: GREEN, width: 90, textAlign: "right" },
 
   // Footer
   footerText: { fontSize: 7, color: "#999" },
@@ -251,6 +228,14 @@ function formatEurPdf(cents: number): string {
   return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(cents / 100);
 }
 
+/** Font size dinamico: rimpicciolisce per stringhe lunghe (no-wrap). */
+function dynamicFontSize(text: string, base: number, thresholds: [number, number][]): number {
+  for (const [maxLen, size] of thresholds) {
+    if (text.length <= maxLen) return size;
+  }
+  return thresholds.at(-1)?.[1] ?? base;
+}
+
 // ── Componente ────────────────────────────────────────────────────────
 interface Props {
   reportNumber: string;
@@ -271,6 +256,10 @@ export function ReportCommercialPdfDocument({ reportNumber, company, client, sam
   const grandTotalCents = samples.reduce((acc, s) =>
     acc + s.items.reduce((a, item) =>
       a + (item.coveredByPackageId && !item.chargeAnyway ? 0 : item.unitPriceCents), 0), 0);
+
+  // Totali pacchetti
+  const totalUsed = clientPackages?.reduce((a, p) => a + (p.totalAnalyses - p.remainingAnalyses), 0) ?? 0;
+  const totalRemaining = clientPackages?.reduce((a, p) => a + p.remainingAnalyses, 0) ?? 0;
 
   return (
     <Document
@@ -302,8 +291,17 @@ export function ReportCommercialPdfDocument({ reportNumber, company, client, sam
           </View>
         </View>
 
-        {/* Box cliente */}
-        <View style={[S.clientBox, { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }]}>
+        {/* ── RIGA TITOLO REFERTO ── */}
+        <View style={S.reportTitleRow}>
+          <Text style={S.reportTitleText}>Referto Analisi</Text>
+          <Text style={S.reportTitleSep}>—</Text>
+          <Text style={S.reportTitleText}>{reportNumber}</Text>
+          <Text style={S.reportTitleSep}>—</Text>
+          <Text style={S.reportTitleMeta}>Per uso interno</Text>
+        </View>
+
+        {/* ── BOX CLIENTE (SX info + DX saldo pacchetti) ── */}
+        <View style={S.clientBox}>
           <View style={{ flex: 1 }}>
             <Text style={S.clientLabel}>Cliente</Text>
             <Text style={S.clientName}>{client.displayName}</Text>
@@ -316,32 +314,20 @@ export function ReportCommercialPdfDocument({ reportNumber, company, client, sam
               </Text>
             )}
           </View>
-          <View style={{ alignItems: "flex-end" }}>
-            <Text style={S.reportTitle}>REFERTO — {reportNumber}</Text>
-            <Text style={S.reportMeta}>PER USO INTERNO</Text>
-            <Text style={S.reportMeta}>{samples.length} campion{samples.length === 1 ? "e" : "i"}</Text>
-          </View>
-        </View>
-
-        {/* Saldo pacchetti attivi */}
-        {clientPackages && clientPackages.length > 0 && (
-          <View style={S.packagesSection}>
-            <View style={S.packagesSectionHeader}>
-              <Text style={S.packagesSectionTitle}>Saldo pacchetti attivi</Text>
-              <Text style={S.packagesSectionSub}>al momento dell&apos;emissione del referto</Text>
+          {clientPackages && clientPackages.length > 0 && (
+            <View style={S.pkgSummaryBox}>
+              <Text style={S.pkgSummaryTitle}>Saldo pacchetti attivi</Text>
+              <View style={S.pkgSummaryRow}>
+                <Text style={S.pkgSummaryLabel}>N° analisi svolte:</Text>
+                <Text style={S.pkgSummaryValue}>{totalUsed}</Text>
+              </View>
+              <View style={S.pkgSummaryRow}>
+                <Text style={S.pkgSummaryLabel}>N° analisi rimaste:</Text>
+                <Text style={S.pkgSummaryValue}>{totalRemaining}</Text>
+              </View>
             </View>
-            {clientPackages.map((pkg, i) => {
-              const used = pkg.totalAnalyses - pkg.remainingAnalyses;
-              return (
-                <View key={pkg.id} style={[S.packageRow, i % 2 === 1 ? S.packageRowAlt : {}]}>
-                  <Text style={S.packageName}>{pkg.packageNameSnapshot}</Text>
-                  <Text style={S.packageProgress}>{used}/{pkg.totalAnalyses} utilizzate</Text>
-                  <Text style={S.packageRemaining}>{pkg.remainingAnalyses} residue</Text>
-                </View>
-              );
-            })}
-          </View>
-        )}
+          )}
+        </View>
 
         {/* Campioni */}
         {samples.map((sample) => {
@@ -364,19 +350,27 @@ export function ReportCommercialPdfDocument({ reportNumber, company, client, sam
 
               {/* Tabella */}
               <View style={S.tableHeader}>
-                <Text style={[S.tableHeaderText, S.colCode]}>Codice OIV</Text>
                 <Text style={[S.tableHeaderText, S.colAnalysis]}>Analisi</Text>
+                <Text style={[S.tableHeaderText, S.colCode]}>Codice OIV</Text>
                 <Text style={[S.tableHeaderText, S.colResult]}>Risultato</Text>
                 <Text style={[S.tableHeaderText, S.colUnit]}>U.M.</Text>
+                <Text style={[S.tableHeaderText, S.colMethod]}>Metodo</Text>
                 <Text style={[S.tableHeaderText, S.colPrice]}>Prezzo</Text>
               </View>
 
               {sample.items.map((item, i) => {
                 const isFree = !!item.coveredByPackageId && !item.chargeAnyway;
+                const code = item.analysisCodeSnapshot ?? "";
+                const method = item.descriptionSnapshot ?? "";
+                const codeFontSize = dynamicFontSize(code, 8.5, [[8, 8], [14, 7], [20, 6], [999, 5.5]]);
+                const methodFontSize = dynamicFontSize(method, 7.5, [[30, 7.5], [60, 6.5], [999, 6]]);
+
                 return (
                   <View key={item.analysisId} style={[S.tableRow, i % 2 === 1 ? S.tableRowAlt : {}]}>
-                    <Text style={[S.cellMono, S.colCode]}>{item.analysisCodeSnapshot}</Text>
                     <Text style={[S.cellText, S.colAnalysis]}>{item.analysisNameSnapshot}</Text>
+                    <Text style={[S.colCode, { fontSize: codeFontSize, fontFamily: "Courier" }]}>
+                      {code}
+                    </Text>
                     {item.result ? (
                       <Text style={[S.cellResult, S.colResult]}>{item.result}</Text>
                     ) : (
@@ -384,6 +378,9 @@ export function ReportCommercialPdfDocument({ reportNumber, company, client, sam
                     )}
                     <Text style={[S.cellText, S.colUnit, { color: "#555" }]}>
                       {item.unitSnapshot ?? ""}
+                    </Text>
+                    <Text style={[S.colMethod, { fontSize: methodFontSize, color: "#555" }]}>
+                      {method}
                     </Text>
                     {isFree ? (
                       <Text style={[S.cellPriceFree, S.colPrice]}>Da pacchetto</Text>

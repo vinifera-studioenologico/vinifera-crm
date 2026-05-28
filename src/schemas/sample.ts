@@ -16,6 +16,7 @@ export const SampleItemSchema = z.object({
   analysisCodeSnapshot: z.string(),
   analysisNameSnapshot: z.string(),
   unitSnapshot: z.string().optional(),
+  descriptionSnapshot: z.string().optional(),
   unitPriceCents: zCents,
   coveredByPackageId: z.string().optional(),
   chargeAnyway: z.boolean(),

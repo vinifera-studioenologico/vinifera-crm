@@ -223,6 +223,7 @@ function Step2({
       analysisCodeSnapshot: analysis.code,
       analysisNameSnapshot: analysis.name,
       unitSnapshot: analysis.unit ?? undefined,
+      descriptionSnapshot: analysis.description ?? undefined,
       unitPriceCents: analysis.defaultPriceCents,
       coveredByPackageId: availablePkg?.id ?? undefined,
       chargeAnyway: false,
