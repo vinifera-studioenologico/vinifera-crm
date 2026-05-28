@@ -91,7 +91,7 @@ async function main() {
   console.log(`Company: ${company?.displayName ?? "(non trovata)"}`);
 
   // Carica referti
-  let query: FirebaseFirestore.Query = db.collection("reports").orderBy("createdAt", "asc");
+  const query: FirebaseFirestore.Query = db.collection("reports").orderBy("createdAt", "asc");
   if (targetId) {
     // Modalità singolo referto
     const single = await db.collection("reports").doc(targetId).get();
