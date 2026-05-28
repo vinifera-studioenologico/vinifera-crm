@@ -117,7 +117,7 @@ const S = StyleSheet.create({
   colCode: { width: 70 },
   colResult: { width: 50, textAlign: "right" },
   colUnit: { width: 30, textAlign: "right" },
-  colMethod: { flex: 1, paddingLeft: 4 },
+  colMethod: { width: 177, paddingLeft: 4 }, // 479 (row inner) - 302 (fixed cols)
   colPrice: { width: 62, textAlign: "right" },
 
   cellText: { fontSize: 8.5 },
@@ -261,6 +261,11 @@ export function ReportCommercialPdfDocument({ reportNumber, company, client, sam
   const totalUsed = clientPackages?.reduce((a, p) => a + (p.totalAnalyses - p.remainingAnalyses), 0) ?? 0;
   const totalRemaining = clientPackages?.reduce((a, p) => a + p.remainingAnalyses, 0) ?? 0;
 
+  // Mostra colonna Metodo solo se almeno un item ha la descrizione
+  const hasMethod = samples.some((s) => s.items.some((it) => it.descriptionSnapshot));
+  // Senza Metodo, la sua larghezza (177) va ad Analisi: 90 + 177 = 267
+  const colAnalysisWidth = hasMethod ? 90 : 267;
+
   return (
     <Document
       title={`Referto Commerciale ${reportNumber}`}
@@ -350,11 +355,11 @@ export function ReportCommercialPdfDocument({ reportNumber, company, client, sam
 
               {/* Tabella */}
               <View style={S.tableHeader}>
-                <Text style={[S.tableHeaderText, S.colAnalysis]}>Analisi</Text>
+                <Text style={[S.tableHeaderText, { width: colAnalysisWidth }]}>Analisi</Text>
                 <Text style={[S.tableHeaderText, S.colCode]}>Codice OIV</Text>
                 <Text style={[S.tableHeaderText, S.colResult]}>Risultato</Text>
                 <Text style={[S.tableHeaderText, S.colUnit]}>U.M.</Text>
-                <Text style={[S.tableHeaderText, S.colMethod]}>Metodo</Text>
+                {hasMethod && <Text style={[S.tableHeaderText, S.colMethod]}>Metodo</Text>}
                 <Text style={[S.tableHeaderText, S.colPrice]}>Prezzo</Text>
               </View>
 
@@ -367,7 +372,7 @@ export function ReportCommercialPdfDocument({ reportNumber, company, client, sam
 
                 return (
                   <View key={item.analysisId} style={[S.tableRow, i % 2 === 1 ? S.tableRowAlt : {}]}>
-                    <Text style={[S.cellText, S.colAnalysis]}>{item.analysisNameSnapshot}</Text>
+                    <Text style={[S.cellText, { width: colAnalysisWidth }]}>{item.analysisNameSnapshot}</Text>
                     <Text style={[S.colCode, { fontSize: codeFontSize, fontFamily: "Courier" }]}>
                       {code}
                     </Text>
@@ -379,9 +384,11 @@ export function ReportCommercialPdfDocument({ reportNumber, company, client, sam
                     <Text style={[S.cellText, S.colUnit, { color: "#555" }]}>
                       {item.unitSnapshot ?? ""}
                     </Text>
-                    <Text style={[S.colMethod, { fontSize: methodFontSize, color: "#555" }]}>
-                      {method}
-                    </Text>
+                    {hasMethod && (
+                      <Text style={[S.colMethod, { fontSize: methodFontSize, color: "#555" }]}>
+                        {method}
+                      </Text>
+                    )}
                     {isFree ? (
                       <Text style={[S.cellPriceFree, S.colPrice]}>Da pacchetto</Text>
                     ) : (
