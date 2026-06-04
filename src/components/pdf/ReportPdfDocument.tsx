@@ -191,7 +191,7 @@ export function ReportPdfDocument({
 }: Props) {
 
   const footerNote =
-    company?.pdfFooterNote ||
+    company?.reportFooterNote ||
     (company ? `${company.legalName} · P.IVA ${company.vatNumber} · ${company.email}` : "");
 
   // Totali pacchetti

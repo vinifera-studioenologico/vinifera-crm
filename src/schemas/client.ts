@@ -104,7 +104,16 @@ export const CompanySettingsSchema = z.object({
   defaultEnpaiaPercent: z.number().min(0).max(100),
   defaultVatPercent: z.number().min(0).max(100),
   defaultEnpaiaApplied: z.boolean(),
-  pdfFooterNote: z.string().max(1000).optional(),
+  quoteFooterNote: z.string().max(1000).optional(),
+  reportFooterNote: z.string().max(1000).optional(),
+  // Testi personalizzati PDF preventivo
+  quoteFiscalNote: z.string().max(3000).optional(),
+  quoteConditions: z.string().max(5000).optional(),
+  quotePrivacyNote: z.string().max(2000).optional(),
+  quoteAcceptanceText: z.string().max(2000).optional(),
+  // Filigrana PDF
+  watermarkEnabled: z.boolean().optional(),
+  watermarkUrl: z.string().url().optional().or(z.literal("")),
 });
 
 export type CompanySettingsValues = z.infer<typeof CompanySettingsSchema>;

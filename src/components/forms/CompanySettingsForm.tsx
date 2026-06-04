@@ -49,7 +49,14 @@ export function CompanySettingsForm({ defaultValues }: Props) {
       defaultEnpaiaPercent: 4,
       defaultVatPercent: 22,
       defaultEnpaiaApplied: true,
-      pdfFooterNote: "",
+      quoteFooterNote: "",
+      reportFooterNote: "",
+      quoteFiscalNote: "",
+      quoteConditions: "",
+      quotePrivacyNote: "",
+      quoteAcceptanceText: "",
+      watermarkEnabled: false,
+      watermarkUrl: "",
       address: {
         street: "",
         city: "",
@@ -445,18 +452,176 @@ export function CompanySettingsForm({ defaultValues }: Props) {
           <h2 className="text-sm font-semibold text-foreground">Note footer PDF</h2>
           <FormField
             control={form.control}
-            name="pdfFooterNote"
+            name="quoteFooterNote"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Nota legale / footer</FormLabel>
+                <FormLabel>Footer preventivo</FormLabel>
                 <FormControl>
                   <Textarea
-                    placeholder="Es. Laboratorio accreditato Accredia n. 1234. Condizioni sul sito www...."
+                    placeholder="Nota legale da mostrare nel footer del PDF preventivo"
                     rows={3}
                     className="resize-none"
                     {...field}
                   />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="reportFooterNote"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Footer referto</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Es. Laboratorio accreditato Accredia n. 1234"
+                    rows={3}
+                    className="resize-none"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </section>
+
+        <Separator />
+
+        {/* ── Testi personalizzati PDF preventivo ──────────────────── */}
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Testi PDF preventivo</h2>
+            <p className="text-xs text-muted-foreground">
+              Testi legali e condizioni stampati nel PDF dei preventivi.
+              Se lasciati vuoti, vengono usati quelli predefiniti.
+            </p>
+          </div>
+          <FormField
+            control={form.control}
+            name="quoteFiscalNote"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nota fiscale e previdenziale</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Es. Operazione senza applicazione dell'IVA ai sensi dell'art. 1, commi 54-89, L. 190/2014..."
+                    rows={5}
+                    className="resize-y"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="quoteConditions"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Condizioni generali</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder={"1. VALIDITÀ DEL PREVENTIVO\nIl presente preventivo ha validità 30 giorni...\n\n2. AVVIO DELLE ATTIVITÀ\n..."}
+                    rows={10}
+                    className="resize-y"
+                    {...field}
+                  />
+                </FormControl>
+                <p className="text-xs text-muted-foreground">
+                  Separa gli articoli con una riga vuota. La prima riga di ogni blocco diventa il titolo.
+                </p>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="quotePrivacyNote"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Trattamento dati e privacy</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Qualora l'esecuzione del servizio comporti il trattamento di dati personali..."
+                    rows={4}
+                    className="resize-y"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="quoteAcceptanceText"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Clausola di accettazione</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Il committente, con la firma del presente documento, dichiara di accettare..."
+                    rows={4}
+                    className="resize-y"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </section>
+
+        <Separator />
+
+        {/* ── Filigrana PDF ────────────────────────────────────────── */}
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Filigrana PDF</h2>
+            <p className="text-xs text-muted-foreground">
+              Immagine sovrapposta in trasparenza su ogni pagina dei PDF.
+              Se non carichi un&apos;immagine dedicata, viene usato il logo aziendale.
+            </p>
+          </div>
+          <FormField
+            control={form.control}
+            name="watermarkEnabled"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <FormLabel>Abilita filigrana</FormLabel>
+                  <p className="text-xs text-muted-foreground">
+                    Mostra la filigrana su tutti i PDF generati
+                  </p>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value ?? false}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="watermarkUrl"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>URL immagine filigrana (opzionale)</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Lascia vuoto per usare il logo aziendale"
+                    {...field}
+                  />
+                </FormControl>
+                <p className="text-xs text-muted-foreground">
+                  URL diretto a un&apos;immagine PNG o JPEG. Se vuoto, usa il logo.
+                </p>
                 <FormMessage />
               </FormItem>
             )}

@@ -14,7 +14,7 @@ import { tsToISO } from "@/lib/utils/date";
 import type { ActionResult, PaginatedResult } from "@/types";
 
 const COL = "clients";
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 200;
 
 // ── Converti documento Firestore in ClientDoc ─────────────────────────
 function toClientDoc(id: string, data: FirebaseFirestore.DocumentData): ClientDoc {

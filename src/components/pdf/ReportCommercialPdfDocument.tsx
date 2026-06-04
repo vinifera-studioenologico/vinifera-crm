@@ -249,7 +249,7 @@ interface Props {
 export function ReportCommercialPdfDocument({ reportNumber, company, client, samples, notes, clientPackages }: Props) {
 
   const footerNote =
-    company?.pdfFooterNote ||
+    company?.reportFooterNote ||
     (company ? `${company.legalName} · P.IVA ${company.vatNumber} · ${company.email}` : "");
 
   // Calcola totale globale
