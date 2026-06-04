@@ -9,6 +9,7 @@ export const QuoteStatusSchema = z.enum([
   "approved",
   "rejected",
   "cancelled",
+  "superseded",
 ]);
 export type QuoteStatus = z.infer<typeof QuoteStatusSchema>;
 
@@ -112,6 +113,8 @@ export const QuoteDocSchema = z.object({
   frozenSnapshot: z.any().optional(), // snapshot bloccato all'approvazione
   approvedAt: z.any().optional(),
   approvedBy: z.string().optional(),
+  revision: z.number().int().min(1).optional(),
+  parentQuoteId: z.string().optional(),
   version: z.number().int().min(0),
   createdAt: z.any(),
   updatedAt: z.any(),
@@ -122,10 +125,11 @@ export type QuoteDoc = z.infer<typeof QuoteDocSchema>;
 // ── Transizioni di stato consentite (§4.8) ────────────────────────────
 export const ALLOWED_QUOTE_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
   draft: ["pending_approval", "cancelled"],
-  pending_approval: ["approved", "rejected", "cancelled"],
+  pending_approval: ["approved", "rejected", "cancelled", "superseded"],
   approved: [],
-  rejected: [],
+  rejected: ["superseded"],
   cancelled: [],
+  superseded: [],
 };
 
 export function isQuoteTransitionAllowed(

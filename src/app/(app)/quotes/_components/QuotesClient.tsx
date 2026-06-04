@@ -69,6 +69,7 @@ const STATUS_LABELS: Record<QuoteStatus, string> = {
   approved: "Approvati",
   rejected: "Rifiutati",
   cancelled: "Annullati",
+  superseded: "Sostituiti",
 };
 
 export function QuotesClient({ initialData, clients, analyses, packages, defaultEnpaiaApplied, defaultEnpaiaPercent }: Props) {
@@ -292,7 +293,7 @@ export function QuotesClient({ initialData, clients, analyses, packages, default
           />
         </div>
         <div className="flex gap-1.5 flex-wrap">
-          {(["all", "draft", "pending_approval", "approved", "rejected", "cancelled"] as const).map(
+          {(["all", "draft", "pending_approval", "approved", "rejected", "cancelled", "superseded"] as const).map(
             (s) => (
               <Button
                 key={s}

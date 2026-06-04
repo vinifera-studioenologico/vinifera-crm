@@ -11,6 +11,7 @@ const STATUS_CONFIG: Record<
   approved: { label: "Approvato", className: "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800" },
   rejected: { label: "Rifiutato", className: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800" },
   cancelled: { label: "Annullato", className: "bg-muted text-muted-foreground border-border" },
+  superseded: { label: "Sostituito", className: "bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800/30 dark:text-slate-400 dark:border-slate-700" },
 };
 
 interface Props {

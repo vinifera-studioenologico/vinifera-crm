@@ -47,6 +47,8 @@ function toQuoteDoc(id: string, data: FirebaseFirestore.DocumentData): QuoteDoc 
       : undefined,
     approvedAt: tsToISO(data["approvedAt"]),
     approvedBy: data["approvedBy"],
+    revision: data["revision"] ?? 1,
+    parentQuoteId: data["parentQuoteId"] ?? undefined,
     version: data["version"] ?? 0,
     createdAt: tsToISO(data["createdAt"]),
     updatedAt: tsToISO(data["updatedAt"]),
@@ -373,6 +375,82 @@ export async function deleteQuote(id: string): Promise<ActionResult<void>> {
   } catch (err) {
     logger.error("Errore eliminazione bozza", err);
     return { success: false, error: "Errore durante l'eliminazione. Riprova." };
+  }
+}
+
+// ── Crea nuova revisione ──────────────────────────────────────────────
+export async function createQuoteRevision(
+  sourceId: string,
+): Promise<ActionResult<{ id: string }>> {
+  const actor = await requireAdmin();
+
+  try {
+    let newId = "";
+
+    await adminDb.runTransaction(async (tx) => {
+      const sourceRef = adminDb.collection(COL).doc(sourceId);
+      const sourceSnap = await tx.get(sourceRef);
+      if (!sourceSnap.exists) throw new Error("not_found");
+
+      const src = sourceSnap.data()!;
+      const status = src["status"] as string;
+      if (status !== "pending_approval" && status !== "rejected") {
+        throw new Error("invalid_status");
+      }
+
+      // Segna il vecchio come superseded
+      tx.update(sourceRef, {
+        status: "superseded",
+        version: (src["version"] ?? 0) + 1,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: actor.uid,
+      });
+
+      // Crea il clone come bozza con revision incrementata
+      const newRef = adminDb.collection(COL).doc();
+      newId = newRef.id;
+
+      tx.set(newRef, {
+        number: src["number"],
+        year: src["year"],
+        sequence: src["sequence"],
+        clientId: src["clientId"],
+        clientSnapshot: src["clientSnapshot"],
+        status: "draft",
+        issuedAt: FieldValue.serverTimestamp(),
+        validUntil: src["validUntil"] ?? null,
+        items: src["items"],
+        subtotalCents: src["subtotalCents"],
+        discounts: src["discounts"],
+        taxes: src["taxes"],
+        totalCents: src["totalCents"],
+        notes: src["notes"] ?? null,
+        paymentTerms: src["paymentTerms"] ?? null,
+        revision: (src["revision"] ?? 1) + 1,
+        parentQuoteId: sourceId,
+        version: 0,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        createdBy: actor.uid,
+      });
+    });
+
+    revalidatePath("/quotes");
+    revalidatePath(`/quotes/${sourceId}`);
+    logger.info("Nuova revisione preventivo creata", {
+      sourceId,
+      newId,
+      uid: actor.uid,
+    });
+    return { success: true, data: { id: newId } };
+  } catch (err) {
+    const msg = (err as Error).message;
+    if (msg === "not_found") return { success: false, error: "Preventivo non trovato" };
+    if (msg === "invalid_status") {
+      return { success: false, error: "La revisione è possibile solo da preventivi inviati o rifiutati." };
+    }
+    logger.error("Errore creazione revisione preventivo", err);
+    return { success: false, error: "Errore durante l'operazione. Riprova." };
   }
 }
 

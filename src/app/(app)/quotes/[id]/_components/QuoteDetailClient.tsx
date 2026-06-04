@@ -13,6 +13,7 @@ import {
   Mail,
   Send,
   Package,
+  CopyPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -24,7 +25,7 @@ import type { QuoteDoc, QuoteStatus } from "@/schemas/quote";
 import type { AnalysisDoc } from "@/schemas/analysis";
 import type { ClientDoc } from "@/schemas/client";
 import type { PackageDoc } from "@/schemas/package";
-import { transitionQuote, sendQuoteByEmail } from "@/server/actions/quotes";
+import { transitionQuote, sendQuoteByEmail, createQuoteRevision } from "@/server/actions/quotes";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { sharePdf } from "@/lib/utils/share";
 import { createManualPayment } from "@/server/actions/payments";
@@ -239,6 +240,18 @@ export function QuoteDetailClient({ quote, clients, analyses, packages, defaultE
     });
   }
 
+  function handleRevision() {
+    startTransition(async () => {
+      const result = await createQuoteRevision(quote.id);
+      if (result.success) {
+        toast.success("Nuova revisione creata");
+        router.push(`/quotes/${result.data.id}`);
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
   const allowedTransitions = TRANSITION_BUTTONS.filter((btn) =>
     isQuoteTransitionAllowed(quote.status, btn.to),
   );
@@ -280,6 +293,11 @@ export function QuoteDetailClient({ quote, clients, analyses, packages, defaultE
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-2xl font-semibold tracking-tight">
                 Preventivo {quote.number}
+                {(quote.revision ?? 1) > 1 && (
+                  <span className="text-base font-normal text-muted-foreground ml-2">
+                    Rev. {quote.revision}
+                  </span>
+                )}
               </h1>
               <QuoteStatusBadge status={quote.status} />
             </div>
@@ -376,6 +394,22 @@ export function QuoteDetailClient({ quote, clients, analyses, packages, defaultE
                 {btn.label}
               </Button>
             ))}
+
+            {(quote.status === "pending_approval" || quote.status === "rejected") && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isPending}
+                onClick={handleRevision}
+              >
+                {isPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <CopyPlus className="size-3.5" strokeWidth={1.75} />
+                )}
+                Nuova revisione
+              </Button>
+            )}
           </div>
         </div>
       </div>

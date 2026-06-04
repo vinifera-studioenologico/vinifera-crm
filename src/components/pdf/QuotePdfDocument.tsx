@@ -329,7 +329,10 @@ function PdfHeader({
         )}
         <View style={{ alignItems: "flex-end" as const }}>
           <Text style={S.quoteLabel}>Preventivo</Text>
-          <Text style={S.quoteNumber}>{quote.number}</Text>
+          <Text style={S.quoteNumber}>
+            {quote.number}
+            {(quote.revision ?? 1) > 1 ? ` — Rev. ${quote.revision}` : ""}
+          </Text>
           <Text style={S.quoteDate}>Data: {fmtDate(quote.issuedAt)}</Text>
           {quote.validUntil && (
             <Text style={S.quoteDate}>
@@ -663,6 +666,7 @@ function ConditionsPage({
     <View>
       <Text style={{ ...S.sectionTitle, marginTop: 0, fontSize: 11 }}>
         {"Condizioni generali del preventivo N\u00b0 "}{quote.number}
+        {(quote.revision ?? 1) > 1 ? ` — Rev. ${quote.revision}` : ""}
       </Text>
 
       {paragraphs.map((para, i) => {
