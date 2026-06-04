@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "tsc --noEmit && eslint && vitest run",
+    "check": "tsc --noEmit && eslint && vitest run && next build",
     "db:import-analyses": "tsx --env-file=.env.local scripts/import-analyses.ts"
   },
   "dependencies": {

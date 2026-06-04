@@ -10,7 +10,7 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Trash2, ChevronRight, ChevronLeft, Loader2, Search } from "lucide-react";
+import { Trash2, ChevronRight, ChevronLeft, Loader2, Search, ChevronsUpDown, Check } from "lucide-react";
 import { z } from "zod";
 
 import { SampleFormSchema } from "@/schemas/sample";
@@ -48,6 +48,15 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 
 type FormInput = z.infer<typeof SampleWizardClientSchema>;
 
@@ -102,6 +111,7 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
 // ── Step 1: Dati base ─────────────────────────────────────────────────
 function Step1({ clients }: { clients: ClientDoc[] }) {
   const form = useFormContext<FormInput>();
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
   const activeClients = clients.filter((c) => c.deletedAt === null);
 
   return (
@@ -109,25 +119,60 @@ function Step1({ clients }: { clients: ClientDoc[] }) {
       <FormField
         control={form.control}
         name="clientId"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Cliente *</FormLabel>
-            <FormControl>
-              <select
-                className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50"
-                {...field}
-              >
-                <option value="">— Seleziona cliente —</option>
-                {activeClients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.displayName}
-                  </option>
-                ))}
-              </select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
+        render={({ field }) => {
+          const selectedClient = activeClients.find((c) => c.id === field.value);
+          return (
+            <FormItem>
+              <FormLabel>Cliente *</FormLabel>
+              <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+                <PopoverTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={clientPopoverOpen}
+                      className="w-full justify-between h-8 px-2.5 text-sm font-normal"
+                    >
+                      <span className={selectedClient ? "" : "text-muted-foreground"}>
+                        {selectedClient ? selectedClient.displayName : "— Seleziona cliente —"}
+                      </span>
+                      <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
+                    </Button>
+                  }
+                />
+                <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
+                  <Command>
+                    <CommandInput placeholder="Cerca cliente…" />
+                    <CommandList>
+                      <CommandEmpty>Nessun cliente trovato.</CommandEmpty>
+                      <CommandGroup>
+                        {activeClients.map((c) => (
+                          <CommandItem
+                            key={c.id}
+                            value={c.displayName}
+                            onSelect={() => {
+                              field.onChange(c.id);
+                              setClientPopoverOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={`size-3.5 shrink-0 ${
+                                field.value === c.id ? "opacity-100" : "opacity-0"
+                              }`}
+                            />
+                            {c.displayName}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <FormMessage />
+            </FormItem>
+          );
+        }}
       />
 
       <FormField
@@ -266,7 +311,7 @@ function Step2({
             onChange={(e) => setAnalysisSearch(e.target.value)}
           />
         </div>
-        <div className="max-h-56 overflow-y-auto rounded-xl border border-border divide-y divide-border">
+        <div className="rounded-xl border border-border divide-y divide-border">
           {filteredAnalyses.length === 0 ? (
             <p className="px-3 py-4 text-sm text-center text-muted-foreground">
               Nessuna analisi trovata
@@ -285,11 +330,11 @@ function Step2({
                     checked={isSelected}
                     onChange={() => toggleAnalysis(a)}
                   />
-                  <span className="flex-1 min-w-0 text-sm">
-                    <span className="font-mono text-xs text-muted-foreground mr-1.5">
+                  <span className="flex-1 min-w-0">
+                    <span className="font-semibold text-sm">{a.name}</span>
+                    <span className="font-mono text-xs text-muted-foreground ml-1.5">
                       {a.code}
                     </span>
-                    {a.name}
                   </span>
                   <span className="tabular-nums text-xs text-muted-foreground shrink-0">
                     {formatEUR(a.defaultPriceCents)}
