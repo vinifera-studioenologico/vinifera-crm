@@ -16,9 +16,9 @@ import type { ClientPackageDoc } from "@/schemas/package";
 Font.registerHyphenationCallback((word) => [word]);
 
 // ── Costanti ──────────────────────────────────────────────────────────
-const GREEN = "#1A4D3E";
-const BG_GREEN = "#f2f8f5";
-const BG_TABLE_HEADER = "#edf4f1";
+const ACCENT = "#111827";
+const BG_CLIENT = "#F3F4F6";
+const BG_TABLE_HEADER = "#F3F4F6";
 
 // ── Stili ─────────────────────────────────────────────────────────────
 const S = StyleSheet.create({
@@ -30,33 +30,57 @@ const S = StyleSheet.create({
     lineHeight: 1.4,
   },
   header: {
+    marginBottom: 24,
+  },
+  headerTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginTop: 40,
-    marginBottom: 24,
+    marginBottom: 8,
   },
-  headerLeft: { flex: 1 },
-  headerRight: { alignItems: "flex-end" },
-  logo: { width: 120, height: 60, objectFit: "contain" },
-  companyName: { fontSize: 14, fontFamily: "Helvetica-Bold", marginBottom: 3 },
-  companyDetail: { fontSize: 8, color: "#555", lineHeight: 1.5 },
-
-  // Riga titolo referto sopra il box cliente
-  reportTitleRow: {
+  logoBox: { maxWidth: 160, height: 48, objectFit: "contain" },
+  companyInfoRow: {
     flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 6,
-    gap: 8,
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    borderTopWidth: 0.5,
+    borderTopColor: "#E5E7EB",
+    paddingTop: 6,
   },
-  reportTitleText: { fontSize: 13, fontFamily: "Helvetica-Bold", color: GREEN },
-  reportTitleSep: { fontSize: 13, color: "#ccc" },
-  reportTitleMeta: { fontSize: 10, color: "#666" },
+  companyName: {
+    fontSize: 14,
+    fontFamily: "Helvetica-Bold",
+    color: ACCENT,
+    marginBottom: 2,
+  },
+  companyMeta: { fontSize: 9, color: "#6B7280", lineHeight: 1.4 },
+  reportLabel: {
+    fontSize: 9,
+    color: "#6B7280",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  reportNumber: {
+    fontSize: 16,
+    fontFamily: "Helvetica-Bold",
+    color: ACCENT,
+    marginTop: 2,
+  },
+  reportInternalUse: {
+    fontSize: 7.5,
+    color: "#9CA3AF",
+    textTransform: "uppercase",
+    letterSpacing: 3,
+    marginTop: 6,
+    paddingTop: 4,
+    borderTopWidth: 0.5,
+    borderTopColor: "#D1D5DB",
+  },
 
   // Info cliente
   clientBox: {
     padding: "10pt 14pt",
-    backgroundColor: BG_GREEN,
+    backgroundColor: BG_CLIENT,
     borderRadius: 4,
     marginBottom: 20,
     flexDirection: "row",
@@ -75,7 +99,7 @@ const S = StyleSheet.create({
   pkgSummaryTitle: { fontSize: 7, color: "#888", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 },
   pkgSummaryRow: { flexDirection: "row", gap: 4, marginTop: 1 },
   pkgSummaryLabel: { fontSize: 8.5, color: "#555" },
-  pkgSummaryValue: { fontSize: 8.5, fontFamily: "Helvetica-Bold", color: GREEN },
+  pkgSummaryValue: { fontSize: 8.5, fontFamily: "Helvetica-Bold", color: ACCENT },
 
   // Campione
   sampleCard: {
@@ -89,11 +113,11 @@ const S = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: "8pt 12pt",
-    backgroundColor: GREEN,
+    backgroundColor: "#E5E7EB",
   },
-  sampleCode: { fontSize: 10, fontFamily: "Helvetica-Bold", color: "#fff" },
-  sampleName: { fontSize: 9, color: "#c8e8e0" },
-  sampleMeta: { fontSize: 8, color: "#c8e8e0", textAlign: "right" },
+  sampleCode: { fontSize: 10, fontFamily: "Helvetica-Bold", color: "#111" },
+  sampleName: { fontSize: 9, color: "#444" },
+  sampleMeta: { fontSize: 8, color: "#444", textAlign: "right" },
 
   // Tabella analisi
   tableHeader: {
@@ -101,20 +125,20 @@ const S = StyleSheet.create({
     backgroundColor: BG_TABLE_HEADER,
     padding: "4pt 10pt",
   },
-  tableHeaderText: { fontSize: 7, fontFamily: "Helvetica-Bold", color: "#666", textTransform: "uppercase" },
+  tableHeaderText: { fontSize: 7, fontFamily: "Helvetica-Bold", color: "#666", textTransform: "uppercase", textAlign: "center" },
   tableRow: {
     flexDirection: "row",
     borderBottom: "0.5pt solid #eee",
     padding: "5pt 10pt",
-    alignItems: "flex-start",
+    alignItems: "center",
   },
   tableRowAlt: { backgroundColor: "#fafafa" },
 
   colAnalysis: { width: 100 },
   colCode: { width: 80 },
-  colResult: { width: 55, textAlign: "right" },
-  colUnit: { width: 35, textAlign: "right" },
-  colMethod: { width: 209, paddingLeft: 6 },  // 479 (row inner) - 270 (fixed cols)
+  colResult: { width: 55, textAlign: "center" },
+  colUnit: { width: 35, textAlign: "center" },
+  colMethod: { width: 209, textAlign: "center" },  // 479 (row inner) - 270 (fixed cols)
 
   cellText: { fontSize: 8.5 },
   cellResult: { fontSize: 8.5, fontFamily: "Helvetica-Bold", color: "#1a1a1a" },
@@ -123,7 +147,7 @@ const S = StyleSheet.create({
   // Note campione
   sampleNotes: {
     padding: "6pt 10pt",
-    backgroundColor: "#fffdf0",
+    backgroundColor: "#F9FAFB",
     borderTop: "0.5pt solid #eee",
   },
   sampleNotesText: { fontSize: 8, color: "#666" },
@@ -132,8 +156,8 @@ const S = StyleSheet.create({
   reportNotes: {
     marginTop: 14,
     padding: "10pt 12pt",
-    backgroundColor: "#fafafa",
-    borderLeft: `2pt solid ${GREEN}`,
+    backgroundColor: "#F9FAFB",
+    borderLeft: "2pt solid #D1D5DB",
     borderRadius: 2,
   },
   reportNotesLabel: {
@@ -194,6 +218,16 @@ export function ReportPdfDocument({
     company?.reportFooterNote ||
     (company ? `${company.legalName} · P.IVA ${company.vatNumber} · ${company.email}` : "");
 
+  const addr = company?.address;
+  const addrLine = [
+    addr?.street,
+    addr?.zip && addr?.city
+      ? `${addr.zip} ${addr.city} (${addr.province})`
+      : addr?.city,
+  ]
+    .filter(Boolean)
+    .join(" \u2014 ");
+
   // Totali pacchetti
   const totalUsed = clientPackages?.reduce((a, p) => a + (p.totalAnalyses - p.remainingAnalyses), 0) ?? 0;
   const totalRemaining = clientPackages?.reduce((a, p) => a + p.remainingAnalyses, 0) ?? 0;
@@ -213,33 +247,39 @@ export function ReportPdfDocument({
       <Page size="A4" style={S.page}>
         {/* ── HEADER ── */}
         <View style={S.header}>
-          <View style={S.headerLeft}>
-            {company?.logoUrl ? <Image src={company.logoUrl} style={S.logo} /> : null}
-          </View>
-          <View style={S.headerRight}>
-            <Text style={S.companyName}>{company?.displayName ?? "Laboratorio"}</Text>
-            {company && (
-              <>
-                <Text style={[S.companyDetail, { textAlign: "right" }]}>
-                  {[company.address.street, company.address.zip, company.address.city]
-                    .filter(Boolean)
-                    .join(" · ")}
-                  {company.address.province ? ` (${company.address.province})` : ""}
-                </Text>
-                <Text style={[S.companyDetail, { textAlign: "right" }]}>P.IVA {company.vatNumber}</Text>
-                <Text style={[S.companyDetail, { textAlign: "right" }]}>{company.email}</Text>
-              </>
+          <View style={S.headerTop}>
+            {company?.logoUrl ? (
+              <Image src={company.logoUrl} style={S.logoBox} />
+            ) : (
+              <View />
             )}
+            <View style={{ alignItems: "flex-end" as const }}>
+              <Text style={S.reportLabel}>Referto Analisi</Text>
+              <Text style={S.reportNumber}>{reportNumber}</Text>
+              <Text style={S.reportInternalUse}>Per uso interno</Text>
+            </View>
           </View>
-        </View>
 
-        {/* ── RIGA TITOLO REFERTO ── */}
-        <View style={S.reportTitleRow}>
-          <Text style={S.reportTitleText}>Referto Analisi</Text>
-          <Text style={S.reportTitleSep}>—</Text>
-          <Text style={S.reportTitleText}>{reportNumber}</Text>
-          <Text style={S.reportTitleSep}>—</Text>
-          <Text style={S.reportTitleMeta}>Per uso interno</Text>
+          <View style={S.companyInfoRow}>
+            <View>
+              <Text style={S.companyName}>
+                {company?.displayName ?? "Laboratorio"}
+              </Text>
+              <Text style={S.companyMeta}>
+                {[company?.vatNumber && `P.IVA ${company.vatNumber}`, addrLine]
+                  .filter(Boolean)
+                  .join(" | ")}
+              </Text>
+            </View>
+            <View style={{ alignItems: "flex-end" as const }}>
+              {company?.email && (
+                <Text style={S.companyMeta}>{company.email}</Text>
+              )}
+              {company?.pec && (
+                <Text style={S.companyMeta}>PEC {company.pec}</Text>
+              )}
+            </View>
+          </View>
         </View>
 
         {/* ── BOX CLIENTE (SX info + DX saldo pacchetti) ── */}

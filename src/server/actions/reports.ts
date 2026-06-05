@@ -40,16 +40,15 @@ function toReportDoc(id: string, data: FirebaseFirestore.DocumentData): ReportDo
   };
 }
 
-// ── Genera numero referto R-YYYY-NNNN ────────────────────────────────
+// ── Genera numero referto R-NNNN ─────────────────────────────────────
 async function getNextReportNumber(
   tx: FirebaseFirestore.Transaction,
-  year: number,
 ): Promise<string> {
-  const counterRef = adminDb.doc(`counters/reports_${year}`);
+  const counterRef = adminDb.doc("counters/reports");
   const snap = await tx.get(counterRef);
   const next = (snap.data()?.["seq"] ?? 0) + 1;
   tx.set(counterRef, { seq: next }, { merge: true });
-  return `R-${year}-${String(next).padStart(4, "0")}`;
+  return `R-${String(next).padStart(4, "0")}`;
 }
 
 // ── Lista referti ─────────────────────────────────────────────────────
@@ -119,14 +118,12 @@ export async function createReport(
   const allPackages = await getClientPackages(data.clientId);
   const activePackages = allPackages.filter((p) => p.status === "active");
 
-  const year = new Date().getFullYear();
-
   try {
     let createdId = "";
     let reportNumber = "";
 
     await adminDb.runTransaction(async (tx) => {
-      const reportNumber_ = await getNextReportNumber(tx, year);
+      const reportNumber_ = await getNextReportNumber(tx);
       reportNumber = reportNumber_;
 
       const reportRef = adminDb.collection(COL).doc();

@@ -4,7 +4,7 @@ import { ClientSnapshotSchema } from "./client";
 // ── Documento Firestore referto ───────────────────────────────────────
 export const ReportDocSchema = z.object({
   id: z.string(),
-  number: z.string(),          // "R-2026-0001"
+  number: z.string(),          // "R-0001"
   clientId: z.string(),
   clientSnapshot: ClientSnapshotSchema,
   sampleIds: z.array(z.string()).min(1).max(100), // max 100 campioni per referto §18.15

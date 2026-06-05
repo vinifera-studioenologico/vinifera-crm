@@ -1,11 +1,11 @@
 /**
- * Imposta il contatore referti per un anno specifico.
+ * Imposta il contatore referti globale.
  *
  * Esegui con:
- *   npx tsx scripts/set-report-counter.ts [anno] [valore]
+ *   npx tsx scripts/set-report-counter.ts [valore]
  *
- * Esempio — fa sì che il prossimo referto sia R-2026-0357:
- *   npx tsx scripts/set-report-counter.ts 2026 356
+ * Esempio — fa sì che il prossimo referto sia R-0357:
+ *   npx tsx scripts/set-report-counter.ts 356
  *
  * Richiede Firebase Admin configurato (.env.local con FIREBASE_ADMIN_* compilati).
  */
@@ -32,29 +32,27 @@ function getAdminApp() {
 }
 
 async function main() {
-  const year = parseInt(process.argv[2] ?? String(new Date().getFullYear()), 10);
-  const seq = parseInt(process.argv[3] ?? "356", 10);
+  const seq = parseInt(process.argv[2] ?? "0", 10);
 
-  if (isNaN(year) || isNaN(seq) || seq < 0) {
-    console.error("Uso: npx tsx scripts/set-report-counter.ts [anno] [valore]");
+  if (isNaN(seq) || seq < 0) {
+    console.error("Uso: npx tsx scripts/set-report-counter.ts [valore]");
     process.exit(1);
   }
 
   const app = getAdminApp();
   const db = getFirestore(app);
 
-  const docId = `reports_${year}`;
-  const ref = db.doc(`counters/${docId}`);
+  const ref = db.doc("counters/reports");
 
   const before = await ref.get();
   const seqBefore = before.data()?.["seq"] ?? "(documento non esiste)";
 
   await ref.set({ seq }, { merge: true });
 
-  console.log(`counters/${docId}:`);
+  console.log("counters/reports:");
   console.log(`  seq prima:  ${seqBefore}`);
   console.log(`  seq dopo:   ${seq}`);
-  console.log(`  prossimo referto: R-${year}-${String(seq + 1).padStart(4, "0")}`);
+  console.log(`  prossimo referto: R-${String(seq + 1).padStart(4, "0")}`);
 }
 
 main().catch((e) => {

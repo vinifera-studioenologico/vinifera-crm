@@ -1,6 +1,6 @@
 /**
  * Elimina i referti di test e riporta il contatore a 359
- * (prossimo referto = R-2026-0360)
+ * (prossimo referto = R-0360)
  *
  * Esegui con:
  *   npx tsx scripts/delete-test-reports.ts
@@ -14,9 +14,8 @@ import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 
-const NUMBERS_TO_DELETE = ["R-2026-0360", "R-2026-0361", "R-2026-0362"];
-const COUNTER_YEAR = 2026;
-const COUNTER_VALUE = 359; // prossimo sarà R-2026-0360
+const NUMBERS_TO_DELETE = ["R-0360", "R-0361", "R-0362"];
+const COUNTER_VALUE = 359; // prossimo sarà R-0360
 
 function getAdminApp() {
   if (getApps().length > 0) return getApps()[0]!;
@@ -69,15 +68,15 @@ async function main() {
   }
 
   // 2. Reimposta il contatore
-  const counterRef = db.doc(`counters/reports_${COUNTER_YEAR}`);
+  const counterRef = db.doc("counters/reports");
   const before = await counterRef.get();
   const seqBefore = before.data()?.["seq"] ?? "(non esiste)";
   await counterRef.set({ seq: COUNTER_VALUE }, { merge: true });
 
-  console.log(`\nContatore reports_${COUNTER_YEAR}:`);
+  console.log("\nContatore reports:");
   console.log(`  seq prima:  ${seqBefore}`);
   console.log(`  seq dopo:   ${COUNTER_VALUE}`);
-  console.log(`  prossimo referto: R-${COUNTER_YEAR}-${String(COUNTER_VALUE + 1).padStart(4, "0")}`);
+  console.log(`  prossimo referto: R-${String(COUNTER_VALUE + 1).padStart(4, "0")}`);
 }
 
 main().catch((e) => {
