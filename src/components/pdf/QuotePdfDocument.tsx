@@ -90,190 +90,21 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "Annullato",
 };
 
+// ── Font size scaling ─────────────────────────────────────────────────
+const FONT_SCALE: Record<string, number> = {
+  sm: 0.85,
+  md: 1,
+  lg: 1.15,
+  xl: 1.3,
+};
+
 // ── Stili (B/W — solo logo a colori) ──────────────────────────────────
 
 const ACCENT = "#111827";
 
-const S = StyleSheet.create({
-  page: {
-    paddingTop: 48,
-    paddingBottom: 60,
-    paddingHorizontal: 40,
-    fontSize: 10.5,
-    fontFamily: "Helvetica",
-    color: "#111827",
-  },
-  header: {
-    marginBottom: 24,
-  },
-  headerTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 8,
-  },
-  logoBox: { maxWidth: 160, height: 48, objectFit: "contain" },
-  companyInfoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    borderTopWidth: 0.5,
-    borderTopColor: "#E5E7EB",
-    paddingTop: 6,
-  },
-  companyName: {
-    fontSize: 14,
-    fontFamily: "Helvetica-Bold",
-    color: ACCENT,
-    marginBottom: 2,
-  },
-  companyMeta: { fontSize: 9, color: "#6B7280", lineHeight: 1.4 },
-  quoteLabel: {
-    fontSize: 9,
-    color: "#6B7280",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  quoteNumber: {
-    fontSize: 16,
-    fontFamily: "Helvetica-Bold",
-    color: ACCENT,
-    marginTop: 2,
-  },
-  quoteDate: { fontSize: 9.5, color: "#6B7280", marginTop: 4 },
-  sectionTitle: {
-    fontSize: 9.5,
-    fontFamily: "Helvetica-Bold",
-    color: ACCENT,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: 6,
-    marginTop: 18,
-    paddingBottom: 3,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  clientName: {
-    fontFamily: "Helvetica-Bold",
-    fontSize: 11.5,
-    marginBottom: 2,
-  },
-  clientMeta: { color: "#6B7280", fontSize: 9.5, lineHeight: 1.5 },
-  tableHeader: {
-    flexDirection: "row",
-    backgroundColor: ACCENT,
-    paddingVertical: 5,
-    paddingHorizontal: 6,
-    borderRadius: 2,
-    marginTop: 4,
-  },
-  tableHeaderText: {
-    fontFamily: "Helvetica-Bold",
-    fontSize: 9,
-    color: "#ffffff",
-  },
-  tableRow: {
-    flexDirection: "row",
-    paddingVertical: 6,
-    paddingHorizontal: 6,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#F3F4F6",
-  },
-  tableRowAlt: { backgroundColor: "#F9FAFB" },
-  tableCell: { fontSize: 10 },
-  colN: { width: "5%" },
-  colDesc: { width: "47%" },
-  colQty: { width: "8%", textAlign: "right" },
-  colPrice: { width: "18%", textAlign: "right" },
-  colTotal: { width: "22%", textAlign: "right" },
-  totalsBlock: { alignItems: "flex-end", marginTop: 14 },
-  totalsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    minWidth: 240,
-    paddingVertical: 3,
-  },
-  totalsLabel: { fontSize: 10, color: "#6B7280", paddingRight: 16 },
-  totalsValue: { fontSize: 10 },
-  totalsDiscountValue: { fontSize: 10, color: "#991B1B" },
-  totalsDivider: {
-    width: 240,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#D1D5DB",
-    marginVertical: 4,
-  },
-  grandTotalLabel: { fontSize: 13, fontFamily: "Helvetica-Bold" },
-  grandTotalValue: {
-    fontSize: 13,
-    fontFamily: "Helvetica-Bold",
-    color: ACCENT,
-  },
-  notesText: {
-    fontSize: 10,
-    fontFamily: "Helvetica-Oblique",
-    color: "#374151",
-    lineHeight: 1.5,
-    textAlign: "justify",
-  },
-  paymentLine: {
-    fontSize: 10,
-    color: "#374151",
-    lineHeight: 1.6,
-    marginBottom: 4,
-    textAlign: "justify",
-  },
-  fiscalNote: {
-    marginTop: 10,
-    marginBottom: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 2,
-    borderLeftWidth: 2,
-    borderLeftColor: "#D1D5DB",
-  },
-  fiscalNoteText: {
-    fontSize: 8.5,
-    color: "#6B7280",
-    fontFamily: "Helvetica-Oblique",
-    lineHeight: 1.5,
-    textAlign: "justify",
-  },
-  conditionText: {
-    fontSize: 9.5,
-    color: "#374151",
-    lineHeight: 1.65,
-    marginBottom: 10,
-    textAlign: "justify",
-  },
-  specificApprovalText: {
-    fontSize: 9,
-    color: "#374151",
-    lineHeight: 1.6,
-    textAlign: "justify",
-  },
-  sigBlock: { marginTop: 32 },
-  sigLine: {
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#374151",
-    marginTop: 40,
-    marginBottom: 4,
-  },
-  sigLabel: { fontSize: 9, color: "#6B7280" },
-  sigRow: { flexDirection: "row", gap: 24, marginTop: 24 },
-  footer: {
-    position: "absolute",
-    bottom: 20,
-    left: 40,
-    right: 40,
-    borderTopWidth: 0.5,
-    borderTopColor: "#E5E7EB",
-    paddingTop: 5,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  footerText: { fontSize: 7.5, color: "#9CA3AF" },
-  watermark: {
+/** Stili statici per la filigrana (non dipendono dalla scala font) */
+const WM = StyleSheet.create({
+  container: {
     position: "absolute",
     top: 0,
     left: 0,
@@ -282,33 +113,250 @@ const S = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  watermarkText: {
+  text: {
     fontSize: 100,
     fontFamily: "Helvetica-Bold",
     color: "#E5E7EB",
     opacity: 0.4,
     transform: "rotate(-45deg)",
   },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    fontSize: 9,
-    fontFamily: "Helvetica-Bold",
-    alignSelf: "flex-end",
-    marginTop: 4,
-  },
 });
+
+function makeStyles(scale: number) {
+  const f = (n: number) => Math.round(n * scale * 10) / 10;
+  return StyleSheet.create({
+    page: {
+      paddingTop: 48,
+      paddingBottom: 60,
+      paddingHorizontal: 40,
+      fontSize: f(10.5),
+      fontFamily: "Helvetica",
+      color: "#111827",
+    },
+    header: {
+      marginBottom: 24,
+    },
+    headerTop: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: 8,
+    },
+    logoBox: { maxWidth: 160, height: 48, objectFit: "contain" },
+    companyInfoRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-end",
+      borderTopWidth: 0.5,
+      borderTopColor: "#E5E7EB",
+      paddingTop: 6,
+    },
+    companyName: {
+      fontSize: f(14),
+      fontFamily: "Helvetica-Bold",
+      color: ACCENT,
+      marginBottom: 2,
+    },
+    companyMeta: { fontSize: f(9), color: "#6B7280", lineHeight: 1.4 },
+    quoteLabel: {
+      fontSize: f(9),
+      color: "#6B7280",
+      textTransform: "uppercase",
+      letterSpacing: 1,
+    },
+    quoteNumber: {
+      fontSize: f(16),
+      fontFamily: "Helvetica-Bold",
+      color: ACCENT,
+      marginTop: 2,
+    },
+    quoteDate: { fontSize: f(9.5), color: "#6B7280", marginTop: 4 },
+    sectionTitle: {
+      fontSize: f(9.5),
+      fontFamily: "Helvetica-Bold",
+      color: ACCENT,
+      textTransform: "uppercase",
+      letterSpacing: 0.8,
+      marginBottom: 6,
+      marginTop: 18,
+      paddingBottom: 3,
+      borderBottomWidth: 1,
+      borderBottomColor: "#E5E7EB",
+    },
+    clientName: {
+      fontFamily: "Helvetica-Bold",
+      fontSize: f(11.5),
+      marginBottom: 2,
+    },
+    clientMeta: { color: "#6B7280", fontSize: f(9.5), lineHeight: 1.5 },
+    tableHeader: {
+      flexDirection: "row",
+      backgroundColor: ACCENT,
+      paddingVertical: 5,
+      paddingHorizontal: 6,
+      borderRadius: 2,
+      marginTop: 4,
+    },
+    tableHeaderText: {
+      fontFamily: "Helvetica-Bold",
+      fontSize: f(9),
+      color: "#ffffff",
+    },
+    tableRow: {
+      flexDirection: "row",
+      paddingVertical: 6,
+      paddingHorizontal: 6,
+      borderBottomWidth: 0.5,
+      borderBottomColor: "#F3F4F6",
+    },
+    tableRowAlt: { backgroundColor: "#F9FAFB" },
+    tableCell: { fontSize: f(10) },
+    colN: { width: "5%" },
+    colDesc: { width: "47%" },
+    colQty: { width: "8%", textAlign: "right" },
+    colPrice: { width: "18%", textAlign: "right" },
+    colTotal: { width: "22%", textAlign: "right" },
+    totalsBlock: { alignItems: "flex-end", marginTop: 14 },
+    totalsRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      minWidth: 240,
+      paddingVertical: 3,
+    },
+    totalsLabel: { fontSize: f(10), color: "#6B7280", paddingRight: 16 },
+    totalsValue: { fontSize: f(10) },
+    totalsDiscountValue: { fontSize: f(10), color: "#991B1B" },
+    totalsDivider: {
+      width: 240,
+      borderBottomWidth: 0.5,
+      borderBottomColor: "#D1D5DB",
+      marginVertical: 4,
+    },
+    grandTotalLabel: { fontSize: f(13), fontFamily: "Helvetica-Bold" },
+    grandTotalValue: {
+      fontSize: f(13),
+      fontFamily: "Helvetica-Bold",
+      color: ACCENT,
+    },
+    notesText: {
+      fontSize: f(10),
+      fontFamily: "Helvetica-Oblique",
+      color: "#374151",
+      lineHeight: 1.5,
+      textAlign: "justify",
+    },
+    paymentLine: {
+      fontSize: f(10),
+      color: "#374151",
+      lineHeight: 1.6,
+      marginBottom: 4,
+      textAlign: "justify",
+    },
+    fiscalNote: {
+      marginTop: 10,
+      marginBottom: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      backgroundColor: "#F9FAFB",
+      borderRadius: 2,
+      borderLeftWidth: 2,
+      borderLeftColor: "#D1D5DB",
+    },
+    fiscalNoteText: {
+      fontSize: f(8.5),
+      color: "#6B7280",
+      fontFamily: "Helvetica-Oblique",
+      lineHeight: 1.5,
+      textAlign: "justify",
+    },
+    conditionText: {
+      fontSize: f(9.5),
+      color: "#374151",
+      lineHeight: 1.65,
+      marginBottom: 10,
+      textAlign: "justify",
+    },
+    specificApprovalText: {
+      fontSize: f(9),
+      color: "#374151",
+      lineHeight: 1.6,
+      textAlign: "justify",
+    },
+    sigBlock: { marginTop: 32 },
+    sigLine: {
+      borderBottomWidth: 0.5,
+      borderBottomColor: "#374151",
+      marginTop: 40,
+      marginBottom: 4,
+    },
+    sigLabel: { fontSize: f(9), color: "#6B7280" },
+    sigRow: { flexDirection: "row", gap: 24, marginTop: 24 },
+    footer: {
+      position: "absolute",
+      bottom: 20,
+      left: 40,
+      right: 40,
+      borderTopWidth: 0.5,
+      borderTopColor: "#E5E7EB",
+      paddingTop: 5,
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    footerText: { fontSize: f(7.5), color: "#9CA3AF" },
+    badge: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 10,
+      fontSize: f(9),
+      fontFamily: "Helvetica-Bold",
+      alignSelf: "flex-end",
+      marginTop: 4,
+    },
+    // ── Stili inline promossi per scalare tutti i fontSize ────────────
+    itemKindText: { fontSize: f(8.5), color: "#6B7280", marginTop: 1 },
+    conditionArticleTitle: {
+      fontSize: f(9.5),
+      fontFamily: "Helvetica-Bold",
+      color: ACCENT,
+      marginBottom: 2,
+      textTransform: "uppercase",
+    },
+    conditionsPageSectionTitle: {
+      fontSize: f(11),
+      fontFamily: "Helvetica-Bold",
+      color: ACCENT,
+      marginTop: 0,
+      marginBottom: 6,
+    },
+    acceptanceBoxTitle: {
+      fontSize: f(11),
+      fontFamily: "Helvetica-Bold",
+      color: ACCENT,
+      marginBottom: 6,
+    },
+    acceptanceBoxBody: {
+      fontSize: f(9),
+      color: "#374151",
+      lineHeight: 1.5,
+      marginBottom: 8,
+    },
+  });
+}
+
+type PdfStyles = ReturnType<typeof makeStyles>;
 
 // ── Sub-components ────────────────────────────────────────────────────
 
 function PdfHeader({
   quote,
   company,
+  s,
 }: {
   quote: QuoteDoc;
   company: CompanySettingsValues | null;
+  s: PdfStyles;
 }) {
+  const S = s;
   const addr = company?.address;
   const addrLine = [
     addr?.street,
@@ -388,7 +436,8 @@ function PdfHeader({
   );
 }
 
-function ClientSection({ quote }: { quote: QuoteDoc }) {
+function ClientSection({ quote, s }: { quote: QuoteDoc; s: PdfStyles }) {
+  const S = s;
   const c = quote.clientSnapshot;
   return (
     <View>
@@ -412,7 +461,8 @@ function ClientSection({ quote }: { quote: QuoteDoc }) {
   );
 }
 
-function LinesTable({ quote }: { quote: QuoteDoc }) {
+function LinesTable({ quote, s }: { quote: QuoteDoc; s: PdfStyles }) {
+  const S = s;
   return (
     <View>
       <Text style={S.sectionTitle}>Dettaglio prestazioni</Text>
@@ -440,7 +490,7 @@ function LinesTable({ quote }: { quote: QuoteDoc }) {
                 {name}
               </Text>
               {item.kind !== "free" && (
-                <Text style={{ fontSize: 8.5, color: "#6B7280", marginTop: 1 }}>
+                <Text style={S.itemKindText}>
                   {item.kind === "analysis"
                     ? "Analisi di laboratorio"
                     : "Pacchetto analisi"}
@@ -455,7 +505,8 @@ function LinesTable({ quote }: { quote: QuoteDoc }) {
   );
 }
 
-function PriceSummaryTable({ quote }: { quote: QuoteDoc }) {
+function PriceSummaryTable({ quote, s }: { quote: QuoteDoc; s: PdfStyles }) {
+  const S = s;
   return (
     <View>
       <View style={S.tableHeader}>
@@ -502,12 +553,15 @@ function TotalsSection({
   discountAmounts,
   afterDiscountsCents,
   taxAmountsMap,
+  s,
 }: {
   quote: QuoteDoc;
   discountAmounts: number[];
   afterDiscountsCents: number;
   taxAmountsMap: { label: string; percent: number; amountCents: number }[];
+  s: PdfStyles;
 }) {
+  const S = s;
   return (
     <View style={S.totalsBlock}>
       <View style={S.totalsRow}>
@@ -562,7 +616,8 @@ function TotalsSection({
   );
 }
 
-function NotesSection({ notes }: { notes: string }) {
+function NotesSection({ notes, s }: { notes: string; s: PdfStyles }) {
+  const S = s;
   return (
     <View>
       <Text style={S.sectionTitle}>Note</Text>
@@ -577,13 +632,16 @@ function EconomicPage({
   discountAmounts,
   afterDiscountsCents,
   taxAmountsMap,
+  s,
 }: {
   quote: QuoteDoc;
   company: CompanySettingsValues | null;
   discountAmounts: number[];
   afterDiscountsCents: number;
   taxAmountsMap: { label: string; percent: number; amountCents: number }[];
+  s: PdfStyles;
 }) {
+  const S = s;
   const fiscalNote = company?.quoteFiscalNote || DEFAULT_FISCAL_NOTE;
 
   return (
@@ -592,13 +650,14 @@ function EconomicPage({
         Riepilogo economico
       </Text>
 
-      <PriceSummaryTable quote={quote} />
+      <PriceSummaryTable quote={quote} s={s} />
 
       <TotalsSection
         quote={quote}
         discountAmounts={discountAmounts}
         afterDiscountsCents={afterDiscountsCents}
         taxAmountsMap={taxAmountsMap}
+        s={s}
       />
 
       <View style={S.fiscalNote}>
@@ -621,6 +680,11 @@ function EconomicPage({
           <Text style={S.paymentLine}>
             {fmtPaymentTerms(quote.paymentTerms)}
           </Text>
+          {quote.paymentTerms.accontoCents != null && quote.paymentTerms.accontoCents > 0 && (
+            <Text style={S.paymentLine}>
+              Acconto: {eur(quote.paymentTerms.accontoCents)}
+            </Text>
+          )}
           {quote.paymentTerms.firstDueDate && (
             <Text style={S.paymentLine}>
               {quote.paymentTerms.installmentsCount > 1
@@ -648,10 +712,13 @@ function EconomicPage({
 function ConditionsPage({
   quote,
   company,
+  s,
 }: {
   quote: QuoteDoc;
   company: CompanySettingsValues | null;
+  s: PdfStyles;
 }) {
+  const S = s;
   const conditionsText = company?.quoteConditions || DEFAULT_CONDITIONS;
   const privacyNote = company?.quotePrivacyNote || DEFAULT_PRIVACY_NOTE;
   const acceptanceText =
@@ -664,7 +731,7 @@ function ConditionsPage({
 
   return (
     <View>
-      <Text style={{ ...S.sectionTitle, marginTop: 0, fontSize: 11 }}>
+      <Text style={S.conditionsPageSectionTitle}>
         {"Condizioni generali del preventivo N\u00b0 "}{quote.number}
         {(quote.revision ?? 1) > 1 ? ` — Rev. ${quote.revision}` : ""}
       </Text>
@@ -676,15 +743,7 @@ function ConditionsPage({
           const body = para.slice(nlIdx + 1).trim();
           return (
             <View key={i} style={{ marginBottom: 8 }} wrap={false}>
-              <Text
-                style={{
-                  fontSize: 9.5,
-                  fontFamily: "Helvetica-Bold",
-                  color: ACCENT,
-                  marginBottom: 2,
-                  textTransform: "uppercase" as const,
-                }}
-              >
+              <Text style={S.conditionArticleTitle}>
                 {title}
               </Text>
               <Text style={S.conditionText}>{body}</Text>
@@ -712,24 +771,10 @@ function ConditionsPage({
         }}
         wrap={false}
       >
-        <Text
-          style={{
-            fontSize: 11,
-            fontFamily: "Helvetica-Bold",
-            color: ACCENT,
-            marginBottom: 6,
-          }}
-        >
+        <Text style={S.acceptanceBoxTitle}>
           Accettazione del preventivo
         </Text>
-        <Text
-          style={{
-            fontSize: 9,
-            color: "#374151",
-            lineHeight: 1.5,
-            marginBottom: 8,
-          }}
-        >
+        <Text style={S.acceptanceBoxBody}>
           {acceptanceText}
         </Text>
 
@@ -762,15 +807,15 @@ function ConditionsPage({
 
 function DraftWatermark() {
   return (
-    <View style={S.watermark} fixed>
-      <Text style={S.watermarkText}>BOZZA</Text>
+    <View style={WM.container} fixed>
+      <Text style={WM.text}>BOZZA</Text>
     </View>
   );
 }
 
-function ImageWatermark({ url }: { url: string }) {
+function ImageWatermark({ url, rotation = -45 }: { url: string; rotation?: number }) {
   return (
-    <View style={S.watermark} fixed>
+    <View style={WM.container} fixed>
       <Image
         src={url}
         style={{
@@ -778,14 +823,15 @@ function ImageWatermark({ url }: { url: string }) {
           height: 400,
           objectFit: "contain",
           opacity: 0.06,
-          transform: "rotate(-45deg)",
+          transform: `rotate(${rotation}deg)`,
         }}
       />
     </View>
   );
 }
 
-function PdfFooter({ company }: { company: CompanySettingsValues | null }) {
+function PdfFooter({ company, s }: { company: CompanySettingsValues | null; s: PdfStyles }) {
+  const S = s;
   const parts = [
     company?.legalName,
     company?.vatNumber && `P.IVA ${company.vatNumber}`,
@@ -817,6 +863,9 @@ export function QuotePdfDocument({ quote, company }: Props) {
   const watermarkUrl = company?.watermarkEnabled
     ? company.watermarkUrl || company.logoUrl || null
     : null;
+  const watermarkRotation = company?.watermarkRotation ?? -45;
+  const scale = FONT_SCALE[company?.quoteFontSize ?? "md"] ?? 1;
+  const S = makeStyles(scale);
 
   const discountAmounts = quote.discounts.reduce<{
     amounts: number[];
@@ -857,36 +906,37 @@ export function QuotePdfDocument({ quote, company }: Props) {
       {/* Pagina 1: cosa facciamo */}
       <Page size="A4" style={S.page}>
         {isDraft && !watermarkUrl && <DraftWatermark />}
-        {watermarkUrl && <ImageWatermark url={watermarkUrl} />}
-        <PdfFooter company={company} />
-        <PdfHeader quote={quote} company={company} />
-        <ClientSection quote={quote} />
-        <LinesTable quote={quote} />
-        {quote.notes && <NotesSection notes={quote.notes} />}
+        {watermarkUrl && <ImageWatermark url={watermarkUrl} rotation={watermarkRotation} />}
+        <PdfFooter company={company} s={S} />
+        <PdfHeader quote={quote} company={company} s={S} />
+        <ClientSection quote={quote} s={S} />
+        <LinesTable quote={quote} s={S} />
+        {quote.notes && <NotesSection notes={quote.notes} s={S} />}
       </Page>
 
       {/* Pagina 2: quanto costa */}
       <Page size="A4" style={S.page}>
         {isDraft && !watermarkUrl && <DraftWatermark />}
-        {watermarkUrl && <ImageWatermark url={watermarkUrl} />}
-        <PdfFooter company={company} />
-        <PdfHeader quote={quote} company={company} />
+        {watermarkUrl && <ImageWatermark url={watermarkUrl} rotation={watermarkRotation} />}
+        <PdfFooter company={company} s={S} />
+        <PdfHeader quote={quote} company={company} s={S} />
         <EconomicPage
           quote={quote}
           company={company}
           discountAmounts={discountAmounts}
           afterDiscountsCents={afterDiscountsCents}
           taxAmountsMap={taxAmountsMap}
+          s={S}
         />
       </Page>
 
       {/* Pagina 3: condizioni + accettazione e firma */}
       <Page size="A4" style={S.page}>
         {isDraft && !watermarkUrl && <DraftWatermark />}
-        {watermarkUrl && <ImageWatermark url={watermarkUrl} />}
-        <PdfFooter company={company} />
-        <PdfHeader quote={quote} company={company} />
-        <ConditionsPage quote={quote} company={company} />
+        {watermarkUrl && <ImageWatermark url={watermarkUrl} rotation={watermarkRotation} />}
+        <PdfFooter company={company} s={S} />
+        <PdfHeader quote={quote} company={company} s={S} />
+        <ConditionsPage quote={quote} company={company} s={S} />
       </Page>
     </Document>
   );

@@ -8,7 +8,6 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
-import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +23,6 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 function LoginForm() {
   const { signIn, user, loading: authLoading, sessionReady } = useAuth();
-  const { resolvedTheme } = useTheme();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
 
@@ -102,11 +100,20 @@ function LoginForm() {
         <CardHeader className="text-center space-y-3 pb-6">
           <div className="flex justify-center">
             <Image
-              src={resolvedTheme === "dark" ? "/icon/logo_darkmode.png" : "/icon/logo.png"}
+              src="/icon/logo.png"
               alt="Vinifera logo"
               width={120}
               height={48}
               priority
+              className="dark:hidden"
+            />
+            <Image
+              src="/icon/logo_darkmode.png"
+              alt="Vinifera logo"
+              width={120}
+              height={48}
+              priority
+              className="hidden dark:block"
             />
           </div>
           <CardDescription>Accedi al gestionale</CardDescription>

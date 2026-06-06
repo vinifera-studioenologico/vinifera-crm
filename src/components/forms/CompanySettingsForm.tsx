@@ -4,11 +4,11 @@ import { useTransition, useRef } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Loader2, Upload, Building2 } from "lucide-react";
+import { Loader2, Upload, Building2, ImageIcon } from "lucide-react";
 
 import { CompanySettingsSchema } from "@/schemas/client";
 import type { CompanySettingsValues } from "@/schemas/client";
-import { updateCompanySettings, uploadCompanyLogo } from "@/server/actions/settings";
+import { updateCompanySettings, uploadCompanyLogo, uploadWatermarkImage } from "@/server/actions/settings";
 
 import {
   Form,
@@ -23,6 +23,13 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Props {
   defaultValues?: Partial<CompanySettingsValues>;
@@ -31,7 +38,9 @@ interface Props {
 export function CompanySettingsForm({ defaultValues }: Props) {
   const [isPending, startTransition] = useTransition();
   const [isUploading, startUpload] = useTransition();
+  const [isUploadingWm, startUploadWm] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const wmFileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<CompanySettingsValues>({
     resolver: zodResolver(CompanySettingsSchema),
@@ -57,6 +66,8 @@ export function CompanySettingsForm({ defaultValues }: Props) {
       quoteAcceptanceText: "",
       watermarkEnabled: false,
       watermarkUrl: "",
+      watermarkRotation: -45,
+      quoteFontSize: "md",
       address: {
         street: "",
         city: "",
@@ -105,6 +116,25 @@ export function CompanySettingsForm({ defaultValues }: Props) {
   }
 
   const logoUrl = useWatch({ control: form.control, name: "logoUrl" });
+  const watermarkUrl = useWatch({ control: form.control, name: "watermarkUrl" });
+  const watermarkEnabled = useWatch({ control: form.control, name: "watermarkEnabled" });
+
+  function handleWatermarkChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    startUploadWm(async () => {
+      const fd = new FormData();
+      fd.append("watermark", file);
+      const result = await uploadWatermarkImage(fd);
+      if (result.success) {
+        form.setValue("watermarkUrl", result.data.watermarkUrl);
+        toast.success("Filigrana caricata con successo");
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
 
   return (
     <Form {...form}>
@@ -607,21 +637,120 @@ export function CompanySettingsForm({ defaultValues }: Props) {
               </FormItem>
             )}
           />
+          {watermarkEnabled && (
+            <>
+              <div className="flex items-center gap-4">
+                <div className="size-16 rounded-xl border border-border bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+                  {watermarkUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={watermarkUrl}
+                      alt="Filigrana"
+                      className="size-full object-contain"
+                    />
+                  ) : (
+                    <ImageIcon className="size-6 text-muted-foreground/50" strokeWidth={1.5} />
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isUploadingWm}
+                    onClick={() => wmFileInputRef.current?.click()}
+                  >
+                    {isUploadingWm ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="size-3.5" strokeWidth={1.75} />
+                    )}
+                    {isUploadingWm ? "Caricamento..." : "Carica filigrana"}
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground">
+                    PNG, JPEG, WebP o SVG, max 2MB. Se vuoto, usa il logo.
+                  </p>
+                </div>
+                <input
+                  ref={wmFileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  className="hidden"
+                  onChange={handleWatermarkChange}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="watermarkRotation"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Angolo di rotazione</FormLabel>
+                    <Select
+                      value={String(field.value ?? -45)}
+                      onValueChange={(v) => field.onChange(Number(v))}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="0">0° (orizzontale)</SelectItem>
+                        <SelectItem value="-15">-15°</SelectItem>
+                        <SelectItem value="-30">-30°</SelectItem>
+                        <SelectItem value="-45">-45° (diagonale)</SelectItem>
+                        <SelectItem value="-60">-60°</SelectItem>
+                        <SelectItem value="-90">-90° (verticale)</SelectItem>
+                        <SelectItem value="15">+15°</SelectItem>
+                        <SelectItem value="30">+30°</SelectItem>
+                        <SelectItem value="45">+45°</SelectItem>
+                        <SelectItem value="60">+60°</SelectItem>
+                        <SelectItem value="90">+90° (verticale)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Rotazione dell&apos;immagine filigrana nel PDF
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
+          )}
+        </section>
+
+        <Separator />
+
+        {/* ── Dimensione font PDF preventivo ───────────────────────── */}
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Dimensione testo PDF</h2>
+            <p className="text-xs text-muted-foreground">
+              Dimensione base del carattere nei PDF dei preventivi.
+            </p>
+          </div>
           <FormField
             control={form.control}
-            name="watermarkUrl"
+            name="quoteFontSize"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>URL immagine filigrana (opzionale)</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Lascia vuoto per usare il logo aziendale"
-                    {...field}
-                  />
-                </FormControl>
-                <p className="text-xs text-muted-foreground">
-                  URL diretto a un&apos;immagine PNG o JPEG. Se vuoto, usa il logo.
-                </p>
+                <FormLabel>Dimensione carattere</FormLabel>
+                <Select
+                  value={field.value ?? "md"}
+                  onValueChange={field.onChange}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="sm">Piccolo</SelectItem>
+                    <SelectItem value="md">Medio (predefinito)</SelectItem>
+                    <SelectItem value="lg">Grande</SelectItem>
+                    <SelectItem value="xl">Molto grande</SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}

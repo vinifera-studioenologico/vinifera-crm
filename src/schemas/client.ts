@@ -114,6 +114,9 @@ export const CompanySettingsSchema = z.object({
   // Filigrana PDF
   watermarkEnabled: z.boolean().optional(),
   watermarkUrl: z.string().url().optional().or(z.literal("")),
+  watermarkRotation: z.number().int().min(-180).max(180).optional(),
+  // Dimensione font PDF preventivo
+  quoteFontSize: z.enum(["sm", "md", "lg", "xl"]).optional(),
 });
 
 export type CompanySettingsValues = z.infer<typeof CompanySettingsSchema>;

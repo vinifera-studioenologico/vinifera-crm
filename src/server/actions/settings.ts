@@ -145,6 +145,63 @@ export async function uploadCompanyLogo(
   }
 }
 
+// ── Upload filigrana su Storage ─────────────────────────────────────────
+export async function uploadWatermarkImage(
+  formData: FormData,
+): Promise<ActionResult<{ watermarkUrl: string }>> {
+  await requireAdmin();
+
+  const file = formData.get("watermark");
+  if (!(file instanceof File)) {
+    return { success: false, error: "File non trovato" };
+  }
+
+  if (file.size > 2 * 1024 * 1024) {
+    return { success: false, error: "L'immagine non può superare 2MB" };
+  }
+
+  const allowedMimes = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
+  if (!allowedMimes.includes(file.type)) {
+    return {
+      success: false,
+      error: "Formato non supportato. Carica un'immagine PNG, JPEG, WebP o SVG.",
+    };
+  }
+
+  try {
+    const ext = file.name.split(".").pop() ?? "png";
+    const storagePath = `company/watermark.${ext}`;
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const bucket = adminStorage.bucket();
+    const fileRef = bucket.file(storagePath);
+
+    await fileRef.save(buffer, {
+      metadata: {
+        contentType: file.type,
+        cacheControl: "public, max-age=3600",
+      },
+    });
+
+    const [signedUrl] = await fileRef.getSignedUrl({
+      action: "read",
+      expires: Date.now() + 10 * 365 * 24 * 60 * 60 * 1000,
+    });
+
+    await adminDb.doc(COMPANY_DOC).set(
+      { watermarkUrl: signedUrl, updatedAt: FieldValue.serverTimestamp() },
+      { merge: true },
+    );
+
+    revalidatePath("/settings/company");
+
+    return { success: true, data: { watermarkUrl: signedUrl } };
+  } catch (err) {
+    logger.error("Errore upload filigrana", err);
+    return { success: false, error: "Errore durante il caricamento della filigrana." };
+  }
+}
+
 // ── Leggi impostazioni notifiche ─────────────────────────────────────
 export async function getNotificationSettings(): Promise<NotificationSettingsValues> {
   await requireAdmin();
