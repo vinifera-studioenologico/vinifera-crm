@@ -12,6 +12,7 @@ import { formatEUR } from "@/lib/utils/money";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import {
   FormControl,
   FormField,
@@ -183,23 +184,11 @@ export function QuoteItemsEditor({ analyses, packages }: Props) {
                       <FormItem>
                         <FormControl>
                           <div className="relative">
-                            <Input
-                              type="number"
-                              min={0}
-                              step={0.01}
+                            <MoneyInput
                               className="h-7 text-sm text-right pr-7"
-                              value={
-                                typeof f.value === "number"
-                                  ? (f.value / 100).toFixed(2)
-                                  : "0.00"
-                              }
-                              onChange={(e) =>
-                                f.onChange(
-                                  Math.round(
-                                    (parseFloat(e.target.value) || 0) * 100,
-                                  ),
-                                )
-                              }
+                              min={0}
+                              valueCents={typeof f.value === "number" ? f.value : 0}
+                              onValueChange={(cents) => f.onChange(cents ?? 0)}
                             />
                             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
                               €

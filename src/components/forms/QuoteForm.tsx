@@ -18,6 +18,7 @@ import { formatEUR } from "@/lib/utils/money";
 
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
@@ -537,18 +538,12 @@ export function QuoteForm({
                           <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                             €
                           </span>
-                          <Input
+                          <MoneyInput
                             className="pl-7"
-                            type="number"
                             min={0}
-                            step={0.01}
                             placeholder="0,00"
-                            {...field}
-                            value={field.value != null ? (field.value / 100).toFixed(2) : ""}
-                            onChange={(e) => {
-                              const v = parseFloat(e.target.value);
-                              field.onChange(isNaN(v) ? undefined : Math.round(v * 100));
-                            }}
+                            valueCents={field.value}
+                            onValueChange={field.onChange}
                           />
                         </div>
                       </FormControl>
