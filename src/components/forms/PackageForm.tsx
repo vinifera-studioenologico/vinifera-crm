@@ -121,11 +121,14 @@ export function PackageForm({ existing, onSuccess }: Props) {
                 <FormLabel>N. analisi incluse *</FormLabel>
                 <FormControl>
                   <Input
-                    type="number"
-                    min={1}
-                    max={10000}
+                    type="text"
+                    inputMode="numeric"
                     {...field}
-                    onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
+                    value={field.value != null ? String(field.value) : ""}
+                    onChange={(e) => {
+                      const n = parseInt(e.target.value, 10);
+                      field.onChange(isNaN(n) ? undefined : n);
+                    }}
                   />
                 </FormControl>
                 <FormMessage />

@@ -429,12 +429,14 @@ export function QuoteForm({
                     <FormLabel>Numero rate</FormLabel>
                     <FormControl>
                       <Input
-                        type="number"
-                        min={1}
-                        max={60}
+                        type="text"
+                        inputMode="numeric"
                         {...field}
-                        value={field.value ?? 1}
-                        onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 1)}
+                        value={field.value != null ? String(field.value) : ""}
+                        onChange={(e) => {
+                          const n = parseInt(e.target.value, 10);
+                          field.onChange(isNaN(n) ? undefined : n);
+                        }}
                       />
                     </FormControl>
                     <FormMessage />
