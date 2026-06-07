@@ -97,6 +97,7 @@ export function QuoteForm({
                 customInterval: existing.paymentTerms.customInterval,
                 customUnit: existing.paymentTerms.customUnit,
                 accontoCents: existing.paymentTerms.accontoCents,
+                accontoDueDate: existing.paymentTerms.accontoDueDate ?? "",
                 notes: existing.paymentTerms.notes ?? "",
               }
             : { installmentsCount: 1, firstDueDate: "", installmentPeriod: "monthly" as const, notes: "" },
@@ -128,6 +129,7 @@ export function QuoteForm({
   const taxes = useWatch({ control: form.control, name: "taxes" });
   const ptCount = useWatch({ control: form.control, name: "paymentTerms.installmentsCount" });
   const ptPeriod = useWatch({ control: form.control, name: "paymentTerms.installmentPeriod" });
+  const ptAccontoCents = useWatch({ control: form.control, name: "paymentTerms.accontoCents" });
 
   const totals = computeQuoteTotals({
     items: (items ?? []).map((it) => ({
@@ -523,39 +525,57 @@ export function QuoteForm({
             )}
 
             {(ptCount ?? 1) > 1 && (
-              <FormField
-                control={form.control}
-                name="paymentTerms.accontoCents"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Acconto concordato (€)</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                          €
-                        </span>
-                        <Input
-                          className="pl-7"
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          placeholder="0,00"
-                          {...field}
-                          value={field.value != null ? (field.value / 100).toFixed(2) : ""}
-                          onChange={(e) => {
-                            const v = parseFloat(e.target.value);
-                            field.onChange(isNaN(v) ? undefined : Math.round(v * 100));
-                          }}
-                        />
-                      </div>
-                    </FormControl>
-                    <FormDescription>
-                      Importo che il cliente paga all’inizio, prima delle rate
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="paymentTerms.accontoCents"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Acconto concordato</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                            €
+                          </span>
+                          <Input
+                            className="pl-7"
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            placeholder="0,00"
+                            {...field}
+                            value={field.value != null ? (field.value / 100).toFixed(2) : ""}
+                            onChange={(e) => {
+                              const v = parseFloat(e.target.value);
+                              field.onChange(isNaN(v) ? undefined : Math.round(v * 100));
+                            }}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormDescription>
+                        Importo che il cliente paga all’inizio, prima delle rate
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {(ptAccontoCents ?? 0) > 0 && (
+                  <FormField
+                    control={form.control}
+                    name="paymentTerms.accontoDueDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Data pagamento acconto</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} value={field.value ?? ""} />
+                        </FormControl>
+                        <FormDescription>Opzionale</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
-              />
+              </div>
             )}
 
             <FormField

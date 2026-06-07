@@ -82,6 +82,40 @@ function fmtPaymentTerms(
   return `${pt.installmentsCount} rate ${cadence}`.trim();
 }
 
+/** Calcola tutte le date delle rate partendo da firstDueDate */
+function calcInstallmentDates(
+  pt: NonNullable<QuoteDoc["paymentTerms"]>,
+): Date[] {
+  if (!pt.firstDueDate || pt.installmentsCount <= 0) return [];
+  const dates: Date[] = [];
+  const first = new Date(pt.firstDueDate);
+  for (let i = 0; i < pt.installmentsCount; i++) {
+    if (i === 0) {
+      dates.push(new Date(first));
+    } else {
+      const prev = new Date(dates[i - 1]!);
+      if (pt.installmentPeriod === "monthly") {
+        prev.setMonth(prev.getMonth() + 1);
+      } else if (pt.installmentPeriod === "biweekly") {
+        prev.setDate(prev.getDate() + 14);
+      } else if (
+        pt.installmentPeriod === "custom" &&
+        pt.customInterval &&
+        pt.customUnit
+      ) {
+        if (pt.customUnit === "days")
+          prev.setDate(prev.getDate() + pt.customInterval);
+        else if (pt.customUnit === "months")
+          prev.setMonth(prev.getMonth() + pt.customInterval);
+        else if (pt.customUnit === "years")
+          prev.setFullYear(prev.getFullYear() + pt.customInterval);
+      }
+      dates.push(new Date(prev));
+    }
+  }
+  return dates;
+}
+
 const STATUS_LABELS: Record<string, string> = {
   draft: "Bozza",
   pending_approval: "In attesa approvazione",
@@ -680,19 +714,45 @@ function EconomicPage({
           <Text style={S.paymentLine}>
             {fmtPaymentTerms(quote.paymentTerms)}
           </Text>
-          {quote.paymentTerms.accontoCents != null && quote.paymentTerms.accontoCents > 0 && (
-            <Text style={S.paymentLine}>
-              Acconto: {eur(quote.paymentTerms.accontoCents)}
-            </Text>
-          )}
-          {quote.paymentTerms.firstDueDate && (
-            <Text style={S.paymentLine}>
-              {quote.paymentTerms.installmentsCount > 1
-                ? "Prima scadenza"
-                : "Scadenza"}
-              : {fmtDate(quote.paymentTerms.firstDueDate)}
-            </Text>
-          )}
+          {quote.paymentTerms.accontoCents != null && quote.paymentTerms.accontoCents > 0 && (() => {
+            const acconto = quote.paymentTerms!.accontoCents!;
+            const accDate = quote.paymentTerms!.accontoDueDate;
+            return (
+              <Text style={S.paymentLine}>
+                {"Acconto: "}{eur(acconto)}
+                {accDate ? `  —  entro il ${fmtDate(accDate)}` : ""}
+              </Text>
+            );
+          })()}
+          {(() => {
+            const pt = quote.paymentTerms!;
+            const acconto = pt.accontoCents ?? 0;
+            const base = quote.totalCents - acconto;
+            const n = pt.installmentsCount;
+            if (n <= 0) return null;
+            const rataCents = Math.round(base / n);
+            const dates = calcInstallmentDates(pt);
+            return (
+              <>
+                {acconto > 0 && (
+                  <Text style={S.paymentLine}>
+                    {"Importo a rate: "}{eur(base)}{n > 1 ? ` in ${n} rate da ${eur(rataCents)}` : ""}
+                  </Text>
+                )}
+                {dates.length > 0 && dates.map((d, i) => (
+                  <Text key={i} style={{ ...S.paymentLine, marginLeft: 8 }}>
+                    {`Rata ${i + 1}: ${fmtDate(d)}  —  ${eur(rataCents)}`}
+                  </Text>
+                ))}
+                {dates.length === 0 && pt.firstDueDate && (
+                  <Text style={S.paymentLine}>
+                    {pt.installmentsCount > 1 ? "Prima scadenza" : "Scadenza"}
+                    {": "}{fmtDate(pt.firstDueDate)}
+                  </Text>
+                )}
+              </>
+            );
+          })()}
           {quote.paymentTerms.notes && (
             <Text style={S.paymentLine}>{quote.paymentTerms.notes}</Text>
           )}
