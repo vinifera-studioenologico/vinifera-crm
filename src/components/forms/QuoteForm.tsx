@@ -433,6 +433,7 @@ export function QuoteForm({
                         inputMode="numeric"
                         {...field}
                         value={field.value != null ? String(field.value) : ""}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => {
                           const n = parseInt(e.target.value, 10);
                           field.onChange(isNaN(n) ? undefined : n);

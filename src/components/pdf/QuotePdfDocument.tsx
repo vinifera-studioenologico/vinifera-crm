@@ -63,11 +63,12 @@ function fmtPaymentTerms(
   pt: NonNullable<QuoteDoc["paymentTerms"]>,
 ): string {
   if (pt.installmentsCount === 1) return "Unica soluzione";
+  const period = pt.installmentPeriod ?? "monthly";
   let cadence = "";
-  if (pt.installmentPeriod === "monthly") cadence = "mensili";
-  else if (pt.installmentPeriod === "biweekly") cadence = "bisettimanali";
+  if (period === "monthly") cadence = "mensili";
+  else if (period === "biweekly") cadence = "bisettimanali";
   else if (
-    pt.installmentPeriod === "custom" &&
+    period === "custom" &&
     pt.customInterval &&
     pt.customUnit
   ) {
@@ -88,18 +89,21 @@ function calcInstallmentDates(
 ): Date[] {
   if (!pt.firstDueDate || pt.installmentsCount <= 0) return [];
   const dates: Date[] = [];
-  const first = new Date(pt.firstDueDate);
+  // Parse as local time to avoid UTC-midnight offset shifting the date by one day
+  const [fy, fm, fd] = pt.firstDueDate.split("-").map(Number);
+  const first = new Date(fy!, fm! - 1, fd!);
+  const period = pt.installmentPeriod ?? "monthly";
   for (let i = 0; i < pt.installmentsCount; i++) {
     if (i === 0) {
       dates.push(new Date(first));
     } else {
       const prev = new Date(dates[i - 1]!);
-      if (pt.installmentPeriod === "monthly") {
+      if (period === "monthly") {
         prev.setMonth(prev.getMonth() + 1);
-      } else if (pt.installmentPeriod === "biweekly") {
+      } else if (period === "biweekly") {
         prev.setDate(prev.getDate() + 14);
       } else if (
-        pt.installmentPeriod === "custom" &&
+        period === "custom" &&
         pt.customInterval &&
         pt.customUnit
       ) {
