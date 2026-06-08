@@ -16,6 +16,7 @@ import {
   Bell,
   BarChart2,
   Settings,
+  LifeBuoy,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -46,6 +47,7 @@ const MORE_ITEMS: ReadonlyArray<{
   { href: "/payments", label: "Pagamenti", icon: CreditCard },
   { href: "/reminders", label: "Promemoria", icon: Bell },
   { href: "/stats", label: "Statistiche", icon: BarChart2 },
+  { href: "/support", label: "Supporto", icon: LifeBuoy },
   { href: "/settings/company", label: "Impostazioni", icon: Settings },
 ];
 

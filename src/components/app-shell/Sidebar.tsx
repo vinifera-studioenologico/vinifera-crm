@@ -15,6 +15,7 @@ import {
   BarChart2,
   Settings,
   ChevronLeft,
+  LifeBuoy,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -65,6 +66,12 @@ const SETTINGS_ITEM = {
   href: "/settings/company",
   label: "Impostazioni",
   icon: Settings,
+} as const;
+
+const SUPPORT_ITEM = {
+  href: "/support",
+  label: "Supporto",
+  icon: LifeBuoy,
 } as const;
 
 interface SidebarProps {
@@ -136,6 +143,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           ))}
 
           <div className="my-2 h-px bg-border" />
+
+          <NavItem
+            href={SUPPORT_ITEM.href}
+            label={SUPPORT_ITEM.label}
+            icon={SUPPORT_ITEM.icon}
+            active={isActive(SUPPORT_ITEM.href)}
+            collapsed={collapsed}
+          />
 
           <NavItem
             href={SETTINGS_ITEM.href}
