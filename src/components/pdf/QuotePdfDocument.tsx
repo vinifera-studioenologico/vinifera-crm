@@ -64,18 +64,15 @@ function fmtPaymentTerms(
 ): string {
   if (pt.installmentsCount === 1) return "Unica soluzione";
   const period = pt.installmentPeriod ?? "monthly";
+  const customUnit = pt.customUnit ?? "months";
   let cadence = "";
   if (period === "monthly") cadence = "mensili";
   else if (period === "biweekly") cadence = "bisettimanali";
-  else if (
-    period === "custom" &&
-    pt.customInterval &&
-    pt.customUnit
-  ) {
+  else if (period === "custom" && pt.customInterval) {
     const unit =
-      pt.customUnit === "days"
+      customUnit === "days"
         ? "giorni"
-        : pt.customUnit === "years"
+        : customUnit === "years"
           ? "anni"
           : "mesi";
     cadence = `ogni ${pt.customInterval} ${unit}`;
@@ -93,6 +90,7 @@ function calcInstallmentDates(
   const [fy, fm, fd] = pt.firstDueDate.split("-").map(Number);
   const first = new Date(fy!, fm! - 1, fd!);
   const period = pt.installmentPeriod ?? "monthly";
+  const customUnit = pt.customUnit ?? "months";
   for (let i = 0; i < pt.installmentsCount; i++) {
     if (i === 0) {
       dates.push(new Date(first));
@@ -102,17 +100,13 @@ function calcInstallmentDates(
         prev.setMonth(prev.getMonth() + 1);
       } else if (period === "biweekly") {
         prev.setDate(prev.getDate() + 14);
-      } else if (
-        period === "custom" &&
-        pt.customInterval &&
-        pt.customUnit
-      ) {
-        if (pt.customUnit === "days")
+      } else if (period === "custom" && pt.customInterval) {
+        if (customUnit === "days")
           prev.setDate(prev.getDate() + pt.customInterval);
-        else if (pt.customUnit === "months")
-          prev.setMonth(prev.getMonth() + pt.customInterval);
-        else if (pt.customUnit === "years")
+        else if (customUnit === "years")
           prev.setFullYear(prev.getFullYear() + pt.customInterval);
+        else
+          prev.setMonth(prev.getMonth() + pt.customInterval);
       }
       dates.push(new Date(prev));
     }

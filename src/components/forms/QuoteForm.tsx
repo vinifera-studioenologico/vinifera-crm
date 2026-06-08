@@ -96,12 +96,12 @@ export function QuoteForm({
                 firstDueDate: existing.paymentTerms.firstDueDate ?? "",
                 installmentPeriod: existing.paymentTerms.installmentPeriod,
                 customInterval: existing.paymentTerms.customInterval,
-                customUnit: existing.paymentTerms.customUnit,
+                customUnit: existing.paymentTerms.customUnit ?? "months",
                 accontoCents: existing.paymentTerms.accontoCents,
                 accontoDueDate: existing.paymentTerms.accontoDueDate ?? "",
                 notes: existing.paymentTerms.notes ?? "",
               }
-            : { installmentsCount: 1, firstDueDate: "", installmentPeriod: "monthly" as const, notes: "" },
+            : { installmentsCount: 1, firstDueDate: "", installmentPeriod: "monthly" as const, customUnit: "months" as const, notes: "" },
         }
       : {
           clientId: defaultClientId ?? "",
@@ -111,7 +111,7 @@ export function QuoteForm({
           discounts: [],
           taxes: defaultTaxes ?? [],
           notes: "",
-          paymentTerms: { installmentsCount: 1, firstDueDate: "", installmentPeriod: "monthly" as const, notes: "" },
+          paymentTerms: { installmentsCount: 1, firstDueDate: "", installmentPeriod: "monthly" as const, customUnit: "months" as const, notes: "" },
         },
   });
 
