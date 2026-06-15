@@ -30,6 +30,7 @@ export type {
 export type {
   SampleStatus,
   SampleItem,
+  SampleNote,
   SampleBaseFormValues,
   SampleItemsFormValues,
   SamplePaymentFormValues,

@@ -25,6 +25,15 @@ export const SampleItemSchema = z.object({
 
 export type SampleItem = z.infer<typeof SampleItemSchema>;
 
+// ── Nota aggiuntiva campione ──────────────────────────────────────────
+export const SampleNoteSchema = z.object({
+  id: z.string(),
+  text: z.string().min(1).max(2000),
+  createdAt: z.any(), // ISO string (lato client) o Timestamp (Firestore)
+});
+
+export type SampleNote = z.infer<typeof SampleNoteSchema>;
+
 // ── Form step 1: dati base campione ───────────────────────────────────
 export const SampleBaseFormSchema = z.object({
   clientId: z.string().min(1, "Seleziona un cliente"),
@@ -82,6 +91,7 @@ export const SampleDocSchema = z.object({
   paymentId: z.string().optional(),
   sourceQuoteId: z.string().optional(),
   notes: z.string().optional(),
+  additionalNotes: z.array(SampleNoteSchema).optional(),
   cancelledAt: z.any().optional(),
   cancelReason: z.string().optional(),
   version: z.number().int().min(0),

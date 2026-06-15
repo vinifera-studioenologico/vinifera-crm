@@ -9,16 +9,19 @@ import {
   Ban,
   Loader2,
   Save,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 
 import type { SampleDoc, SampleStatus } from "@/schemas/sample";
-import { updateSampleStatus, saveSampleResults } from "@/server/actions/samples";
+import { updateSampleStatus, saveSampleResults, addSampleNote, deleteSampleNote } from "@/server/actions/samples";
 import { formatEUR } from "@/lib/utils/money";
 import { formatDate } from "@/lib/utils/date";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -84,6 +87,9 @@ export function SampleDetailClient({ sample }: Props) {
   const [version, setVersion] = useState(sample.version);
   const [isPending, startTransition] = useTransition();
   const [isSavingResults, startSaveResults] = useTransition();
+  const [newNote, setNewNote] = useState("");
+  const [isAddingNote, startAddNote] = useTransition();
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
 
   function handleTransition(to: SampleStatus) {
     startTransition(async () => {
@@ -130,6 +136,35 @@ export function SampleDetailClient({ sample }: Props) {
       } else {
         toast.error(res.error);
       }
+    });
+  }
+
+  function handleAddNote() {
+    const trimmed = newNote.trim();
+    if (!trimmed) return;
+    startAddNote(async () => {
+      const res = await addSampleNote(sample.id, trimmed);
+      if (res.success) {
+        setNewNote("");
+        toast.success("Nota aggiunta");
+        router.refresh();
+      } else {
+        toast.error(res.error);
+      }
+    });
+  }
+
+  function handleDeleteNote(noteId: string) {
+    setDeletingNoteId(noteId);
+    startTransition(async () => {
+      const res = await deleteSampleNote(sample.id, noteId);
+      if (res.success) {
+        toast.success("Nota eliminata");
+        router.refresh();
+      } else {
+        toast.error(res.error);
+      }
+      setDeletingNoteId(null);
     });
   }
 
@@ -328,6 +363,69 @@ export function SampleDetailClient({ sample }: Props) {
           <p className="text-sm whitespace-pre-wrap">{sample.notes}</p>
         </div>
       )}
+
+      {/* Note aggiuntive */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border">
+          <h2 className="text-sm font-semibold">Note aggiuntive</h2>
+        </div>
+
+        {/* Lista note esistenti */}
+        {(sample.additionalNotes?.length ?? 0) > 0 ? (
+          <div className="divide-y divide-border">
+            {sample.additionalNotes!.map((note) => (
+              <div key={note.id} className="px-4 py-3 flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm whitespace-pre-wrap">{note.text}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {formatDate(note.createdAt as Parameters<typeof formatDate>[0])}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                  disabled={deletingNoteId === note.id}
+                  onClick={() => handleDeleteNote(note.id)}
+                >
+                  {deletingNoteId === note.id ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-3.5" />
+                  )}
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="px-4 py-3 text-sm text-muted-foreground">Nessuna nota aggiuntiva</p>
+        )}
+
+        {/* Form nuova nota */}
+        <div className="px-4 py-3 border-t border-border flex gap-2">
+          <Textarea
+            placeholder="Scrivi una nota..."
+            className="min-h-15 text-sm"
+            value={newNote}
+            onChange={(e) => setNewNote(e.target.value)}
+            maxLength={2000}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0 self-end"
+            disabled={isAddingNote || !newNote.trim()}
+            onClick={handleAddNote}
+          >
+            {isAddingNote ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Plus className="size-3.5" />
+            )}
+            Aggiungi
+          </Button>
+        </div>
+      </div>
 
       {/* Motivo annullamento */}
       {sample.status === "cancelled" && sample.cancelReason && (

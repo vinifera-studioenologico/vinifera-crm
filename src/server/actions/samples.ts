@@ -34,6 +34,7 @@ function toSampleDoc(id: string, data: FirebaseFirestore.DocumentData): SampleDo
     paymentId: data["paymentId"],
     sourceQuoteId: data["sourceQuoteId"],
     notes: data["notes"],
+    additionalNotes: data["additionalNotes"] ?? [],
     cancelledAt: tsToISO(data["cancelledAt"]),
     cancelReason: data["cancelReason"],
     version: data["version"] ?? 0,
@@ -453,5 +454,65 @@ export async function saveSampleResults(
   } catch (err) {
     logger.error("Errore salvataggio risultati campione", err);
     return { success: false, error: "Errore durante il salvataggio. Riprova." };
+  }
+}
+
+// ── Aggiungi nota aggiuntiva al campione ──────────────────────────────
+export async function addSampleNote(
+  sampleId: string,
+  text: string,
+): Promise<ActionResult<void>> {
+  await requireAdmin();
+
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.length > 2000) {
+    return { success: false, error: "Testo nota non valido (max 2000 caratteri)" };
+  }
+
+  try {
+    const docRef = adminDb.collection(COL).doc(sampleId);
+    const noteEntry = {
+      id: adminDb.collection("_").doc().id, // genera ID univoco
+      text: trimmed,
+      createdAt: new Date().toISOString(),
+    };
+    await docRef.update({
+      additionalNotes: FieldValue.arrayUnion(noteEntry),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    revalidatePath(`/samples/${sampleId}`);
+    return { success: true, data: undefined };
+  } catch (err) {
+    logger.error("Errore aggiunta nota campione", err);
+    return { success: false, error: "Errore durante il salvataggio. Riprova." };
+  }
+}
+
+// ── Elimina nota aggiuntiva dal campione ──────────────────────────────
+export async function deleteSampleNote(
+  sampleId: string,
+  noteId: string,
+): Promise<ActionResult<void>> {
+  await requireAdmin();
+
+  try {
+    const docRef = adminDb.collection(COL).doc(sampleId);
+    const snap = await docRef.get();
+    if (!snap.exists) return { success: false, error: "Campione non trovato" };
+
+    const notes = (snap.data()!["additionalNotes"] ?? []) as Array<{ id: string; text: string; createdAt: string }>;
+    const updated = notes.filter((n) => n.id !== noteId);
+
+    await docRef.update({
+      additionalNotes: updated,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    revalidatePath(`/samples/${sampleId}`);
+    return { success: true, data: undefined };
+  } catch (err) {
+    logger.error("Errore eliminazione nota campione", err);
+    return { success: false, error: "Errore durante l'eliminazione. Riprova." };
   }
 }
