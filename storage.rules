@@ -20,6 +20,14 @@ service firebase.storage {
       allow write: if isAdmin();
     }
 
+    // ── PDF bolle/fatture fornitori ───────────────────────────────────
+    // Path effettivo: costs/invoices/{expenseId}.pdf
+    // Lettura via signed URL generato server-side — questo blocco è difesa in profondità
+    match /costs/invoices/{fileName} {
+      allow read: if isAdmin();
+      allow write: if false; // solo Admin SDK server-side
+    }
+
     // ── Deny-by-default ───────────────────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;

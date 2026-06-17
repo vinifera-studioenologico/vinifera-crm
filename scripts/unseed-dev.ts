@@ -26,6 +26,15 @@ function getAdminApp() {
   });
 }
 
+// ── Emulatori ─────────────────────────────────────────────────────────────────
+const IS_EMULATOR = process.env.NEXT_PUBLIC_USE_EMULATORS === "true";
+if (!IS_EMULATOR) {
+  console.error("❌ ABORT: NEXT_PUBLIC_USE_EMULATORS !== 'true'. Unseed consentito solo su emulatori.");
+  process.exit(1);
+}
+process.env.FIRESTORE_EMULATOR_HOST ??= "localhost:8080";
+console.log("📡 Modalità emulatore: Firestore su localhost:8080\n");
+
 getAdminApp();
 const db = getFirestore();
 

@@ -44,9 +44,23 @@ function makeDevStub(): any { // eslint-disable-line @typescript-eslint/no-expli
   );
 }
 
+// ── Emulators ─────────────────────────────────────────────────────────────────
+// Quando NEXT_PUBLIC_USE_EMULATORS=true, l'Admin SDK punta agli emulatori locali.
+// Le env var devono essere impostate PRIMA dell'init (la SDK le legge a quel punto).
+const USE_EMULATORS =
+  process.env.NODE_ENV !== "production" &&
+  process.env.NEXT_PUBLIC_USE_EMULATORS === "true";
+
+if (USE_EMULATORS) {
+  process.env.FIRESTORE_EMULATOR_HOST ??= "localhost:8080";
+  process.env.FIREBASE_AUTH_EMULATOR_HOST ??= "http://localhost:9099";
+  process.env.FIREBASE_STORAGE_EMULATOR_HOST ??= "localhost:9199";
+}
+
 const IS_DEV_BYPASS =
   process.env.NODE_ENV !== "production" &&
-  process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === "true";
+  process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === "true" &&
+  !USE_EMULATORS; // gli emulatori hanno precedenza sul bypass
 
 // ── Real Firebase Admin ───────────────────────────────────────────────────────
 function getAdminApp(): App {

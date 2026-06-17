@@ -70,6 +70,18 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    match /costExpenses/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    match /costFixedCosts/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    match /costKits/{id} {
+      allow read, write: if isAdmin();
+    }
+
     // ── Fallback: nega tutto il resto ────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

@@ -16,6 +16,7 @@ import {
   Settings,
   ChevronLeft,
   LifeBuoy,
+  Coins,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -58,6 +59,7 @@ const NAV_GROUPS = [
       { href: "/quotes", label: "Preventivi", icon: FileText },
       { href: "/payments", label: "Pagamenti", icon: CreditCard },
       { href: "/stats", label: "Statistiche", icon: BarChart2 },
+      { href: "/costs", label: "Costi", icon: Coins },
     ],
   },
 ] as const;

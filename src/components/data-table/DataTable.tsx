@@ -28,6 +28,7 @@ interface DataTableProps<TData> {
   columns: ColumnDef<TData>[];
   data: TData[];
   globalFilter?: string;
+  initialSorting?: SortingState;
   loading?: boolean;
   emptyMessage?: string;
   rowClassName?: (row: TData) => string;
@@ -38,12 +39,13 @@ export function DataTable<TData>({
   columns,
   data,
   globalFilter,
+  initialSorting,
   loading = false,
   emptyMessage = "Nessun elemento trovato.",
   rowClassName,
   onRowClick,
 }: DataTableProps<TData>) {
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [sorting, setSorting] = useState<SortingState>(initialSorting ?? []);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
   // eslint-disable-next-line react-hooks/incompatible-library

@@ -1,6 +1,6 @@
 {
   "name": "vinifera",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -11,7 +11,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "tsc --noEmit && eslint && vitest run && next build",
-    "db:import-analyses": "tsx --env-file=.env.local scripts/import-analyses.ts"
+    "db:import-analyses": "tsx --env-file=.env.local scripts/import-analyses.ts",
+    "emulators": "firebase emulators:start",
+    "seed": "tsx scripts/seed-dev.ts",
+    "seed:clean": "tsx scripts/unseed-dev.ts",
+    "seed:costs": "tsx scripts/seed-costs.ts",
+    "seed:costs:clean": "tsx scripts/unseed-costs.ts",
+    "seed:all": "npm run seed:clean && npm run seed:costs:clean && npm run seed && npm run seed:costs",
+    "seed:all:clean": "npm run seed:clean && npm run seed:costs:clean"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
