@@ -76,6 +76,9 @@ export const FixedCostFormSchema = z.object({
   amountCents: zEurInput,
   frequency: FixedCostFrequencySchema,
   active: z.boolean(),
+  notifyTelegram: z.boolean().default(true),
+  notifyEmail: z.boolean().default(false),
+  reminderDaysBefore: z.number().int().min(0).max(30).default(3),
 });
 export type FixedCostFormValues = z.infer<typeof FixedCostFormSchema>;
 

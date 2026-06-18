@@ -53,7 +53,6 @@ const CODE_MESSAGES: Record<string, string> = {
   price_mismatch: "Prezzo unitario × quantità non combacia col totale riga",
   low_confidence: "Lettura AI incerta su questa riga",
   duplicate_article: "Codice articolo ripetuto nell'offerta",
-  same_analysis_multiple_lines: "Più righe sulla stessa analisi — scegline una sola",
 };
 
 function codeToMsg(code: string): string {
@@ -136,17 +135,10 @@ export function KitImportReview({ preparation, parsedOffer, file, analyses, onCl
   // ── Derivazioni live ──────────────────────────────────────────────
   const includedRows = rows.filter((r) => r.included);
 
-  // same analysis on multiple included rows
-  const includedAnalysisIds = includedRows.map((r) => r.analysisId).filter(Boolean);
-  const analysisIdDups = new Set(
-    includedAnalysisIds.filter((id, i) => includedAnalysisIds.indexOf(id) !== i),
-  );
-
   // blockers su righe incluse
   const hasUnresolved = includedRows.some((r) => derivedBlockers(r).length > 0);
-  const hasDupAnalysis = analysisIdDups.size > 0;
 
-  const submitDisabled = hasUnresolved || hasDupAnalysis || isPending;
+  const submitDisabled = hasUnresolved || isPending;
 
   // counters
   const newCount = includedRows.filter((r) => r.originalRow.action === "create").length;
@@ -249,9 +241,7 @@ export function KitImportReview({ preparation, parsedOffer, file, analyses, onCl
   // ── Render ────────────────────────────────────────────────────────
   const allWarnings: string[] = [
     ...preparation.globalWarnings,
-    ...(hasDupAnalysis
-      ? [`Righe incluse con stessa analisi: selezionane una sola per analisi`]
-      : []),
+
   ];
 
   return (
@@ -319,7 +309,6 @@ export function KitImportReview({ preparation, parsedOffer, file, analyses, onCl
             {rows.map((row, idx) => {
               const blockers = derivedBlockers(row);
               const selectedAnalysis = row.analysisId ? analysesById.get(row.analysisId) : null;
-              const isDupAnalysis = row.included && analysisIdDups.has(row.analysisId);
 
               const unitCents = toCents(row.unitPriceInput);
               const tests = parseInt(row.testsInput, 10);
@@ -334,7 +323,6 @@ export function KitImportReview({ preparation, parsedOffer, file, analyses, onCl
                   className={cn(
                     "border-t border-border",
                     !row.included && "opacity-50",
-                    isDupAnalysis && "bg-destructive/5",
                   )}
                 >
                   {/* Checkbox */}
@@ -413,7 +401,6 @@ export function KitImportReview({ preparation, parsedOffer, file, analyses, onCl
                           buttonVariants({ variant: "outline" }),
                           "h-7 text-xs w-48 justify-between font-normal truncate",
                           !row.analysisId && "text-muted-foreground",
-                          isDupAnalysis && "border-destructive",
                         )}
                         role="combobox"
                       >

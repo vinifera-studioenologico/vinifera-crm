@@ -238,6 +238,9 @@ function toFixedCostDoc(id: string, data: FirebaseFirestore.DocumentData): Fixed
     amountCents: data["amountCents"] ?? 0,
     frequency: data["frequency"] ?? "monthly",
     active: data["active"] ?? true,
+    notifyTelegram: data["notifyTelegram"] ?? true,
+    notifyEmail: data["notifyEmail"] ?? false,
+    reminderDaysBefore: data["reminderDaysBefore"] ?? 3,
     version: data["version"] ?? 0,
     createdAt: tsToISO(data["createdAt"]),
     updatedAt: tsToISO(data["updatedAt"]),
@@ -764,11 +767,14 @@ export async function getSuggestedPricing(): Promise<SuggestedPricing[]> {
   const estimated = settings.estimatedMonthlyAnalyses;
   const fixedCostQuotaCents = estimated > 0 ? Math.round(totalFixedMonthlyCents / estimated) : 0;
 
-  // Mappa analysisId → costPerTestCents
+  // Mappa analysisId → somma costPerTestCents di tutti i kit associati
   const kitByAnalysisId = new Map<string, number>();
   for (const d of kitsSnap.docs) {
     const data = d.data();
-    kitByAnalysisId.set(data["analysisId"] as string, data["costPerTestCents"] ?? 0);
+    const aId = data["analysisId"] as string | null;
+    if (!aId) continue;
+    const prev = kitByAnalysisId.get(aId) ?? 0;
+    kitByAnalysisId.set(aId, prev + (data["costPerTestCents"] ?? 0));
   }
 
   const margin = settings.defaultMarginPercent;
@@ -998,17 +1004,6 @@ export async function prepareKitImport(parsed: {
     .map(([k]) => k);
   if (duplicates.length > 0) {
     globalWarnings.push(`duplicate_article: codici articolo ripetuti nell'offerta (${duplicates.join(", ")})`);
-  }
-
-  // same_analysis_multiple_lines
-  const analysisIdCount = new Map<string, number>();
-  for (const row of rows) {
-    if (!row.analysisId) continue;
-    analysisIdCount.set(row.analysisId, (analysisIdCount.get(row.analysisId) ?? 0) + 1);
-  }
-  const sameAnalysis = [...analysisIdCount.entries()].filter(([, c]) => c > 1);
-  if (sameAnalysis.length > 0) {
-    globalWarnings.push("same_analysis_multiple_lines: più righe puntano alla stessa analisi — scegline una sola per analisi");
   }
 
   return { rows, globalWarnings };

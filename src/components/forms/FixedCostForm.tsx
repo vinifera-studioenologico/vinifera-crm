@@ -37,6 +37,9 @@ const FixedCostClientSchema = z.object({
   amountCents: z.string().min(1, "Importo obbligatorio"),
   frequency: z.enum(["monthly", "quarterly", "annual"]),
   active: z.boolean(),
+  notifyTelegram: z.boolean(),
+  notifyEmail: z.boolean(),
+  reminderDaysBefore: z.number().int().min(0).max(30),
 });
 type FormInput = z.infer<typeof FixedCostClientSchema>;
 
@@ -64,6 +67,9 @@ export function FixedCostForm({ existing, onSuccess }: Props) {
         : "",
       frequency: existing?.frequency ?? "monthly",
       active: existing?.active ?? true,
+      notifyTelegram: existing?.notifyTelegram ?? true,
+      notifyEmail: existing?.notifyEmail ?? false,
+      reminderDaysBefore: existing?.reminderDaysBefore ?? 3,
     },
   });
 
@@ -186,6 +192,60 @@ export function FixedCostForm({ existing, onSuccess }: Props) {
             </FormItem>
           )}
         />
+
+        {/* ── Notifiche ── */}
+        <div className="rounded-lg border border-border p-4 space-y-3">
+          <p className="text-sm font-medium">Promemoria scadenza</p>
+
+          <FormField
+            control={form.control}
+            name="reminderDaysBefore"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Giorni di anticipo</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={30}
+                    className="w-20"
+                    value={field.value}
+                    onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="flex items-center gap-6">
+            <FormField
+              control={form.control}
+              name="notifyTelegram"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-2">
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <FormLabel className="!mt-0 text-sm">Telegram</FormLabel>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="notifyEmail"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-2">
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <FormLabel className="!mt-0 text-sm">Email</FormLabel>
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
 
         <FormField
           control={form.control}
