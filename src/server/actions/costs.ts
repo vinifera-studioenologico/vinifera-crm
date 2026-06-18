@@ -237,6 +237,8 @@ function toFixedCostDoc(id: string, data: FirebaseFirestore.DocumentData): Fixed
     description: data["description"],
     amountCents: data["amountCents"] ?? 0,
     frequency: data["frequency"] ?? "monthly",
+    paymentDay: data["paymentDay"] ?? 1,
+    paymentMonth: data["paymentMonth"] ?? undefined,
     active: data["active"] ?? true,
     notifyTelegram: data["notifyTelegram"] ?? true,
     notifyEmail: data["notifyEmail"] ?? false,
@@ -281,6 +283,7 @@ export async function createFixedCost(raw: unknown): Promise<ActionResult<{ id: 
     const docRef = adminDb.collection(FIXED_COSTS_COL).doc();
     await docRef.set({
       ...rest,
+      paymentMonth: rest.paymentMonth ?? null,
       amountCents,
       version: 0,
       createdAt: FieldValue.serverTimestamp(),
@@ -322,6 +325,7 @@ export async function updateFixedCost(
 
       tx.update(docRef, {
         ...rest,
+        paymentMonth: rest.paymentMonth ?? null,
         amountCents,
         version: FieldValue.increment(1),
         updatedAt: FieldValue.serverTimestamp(),

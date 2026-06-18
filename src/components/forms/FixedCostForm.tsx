@@ -31,22 +31,44 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const FixedCostClientSchema = z.object({
-  name: z.string().min(1, "Nome obbligatorio").max(200),
-  description: z.string().max(500).optional(),
-  amountCents: z.string().min(1, "Importo obbligatorio"),
-  frequency: z.enum(["monthly", "quarterly", "annual"]),
-  active: z.boolean(),
-  notifyTelegram: z.boolean(),
-  notifyEmail: z.boolean(),
-  reminderDaysBefore: z.number().int().min(0).max(30),
-});
+const FixedCostClientSchema = z
+  .object({
+    name: z.string().min(1, "Nome obbligatorio").max(200),
+    description: z.string().max(500).optional(),
+    amountCents: z.string().min(1, "Importo obbligatorio"),
+    frequency: z.enum(["monthly", "quarterly", "annual"]),
+    paymentDay: z.number().int().min(1, "Giorno non valido").max(31, "Giorno non valido"),
+    paymentMonth: z.number().int().min(1).max(12).optional(),
+    active: z.boolean(),
+    notifyTelegram: z.boolean(),
+    notifyEmail: z.boolean(),
+    reminderDaysBefore: z.number().int().min(0).max(30),
+  })
+  .refine((d) => d.frequency === "monthly" || d.paymentMonth != null, {
+    message: "Specificare il mese di pagamento",
+    path: ["paymentMonth"],
+  });
 type FormInput = z.infer<typeof FixedCostClientSchema>;
 
 const FREQUENCY_LABELS: Record<string, string> = {
   monthly: "Mensile",
   quarterly: "Trimestrale",
   annual: "Annuale",
+};
+
+const MONTH_LABELS: Record<number, string> = {
+  1: "Gennaio",
+  2: "Febbraio",
+  3: "Marzo",
+  4: "Aprile",
+  5: "Maggio",
+  6: "Giugno",
+  7: "Luglio",
+  8: "Agosto",
+  9: "Settembre",
+  10: "Ottobre",
+  11: "Novembre",
+  12: "Dicembre",
 };
 
 interface Props {
@@ -66,6 +88,8 @@ export function FixedCostForm({ existing, onSuccess }: Props) {
         ? String(existing.amountCents / 100).replace(".", ",")
         : "",
       frequency: existing?.frequency ?? "monthly",
+      paymentDay: existing?.paymentDay ?? 1,
+      paymentMonth: existing?.paymentMonth ?? undefined,
       active: existing?.active ?? true,
       notifyTelegram: existing?.notifyTelegram ?? true,
       notifyEmail: existing?.notifyEmail ?? false,
@@ -179,6 +203,69 @@ export function FixedCostForm({ existing, onSuccess }: Props) {
           />
         </div>
 
+        {/* Data di pagamento */}
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="paymentDay"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Giorno di pagamento *</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={field.value}
+                    onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 1)}
+                  />
+                </FormControl>
+                <p className="text-xs text-muted-foreground">Giorno del mese in cui viene pagato</p>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {form.watch("frequency") !== "monthly" && (
+            <FormField
+              control={form.control}
+              name="paymentMonth"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {form.watch("frequency") === "quarterly"
+                      ? "Mese di riferimento *"
+                      : "Mese di pagamento *"}
+                  </FormLabel>
+                  <Select
+                    onValueChange={(v) => field.onChange(v ? parseInt(v, 10) : undefined)}
+                    value={field.value ? String(field.value) : undefined}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleziona mese">
+                          {field.value ? MONTH_LABELS[field.value] : undefined}
+                        </SelectValue>
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {Object.entries(MONTH_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {form.watch("frequency") === "quarterly" && (
+                    <p className="text-xs text-muted-foreground">Primo pagamento, poi ogni 3 mesi</p>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+        </div>
+
         <FormField
           control={form.control}
           name="description"
@@ -246,19 +333,6 @@ export function FixedCostForm({ existing, onSuccess }: Props) {
             />
           </div>
         </div>
-
-        <FormField
-          control={form.control}
-          name="active"
-          render={({ field }) => (
-            <FormItem className="flex items-center gap-3">
-              <FormControl>
-                <Switch checked={field.value} onCheckedChange={field.onChange} />
-              </FormControl>
-              <FormLabel className="!mt-0">Attivo</FormLabel>
-            </FormItem>
-          )}
-        />
 
         <div className="flex justify-end gap-3 pt-2">
           <Button type="submit" disabled={isPending}>

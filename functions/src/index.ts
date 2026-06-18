@@ -127,6 +127,61 @@ function computeNextDue(
 
 // ── Funzione schedulata: ogni minuto ──────────────────────────────────
 
+/**
+ * Calcola la prossima data di scadenza per un costo fisso
+ * rispetto a `today` in base a frequency, paymentDay, paymentMonth.
+ */
+function computeNextFixedCostDue(
+  today: Date,
+  frequency: string,
+  paymentDay: number,
+  paymentMonth: number | null,
+): Date | null {
+  const year = today.getFullYear();
+  const month = today.getMonth(); // 0-based
+  const clampDay = (y: number, m: number, day: number) => {
+    const max = new Date(y, m + 1, 0).getDate();
+    return Math.min(day, max);
+  };
+
+  if (frequency === "monthly") {
+    // Prossima data = paymentDay di questo mese, oppure prossimo mese se già passata
+    let candidate = new Date(year, month, clampDay(year, month, paymentDay));
+    if (candidate < today) {
+      const nextMonth = month + 1;
+      candidate = new Date(year, nextMonth, clampDay(year, nextMonth, paymentDay));
+    }
+    return candidate;
+  }
+
+  if (frequency === "quarterly" && paymentMonth != null) {
+    // paymentMonth è 1-based. Generiamo i 4 mesi di pagamento nell'anno
+    const baseMonth = paymentMonth - 1; // 0-based
+    const months = [baseMonth, baseMonth + 3, baseMonth + 6, baseMonth + 9];
+    for (const m of months) {
+      const y = m >= 12 ? year + 1 : year;
+      const adjM = m % 12;
+      const candidate = new Date(y, adjM, clampDay(y, adjM, paymentDay));
+      if (candidate >= today) return candidate;
+    }
+    // Tutti passati quest'anno → primo del prossimo ciclo
+    const nextYear = year + 1;
+    const adjM = baseMonth % 12;
+    return new Date(nextYear, adjM, clampDay(nextYear, adjM, paymentDay));
+  }
+
+  if (frequency === "annual" && paymentMonth != null) {
+    const m = paymentMonth - 1; // 0-based
+    let candidate = new Date(year, m, clampDay(year, m, paymentDay));
+    if (candidate < today) {
+      candidate = new Date(year + 1, m, clampDay(year + 1, m, paymentDay));
+    }
+    return candidate;
+  }
+
+  return null;
+}
+
 export const checkReminders = onSchedule(
   {
     schedule: "* * * * *", // ogni minuto
@@ -408,6 +463,86 @@ export const checkReminders = onSchedule(
       if (notifiedOverdue > 0) {
         logger.info(`Notified ${notifiedOverdue} overdue installment(s)`);
       }
+    }
+
+    // ── 4. Costi fissi in scadenza — promemoria anticipato ────────────
+    const fixedCostsSnap = await db
+      .collection("costFixedCosts")
+      .where("active", "==", true)
+      .where("deletedAt", "==", null)
+      .get();
+
+    let notifiedFixedCosts = 0;
+
+    for (const fcDoc of fixedCostsSnap.docs) {
+      const fc = fcDoc.data();
+      const notifyTelegram = fc["notifyTelegram"] as boolean | undefined;
+      const notifyEmail = fc["notifyEmail"] as boolean | undefined;
+      if (!notifyTelegram && !notifyEmail) continue;
+
+      const daysBefore = (fc["reminderDaysBefore"] as number | undefined) ?? 3;
+      const paymentDay = (fc["paymentDay"] as number | undefined) ?? 1;
+      const paymentMonth = (fc["paymentMonth"] as number | undefined) ?? null;
+      const frequency = (fc["frequency"] as string | undefined) ?? "monthly";
+      const name = (fc["name"] as string) ?? "Costo fisso";
+      const amountCents = (fc["amountCents"] as number) ?? 0;
+
+      // Calcola la prossima data di scadenza
+      const today = now.toDate();
+      const nextDue = computeNextFixedCostDue(today, frequency, paymentDay, paymentMonth);
+      if (!nextDue) continue;
+
+      // Verifica se siamo nella finestra di notifica (scadenza - daysBefore <= oggi)
+      const notifyFrom = new Date(nextDue.getTime() - daysBefore * 86_400_000);
+      if (today < notifyFrom) continue;
+
+      // Evita notifiche duplicate: controlla lastNotifiedForDue
+      const lastNotifiedForDue = fc["lastNotifiedForDue"] as Timestamp | null | undefined;
+      if (lastNotifiedForDue) {
+        const lastDate = lastNotifiedForDue.toDate();
+        // Se abbiamo già notificato per la stessa scadenza (stesso giorno target), skip
+        if (lastDate.getTime() >= notifyFrom.getTime()) continue;
+      }
+
+      const daysLeft = Math.ceil((nextDue.getTime() - today.getTime()) / 86_400_000);
+      const daysLabel =
+        daysLeft <= 0 ? "oggi" : daysLeft === 1 ? "domani" : `tra ${daysLeft} giorni`;
+      const subject = `Costo fisso: ${name} in scadenza ${daysLabel}`;
+      const msgText = [
+        `🏦 <b>${subject}</b>`,
+        `${formatCents(amountCents)} · Scadenza: ${formatDateIT(nextDue)}`,
+      ].join("\n");
+
+      try {
+        if (notifyTelegram) {
+          await sendTelegram(notif.telegramToken, notif.telegramChatId, msgText);
+        }
+        if (notifyEmail && notif.notifyEmail) {
+          const emailHtml = buildEmailHtml(subject, [
+            `<p><strong>Importo:</strong> ${formatCents(amountCents)}</p>`,
+            `<p><strong>Scadenza:</strong> ${formatDateIT(nextDue)}</p>`,
+          ].join(""));
+          await sendEmail(
+            resendApiKey.value(),
+            resendFromEmail.value() || "noreply@vinifera.app",
+            notif.notifyEmail,
+            subject,
+            `${subject}\n${formatCents(amountCents)} · ${formatDateIT(nextDue)}`,
+            emailHtml,
+          );
+        }
+        await fcDoc.ref.update({
+          lastNotifiedForDue: Timestamp.fromDate(nextDue),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        notifiedFixedCosts++;
+      } catch (err) {
+        logger.error("Fixed cost notification failed", { id: fcDoc.id, err });
+      }
+    }
+
+    if (notifiedFixedCosts > 0) {
+      logger.info(`Notified ${notifiedFixedCosts} fixed cost(s) approaching due date`);
     }
   },
 );

@@ -43,6 +43,29 @@ const FREQUENCY_LABELS: Record<string, string> = {
   annual: "Annuale",
 };
 
+const MONTH_LABELS: Record<number, string> = {
+  1: "Gen",
+  2: "Feb",
+  3: "Mar",
+  4: "Apr",
+  5: "Mag",
+  6: "Giu",
+  7: "Lug",
+  8: "Ago",
+  9: "Set",
+  10: "Ott",
+  11: "Nov",
+  12: "Dic",
+};
+
+function formatPayment(row: FixedCostDoc): string {
+  const day = row.paymentDay ?? 1;
+  if (row.frequency === "monthly") return `Giorno ${day}`;
+  const month = row.paymentMonth ? MONTH_LABELS[row.paymentMonth] : "—";
+  if (row.frequency === "quarterly") return `${day} ${month} · ogni 3 mesi`;
+  return `${day} ${month}`;
+}
+
 function monthlyProrata(amountCents: number, frequency: string): number {
   if (frequency === "monthly") return amountCents;
   if (frequency === "quarterly") return Math.round(amountCents / 3);
@@ -88,15 +111,10 @@ export function FixedCostsTable({ initialData }: Props) {
     {
       accessorKey: "name",
       header: "Nome",
+      size: 90,
+      meta: { className: "max-w-[200px]" },
       cell: ({ row }) => (
-        <span className="font-medium">{row.original.name}</span>
-      ),
-    },
-    {
-      accessorKey: "description",
-      header: "Descrizione",
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{row.original.description ?? "—"}</span>
+        <span className="font-medium truncate block max-w-[200px]">{row.original.name}</span>
       ),
     },
     {
@@ -111,6 +129,13 @@ export function FixedCostsTable({ initialData }: Props) {
         <Badge variant="secondary">
           {FREQUENCY_LABELS[row.original.frequency] ?? row.original.frequency}
         </Badge>
+      ),
+    },
+    {
+      id: "payment",
+      header: "Pagamento",
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">{formatPayment(row.original)}</span>
       ),
     },
     {

@@ -204,6 +204,7 @@ const FIXED_COSTS = [
     description: "Canone mensile locali laboratorio.",
     amountCents: 120000, // €1.200,00
     frequency: "monthly",
+    paymentDay: 5,
     active: true,
   },
   {
@@ -212,6 +213,7 @@ const FIXED_COSTS = [
     description: "Costo lordo mensile risorsa tecnica.",
     amountCents: 180000, // €1.800,00
     frequency: "monthly",
+    paymentDay: 27,
     active: true,
   },
   {
@@ -220,6 +222,8 @@ const FIXED_COSTS = [
     description: "Polizza annuale responsabilità civile.",
     amountCents: 96000, // €960,00/anno → €80,00/mese
     frequency: "annual",
+    paymentDay: 15,
+    paymentMonth: 3,
     active: true,
   },
   {
@@ -228,6 +232,8 @@ const FIXED_COSTS = [
     description: "Quota annuale mantenimento accreditamento.",
     amountCents: 240000, // €2.400,00/anno → €200,00/mese
     frequency: "annual",
+    paymentDay: 1,
+    paymentMonth: 1,
     active: true,
   },
   {
@@ -236,6 +242,8 @@ const FIXED_COSTS = [
     description: "Contratto trimestrale assistenza strumentazione.",
     amountCents: 90000, // €900,00/trim → €300,00/mese
     frequency: "quarterly",
+    paymentDay: 10,
+    paymentMonth: 1,
     active: true,
   },
   {
@@ -244,6 +252,7 @@ const FIXED_COSTS = [
     description: "Abbonamento non più attivo — test filtro inattivi.",
     amountCents: 4900, // €49,00
     frequency: "monthly",
+    paymentDay: 1,
     active: false, // INATTIVO → escluso dal prorata
   },
 ];

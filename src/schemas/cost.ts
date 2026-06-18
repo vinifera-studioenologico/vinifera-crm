@@ -70,20 +70,30 @@ export const FixedCostFrequencySchema = z.enum(["monthly", "quarterly", "annual"
 export type FixedCostFrequency = z.infer<typeof FixedCostFrequencySchema>;
 
 // ── Form schema costo fisso ───────────────────────────────────────────
-export const FixedCostFormSchema = z.object({
+const FixedCostFormBaseSchema = z.object({
   name: zNonEmptyString.max(200, "Nome troppo lungo"),
   description: z.string().max(500).optional(),
   amountCents: zEurInput,
   frequency: FixedCostFrequencySchema,
+  // Giorno del mese in cui avviene il pagamento (1-31)
+  paymentDay: z.number().int().min(1, "Giorno non valido").max(31, "Giorno non valido"),
+  // Mese di riferimento (1-12): primo mese del ciclo per trimestrale/annuale.
+  // Ignorato per i costi mensili.
+  paymentMonth: z.number().int().min(1).max(12).optional(),
   active: z.boolean(),
   notifyTelegram: z.boolean().default(true),
   notifyEmail: z.boolean().default(false),
   reminderDaysBefore: z.number().int().min(0).max(30).default(3),
 });
+
+export const FixedCostFormSchema = FixedCostFormBaseSchema.refine(
+  (d) => d.frequency === "monthly" || d.paymentMonth != null,
+  { message: "Specificare il mese di pagamento", path: ["paymentMonth"] },
+);
 export type FixedCostFormValues = z.infer<typeof FixedCostFormSchema>;
 
 // ── Doc Firestore costo fisso ─────────────────────────────────────────
-export const FixedCostDocSchema = FixedCostFormSchema.omit({ amountCents: true }).extend({
+export const FixedCostDocSchema = FixedCostFormBaseSchema.omit({ amountCents: true }).extend({
   id: z.string(),
   amountCents: zCents,
   version: z.number().int().min(0),
