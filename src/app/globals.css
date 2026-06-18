@@ -104,4 +104,9 @@ body {
 /* Touch targets minimi 44px per iPad (§17.10) */
 button, [role="button"], a { min-height: 44px; }
 input[type="checkbox"], input[type="radio"] { min-height: unset; }
+/* I link/voci del breadcrumb sono testo inline: niente touch target da 44px,
+   altrimenti sfalsano l'allineamento verticale con i separatori e la pagina corrente */
+[data-slot="breadcrumb-list"] a,
+[data-slot="breadcrumb-list"] [role="link"],
+[data-slot="breadcrumb-list"] [role="button"] { min-height: 0; }
 
