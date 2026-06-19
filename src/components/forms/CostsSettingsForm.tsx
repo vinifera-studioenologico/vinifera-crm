@@ -76,7 +76,7 @@ export function CostsSettingsForm({ defaultValues }: Props) {
             <FormItem>
               <FormLabel>Margine target (%)</FormLabel>
               <FormControl>
-                <Input type="number" min={0} max={100} step={0.5} {...field} className="max-w-xs" />
+                <Input type="number" min={0} step={0.5} {...field} className="max-w-xs" />
               </FormControl>
               <FormDescription>
                 Margine minimo desiderato utilizzato nel calcolo del pricing suggerito.

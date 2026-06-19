@@ -844,10 +844,6 @@ export async function getSuggestedPricing(): Promise<SuggestedPricing[]> {
   }
 
   const margin = settings.defaultMarginPercent;
-  // Margine inteso SUL RICAVO (coerente con la colonna "Margine %"):
-  //   prezzo = costo / (1 − margine/100)
-  // così il prezzo suggerito ottiene davvero il margine target sul prezzo.
-  const marginFactor = margin < 100 ? 1 - margin / 100 : 0;
 
   return analysesSnap.docs.map((d) => {
     const data = d.data();
@@ -860,8 +856,7 @@ export async function getSuggestedPricing(): Promise<SuggestedPricing[]> {
     const totalCostCents =
       fixedCostQuotaCents + (kitCostPerTestCents !== null ? kitCostPerTestCents : 0);
 
-    const suggestedPriceCents =
-      marginFactor > 0 ? Math.round(totalCostCents / marginFactor) : totalCostCents;
+    const suggestedPriceCents = Math.round(totalCostCents * (1 + margin / 100));
 
     const marginPercent =
       currentPriceCents > 0

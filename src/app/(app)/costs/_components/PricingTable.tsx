@@ -114,9 +114,9 @@ function SuggestedPriceCell({ row }: { row: SuggestedPricing }) {
             <div className="my-1 border-t border-border" />
             <BreakdownRow label="Costo totale / test" value={formatEUR(row.totalCostCents)} strong />
             <BreakdownRow
-              op="÷"
-              label={`Margine target ${row.marginPercentTarget}% sul ricavo`}
-              value={`(1 − ${row.marginPercentTarget}/100)`}
+              op="×"
+              label={`Ricarico target +${row.marginPercentTarget}%`}
+              value={`(1 + ${row.marginPercentTarget}/100)`}
               muted
             />
             <div className="my-1 border-t border-border" />
@@ -145,7 +145,7 @@ function SuggestedPriceCell({ row }: { row: SuggestedPricing }) {
               (indiretti) = {formatEUR(row.totalCostCents)}
             </p>
             <p className="mt-1">
-              Prezzo suggerito = {formatEUR(row.totalCostCents)} ÷ (1 − {row.marginPercentTarget}
+              Prezzo suggerito = {formatEUR(row.totalCostCents)} × (1 + {row.marginPercentTarget}
               /100) = {formatEUR(row.suggestedPriceCents)}
             </p>
             <p className="mt-1">
