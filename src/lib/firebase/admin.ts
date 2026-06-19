@@ -52,9 +52,11 @@ const USE_EMULATORS =
   process.env.NEXT_PUBLIC_USE_EMULATORS === "true";
 
 if (USE_EMULATORS) {
-  process.env.FIRESTORE_EMULATOR_HOST ??= "localhost:8080";
-  process.env.FIREBASE_AUTH_EMULATOR_HOST ??= "http://localhost:9099";
-  process.env.FIREBASE_STORAGE_EMULATOR_HOST ??= "localhost:9199";
+  // 127.0.0.1 (non "localhost"): su Windows "localhost" può risolvere su IPv6 (::1)
+  // mentre gli emulatori Firebase ascoltano su IPv4 → ECONNREFUSED ::1:8080.
+  process.env.FIRESTORE_EMULATOR_HOST ??= "127.0.0.1:8080";
+  process.env.FIREBASE_AUTH_EMULATOR_HOST ??= "http://127.0.0.1:9099";
+  process.env.FIREBASE_STORAGE_EMULATOR_HOST ??= "127.0.0.1:9199";
 }
 
 const IS_DEV_BYPASS =

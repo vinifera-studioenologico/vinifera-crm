@@ -173,8 +173,9 @@ export type KitOfferImportValues = z.infer<typeof KitOfferImportSchema>;
 
 // ── Settings modulo costi ─────────────────────────────────────────────
 export const CostsSettingsSchema = z.object({
-  defaultMarginPercent: z.number().min(0).max(100).default(5),
+  defaultMarginPercent: z.number().min(0).max(99).default(5),
   estimatedMonthlyAnalyses: z.number().int().min(1).default(100),
+  costAllocationPercent: z.number().min(0).max(100).default(100),
   productConfigPdfPath: z.string().nullable().optional(),
   productConfigPdfUrl: z.string().url().nullable().optional(),
 });

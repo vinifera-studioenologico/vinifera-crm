@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 const CostsSettingsClientSchema = z.object({
   defaultMarginPercent: z.string().min(1, "Campo obbligatorio"),
   estimatedMonthlyAnalyses: z.string().min(1, "Campo obbligatorio"),
+  costAllocationPercent: z.string().min(1, "Campo obbligatorio"),
 });
 type FormInput = z.infer<typeof CostsSettingsClientSchema>;
 
@@ -40,6 +41,7 @@ export function CostsSettingsForm({ defaultValues }: Props) {
     defaultValues: {
       defaultMarginPercent: String(defaultValues?.defaultMarginPercent ?? 5),
       estimatedMonthlyAnalyses: String(defaultValues?.estimatedMonthlyAnalyses ?? 100),
+      costAllocationPercent: String(defaultValues?.costAllocationPercent ?? 100),
     },
   });
 
@@ -49,6 +51,7 @@ export function CostsSettingsForm({ defaultValues }: Props) {
       const result = await updateCostsSettings({
         defaultMarginPercent: parseFloat(raw.defaultMarginPercent),
         estimatedMonthlyAnalyses: parseInt(raw.estimatedMonthlyAnalyses, 10),
+        costAllocationPercent: parseFloat(raw.costAllocationPercent),
       });
       if (result.success) {
         toast.success("Impostazioni salvate");
@@ -94,6 +97,25 @@ export function CostsSettingsForm({ defaultValues }: Props) {
               </FormControl>
               <FormDescription>
                 Numero medio di analisi mensili usato per ripartire i costi fissi.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="costAllocationPercent"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>% costi da ripartire sulle analisi</FormLabel>
+              <FormControl>
+                <Input type="number" min={0} max={100} step={1} {...field} className="max-w-xs" />
+              </FormControl>
+              <FormDescription>
+                Quota di costi fissi e spese generali (escluso il costo diretto dei kit) imputata
+                alle analisi. Il resto è attribuito alle altre attività aziendali. 100% = tutto a
+                carico delle analisi.
               </FormDescription>
               <FormMessage />
             </FormItem>

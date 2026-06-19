@@ -511,6 +511,7 @@ export async function deleteKit(id: string): Promise<ActionResult<void>> {
 const COSTS_SETTINGS_DEFAULTS: CostsSettingsValues = {
   defaultMarginPercent: 5,
   estimatedMonthlyAnalyses: 100,
+  costAllocationPercent: 100,
   productConfigPdfPath: null,
   productConfigPdfUrl: null,
 };
@@ -686,9 +687,15 @@ export async function getCostsSummary(
       : 0;
 
   // ── Costo stimato per analisi (anti doppio-conteggio) ───────────────────────
+  // Solo `costAllocationPercent`% dei costi indiretti (overhead non-kit + fissi)
+  // è imputato alle analisi; il resto è a carico delle altre attività aziendali.
+  // Il costo diretto kit (avgCostPerTest) resta invece al 100%.
   const estimated = settings.estimatedMonthlyAnalyses;
+  const allocableIndirectCents = Math.round(
+    (overheadExpensesCents + totalFixedMonthlyCents) * (settings.costAllocationPercent / 100),
+  );
   const overheadPerAnalysisCents =
-    estimated > 0 ? Math.round((overheadExpensesCents + totalFixedMonthlyCents) / estimated) : 0;
+    estimated > 0 ? Math.round(allocableIndirectCents / estimated) : 0;
   const estimatedCostPerAnalysisCents = overheadPerAnalysisCents + avgCostPerTestCents;
 
   // ── Media prezzo di listino analisi attive (invariato) ──────────────────────
@@ -736,12 +743,18 @@ export interface SuggestedPricing {
   suggestedPriceCents: number;
   marginPercent: number;
   belowCost: boolean;
+  /** Valori grezzi di derivazione (per info/debug del calcolo). */
+  totalFixedMonthlyCents: number;
+  avgMonthlyOverheadCents: number;
+  estimatedMonthlyAnalyses: number;
+  allocationPercent: number;
+  marginPercentTarget: number;
 }
 
 export async function getSuggestedPricing(): Promise<SuggestedPricing[]> {
   await requireAdmin();
 
-  const [analysesSnap, kitsSnap, fixedCostsSnap, settings] = await Promise.all([
+  const [analysesSnap, kitsSnap, fixedCostsSnap, expensesSnap, settings] = await Promise.all([
     adminDb
       .collection("analyses")
       .where("deletedAt", "==", null)
@@ -754,6 +767,8 @@ export async function getSuggestedPricing(): Promise<SuggestedPricing[]> {
       .where("deletedAt", "==", null)
       .where("active", "==", true)
       .get(),
+    // Tutte le spese non eliminate: serve controllare l'overlap di periodo, non solo la date
+    safeGet(adminDb.collection(EXPENSES_COL).where("deletedAt", "==", null)),
     getCostsSettings(),
   ]);
 
@@ -768,8 +783,55 @@ export async function getSuggestedPricing(): Promise<SuggestedPricing[]> {
     return sum;
   }, 0);
 
+  // ── Media mensile spese generali (overhead) sugli ultimi 12 mesi ────────────
+  // IMPORTANTE: escludiamo la categoria "kit_purchase" per NON contare due volte
+  // i kit — il loro costo è già imputato tramite costPerTestCents del kit.
+  const WINDOW_MONTHS = 12;
+  const now = new Date();
+  const currentIdx = now.getFullYear() * 12 + now.getMonth(); // indice mese corrente
+  const windowStartIdx = currentIdx - (WINDOW_MONTHS - 1);
+
+  let overheadWindowCents = 0;
+  for (const d of expensesSnap.docs) {
+    const data = d.data();
+    if (data["category"] === "kit_purchase") continue; // anti doppio-conteggio kit
+    const amount: number = data["totalCents"] ?? 0;
+    const expDate: string = data["date"] ?? "";
+    const pFrom: string | undefined = data["periodFrom"];
+    const pTo: string | undefined = data["periodTo"];
+
+    if (pFrom && pTo && pFrom <= pTo) {
+      // Spesa con periodo → quota mensile distribuita sui mesi coperti dal periodo;
+      // sommiamo solo le quote dei mesi che cadono nella finestra 12m.
+      const fromIdx =
+        parseInt(pFrom.slice(0, 4), 10) * 12 + (parseInt(pFrom.slice(5, 7), 10) - 1);
+      const toIdx = parseInt(pTo.slice(0, 4), 10) * 12 + (parseInt(pTo.slice(5, 7), 10) - 1);
+      const totalMonths = toIdx - fromIdx + 1;
+      const perMonth = totalMonths > 0 ? Math.round(amount / totalMonths) : 0;
+      for (let idx = fromIdx; idx <= toIdx; idx++) {
+        if (idx >= windowStartIdx && idx <= currentIdx) overheadWindowCents += perMonth;
+      }
+    } else if (expDate) {
+      // Nessun periodo → la spesa pesa sul mese della sua date.
+      const idx =
+        parseInt(expDate.slice(0, 4), 10) * 12 + (parseInt(expDate.slice(5, 7), 10) - 1);
+      if (Number.isFinite(idx) && idx >= windowStartIdx && idx <= currentIdx) {
+        overheadWindowCents += amount;
+      }
+    }
+  }
+  const avgMonthlyOverheadCents = Math.round(overheadWindowCents / WINDOW_MONTHS);
+
   const estimated = settings.estimatedMonthlyAnalyses;
-  const fixedCostQuotaCents = estimated > 0 ? Math.round(totalFixedMonthlyCents / estimated) : 0;
+  const allocationPercent = settings.costAllocationPercent;
+
+  // Quota mensile di costi indiretti (fissi + overhead) imputata alle analisi.
+  // Solo `allocationPercent`% è a carico delle analisi: il resto è attribuito
+  // alle altre attività aziendali.
+  const allocableMonthlyCents = Math.round(
+    (totalFixedMonthlyCents + avgMonthlyOverheadCents) * (allocationPercent / 100),
+  );
+  const fixedCostQuotaCents = estimated > 0 ? Math.round(allocableMonthlyCents / estimated) : 0;
 
   // Mappa analysisId → somma costPerTestCents di tutti i kit associati
   const kitByAnalysisId = new Map<string, number>();
@@ -782,6 +844,10 @@ export async function getSuggestedPricing(): Promise<SuggestedPricing[]> {
   }
 
   const margin = settings.defaultMarginPercent;
+  // Margine inteso SUL RICAVO (coerente con la colonna "Margine %"):
+  //   prezzo = costo / (1 − margine/100)
+  // così il prezzo suggerito ottiene davvero il margine target sul prezzo.
+  const marginFactor = margin < 100 ? 1 - margin / 100 : 0;
 
   return analysesSnap.docs.map((d) => {
     const data = d.data();
@@ -794,8 +860,8 @@ export async function getSuggestedPricing(): Promise<SuggestedPricing[]> {
     const totalCostCents =
       fixedCostQuotaCents + (kitCostPerTestCents !== null ? kitCostPerTestCents : 0);
 
-    // suggestedPrice = totalCost * (1 + margin/100)
-    const suggestedPriceCents = Math.round(totalCostCents * (1 + margin / 100));
+    const suggestedPriceCents =
+      marginFactor > 0 ? Math.round(totalCostCents / marginFactor) : totalCostCents;
 
     const marginPercent =
       currentPriceCents > 0
@@ -813,6 +879,11 @@ export async function getSuggestedPricing(): Promise<SuggestedPricing[]> {
       suggestedPriceCents,
       marginPercent,
       belowCost: currentPriceCents < totalCostCents,
+      totalFixedMonthlyCents,
+      avgMonthlyOverheadCents,
+      estimatedMonthlyAnalyses: estimated,
+      allocationPercent,
+      marginPercentTarget: margin,
     };
   });
 }

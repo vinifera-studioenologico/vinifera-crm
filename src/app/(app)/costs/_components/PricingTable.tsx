@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Settings } from "lucide-react";
+import { Info, Settings } from "lucide-react";
 
 import type { SuggestedPricing } from "@/server/actions/costs";
 import { formatEUR } from "@/lib/utils/money";
@@ -17,6 +17,13 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import {
+  Popover,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 type PricingStatus = "ok" | "below_cost" | "low_margin" | "unknown_kit";
 
@@ -38,6 +45,118 @@ function StatusBadge({ status }: { status: PricingStatus }) {
     return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0">Margine basso</Badge>;
   }
   return <Badge variant="outline" className="text-muted-foreground">Kit sconosciuto</Badge>;
+}
+
+function BreakdownRow({
+  label,
+  value,
+  strong,
+  muted,
+  op,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+  muted?: boolean;
+  op?: string;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-4">
+      <span
+        className={cn(
+          "flex items-baseline gap-1.5",
+          muted ? "text-muted-foreground" : "text-foreground",
+          strong && "font-medium",
+        )}
+      >
+        {op && <span className="w-3 text-center font-mono text-muted-foreground">{op}</span>}
+        {label}
+      </span>
+      <span className={cn("tabular-nums", strong && "font-semibold")}>{value}</span>
+    </div>
+  );
+}
+
+function SuggestedPriceCell({ row }: { row: SuggestedPricing }) {
+  const kitCost = row.kitCostPerTestCents ?? 0;
+  const allocableMonthly = Math.round(
+    (row.totalFixedMonthlyCents + row.avgMonthlyOverheadCents) * (row.allocationPercent / 100),
+  );
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="tabular-nums">{formatEUR(row.suggestedPriceCents)}</span>
+      <Popover>
+        <PopoverTrigger
+          aria-label="Dettaglio calcolo prezzo suggerito"
+          className="text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <Info className="size-3.5" />
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-80">
+          <PopoverHeader>
+            <PopoverTitle>Come calcoliamo il prezzo suggerito</PopoverTitle>
+          </PopoverHeader>
+
+          <div className="flex flex-col gap-1 text-xs">
+            <BreakdownRow
+              label="Costo kit / test"
+              value={
+                row.kitCostPerTestCents !== null ? formatEUR(row.kitCostPerTestCents) : "Non mappato"
+              }
+              muted
+            />
+            <BreakdownRow
+              op="+"
+              label="Quota costi indiretti"
+              value={formatEUR(row.fixedCostQuotaCents)}
+              muted
+            />
+            <div className="my-1 border-t border-border" />
+            <BreakdownRow label="Costo totale / test" value={formatEUR(row.totalCostCents)} strong />
+            <BreakdownRow
+              op="÷"
+              label={`Margine target ${row.marginPercentTarget}% sul ricavo`}
+              value={`(1 − ${row.marginPercentTarget}/100)`}
+              muted
+            />
+            <div className="my-1 border-t border-border" />
+            <BreakdownRow
+              label="Prezzo suggerito"
+              value={formatEUR(row.suggestedPriceCents)}
+              strong
+            />
+          </div>
+
+          <div className="mt-1 rounded-md bg-muted/50 p-2 text-[11px] leading-relaxed text-muted-foreground">
+            <p className="mb-1 font-medium text-foreground">Dettaglio derivazione</p>
+            <p>
+              Costi indiretti mensili = costi fissi {formatEUR(row.totalFixedMonthlyCents)} + spese
+              generali medie/mese (ultimi 12 mesi, esclusi kit){" "}
+              {formatEUR(row.avgMonthlyOverheadCents)} ={" "}
+              {formatEUR(row.totalFixedMonthlyCents + row.avgMonthlyOverheadCents)}
+            </p>
+            <p className="mt-1">
+              Quota imputata alle analisi = {row.allocationPercent}% ={" "}
+              {formatEUR(allocableMonthly)} ÷ {row.estimatedMonthlyAnalyses} analisi/mese ={" "}
+              {formatEUR(row.fixedCostQuotaCents)}
+            </p>
+            <p className="mt-1">
+              Costo totale = {formatEUR(kitCost)} (kit) + {formatEUR(row.fixedCostQuotaCents)}{" "}
+              (indiretti) = {formatEUR(row.totalCostCents)}
+            </p>
+            <p className="mt-1">
+              Prezzo suggerito = {formatEUR(row.totalCostCents)} ÷ (1 − {row.marginPercentTarget}
+              /100) = {formatEUR(row.suggestedPriceCents)}
+            </p>
+            <p className="mt-1">
+              Margine attuale sul listino = (listino {formatEUR(row.currentPriceCents)} − costo{" "}
+              {formatEUR(row.totalCostCents)}) ÷ listino = <strong>{row.marginPercent}%</strong>
+            </p>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
 }
 
 interface Props {
@@ -78,7 +197,7 @@ export function PricingTable({ data, targetMarginPercent }: Props) {
     },
     {
       id: "fixedQuota",
-      header: "Quota fissi",
+      header: "Quota indiretti",
       cell: ({ row }) => (
         <span className="tabular-nums text-muted-foreground">
           {formatEUR(row.original.fixedCostQuotaCents)}
@@ -95,9 +214,7 @@ export function PricingTable({ data, targetMarginPercent }: Props) {
     {
       id: "suggestedPrice",
       header: "Prezzo suggerito",
-      cell: ({ row }) => (
-        <span className="tabular-nums">{formatEUR(row.original.suggestedPriceCents)}</span>
-      ),
+      cell: ({ row }) => <SuggestedPriceCell row={row.original} />,
     },
     {
       id: "margin",
