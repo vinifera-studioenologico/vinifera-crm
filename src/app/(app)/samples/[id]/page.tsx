@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getSample } from "@/server/actions/samples";
+import { getSample, getAdjacentInProgressSamples } from "@/server/actions/samples";
 import { SampleDetailClient } from "./_components/SampleDetailClient";
 
 interface Props {
@@ -17,5 +17,10 @@ export default async function SampleDetailPage({ params }: Props) {
   const sample = await getSample(id);
   if (!sample) notFound();
 
-  return <SampleDetailClient sample={sample} />;
+  const adjacent =
+    sample.status === "in_progress"
+      ? await getAdjacentInProgressSamples(id)
+      : { prevId: null, nextId: null };
+
+  return <SampleDetailClient sample={sample} adjacentIds={adjacent} />;
 }

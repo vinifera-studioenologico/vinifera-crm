@@ -11,6 +11,8 @@ import {
   Save,
   Plus,
   Trash2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -19,7 +21,7 @@ import { updateSampleStatus, saveSampleResults, addSampleNote, deleteSampleNote 
 import { formatEUR } from "@/lib/utils/money";
 import { formatDate } from "@/lib/utils/date";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +44,7 @@ import { SampleStatusBadge } from "@/components/widgets/SampleStatusBadge";
 
 interface Props {
   sample: SampleDoc;
+  adjacentIds: { prevId: string | null; nextId: string | null };
 }
 
 const STATUS_TRANSITIONS: Array<{
@@ -76,7 +79,7 @@ const STATUS_TRANSITIONS: Array<{
   },
 ];
 
-export function SampleDetailClient({ sample }: Props) {
+export function SampleDetailClient({ sample, adjacentIds }: Props) {
   const router = useRouter();
   const [results, setResults] = useState<Record<string, string>>(
     Object.fromEntries(
@@ -204,14 +207,46 @@ export function SampleDetailClient({ sample }: Props) {
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-semibold tracking-tight">{sample.code}</h1>
-            <SampleStatusBadge status={sample.status} />
+        <div className="flex items-center gap-3">
+          {/* Navigazione prev/next in lavorazione */}
+          {(adjacentIds.prevId || adjacentIds.nextId) && (
+            <div className="flex items-center gap-1">
+              {adjacentIds.prevId ? (
+                <Link
+                  href={`/samples/${adjacentIds.prevId}`}
+                  className={buttonVariants({ variant: "outline", size: "icon", className: "size-8" })}
+                >
+                  <ChevronLeft className="size-4" />
+                </Link>
+              ) : (
+                <Button variant="outline" size="icon" className="size-8" disabled>
+                  <ChevronLeft className="size-4" />
+                </Button>
+              )}
+              {adjacentIds.nextId ? (
+                <Link
+                  href={`/samples/${adjacentIds.nextId}`}
+                  className={buttonVariants({ variant: "outline", size: "icon", className: "size-8" })}
+                >
+                  <ChevronRight className="size-4" />
+                </Link>
+              ) : (
+                <Button variant="outline" size="icon" className="size-8" disabled>
+                  <ChevronRight className="size-4" />
+                </Button>
+              )}
+            </div>
+          )}
+
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-2xl font-semibold tracking-tight">{sample.code}</h1>
+              <SampleStatusBadge status={sample.status} />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {sample.clientNameSnapshot} · {sample.sampleName} · Ricevuto {receivedDate}
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {sample.clientNameSnapshot} · {sample.sampleName} · Ricevuto {receivedDate}
-          </p>
         </div>
 
         {/* Azioni */}

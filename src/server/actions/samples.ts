@@ -104,6 +104,30 @@ export async function getSample(id: string): Promise<SampleDoc | null> {
   return toSampleDoc(snap.id, snap.data()!);
 }
 
+// ── Navigazione prev/next tra campioni in lavorazione ─────────────────
+export async function getAdjacentInProgressSamples(
+  currentId: string,
+): Promise<{ prevId: string | null; nextId: string | null }> {
+  await requireAdmin();
+
+  const snap = await adminDb
+    .collection(COL)
+    .where("status", "==", "in_progress")
+    .orderBy("createdAt", "desc")
+    .select()
+    .get();
+
+  const ids = snap.docs.map((d) => d.id);
+  const idx = ids.indexOf(currentId);
+
+  if (idx === -1) return { prevId: null, nextId: null };
+
+  return {
+    prevId: idx > 0 ? ids[idx - 1]! : null,
+    nextId: idx < ids.length - 1 ? ids[idx + 1]! : null,
+  };
+}
+
 // ── Pacchetti attivi del cliente ──────────────────────────────────────
 export async function getClientActivePkgs(clientId: string) {
   await requireAdmin();
