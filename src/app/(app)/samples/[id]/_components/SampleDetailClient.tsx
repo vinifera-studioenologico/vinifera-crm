@@ -13,11 +13,21 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  Search,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 
 import type { SampleDoc, SampleStatus } from "@/schemas/sample";
-import { updateSampleStatus, saveSampleResults, addSampleNote, deleteSampleNote } from "@/server/actions/samples";
+import type { AnalysisDoc } from "@/schemas/analysis";
+import {
+  updateSampleStatus,
+  saveSampleResults,
+  addSampleNote,
+  deleteSampleNote,
+  addSampleAnalyses,
+  removeSampleAnalysis,
+} from "@/server/actions/samples";
 import { formatEUR } from "@/lib/utils/money";
 import { formatDate } from "@/lib/utils/date";
 
@@ -45,6 +55,8 @@ import { SampleStatusBadge } from "@/components/widgets/SampleStatusBadge";
 interface Props {
   sample: SampleDoc;
   adjacentIds: { prevId: string | null; nextId: string | null };
+  analyses: AnalysisDoc[];
+  linkedPayment: { totalAmountCents: number; status: string } | null;
 }
 
 const STATUS_TRANSITIONS: Array<{
@@ -79,7 +91,7 @@ const STATUS_TRANSITIONS: Array<{
   },
 ];
 
-export function SampleDetailClient({ sample, adjacentIds }: Props) {
+export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPayment }: Props) {
   const router = useRouter();
   const [results, setResults] = useState<Record<string, string>>(
     Object.fromEntries(
@@ -93,6 +105,58 @@ export function SampleDetailClient({ sample, adjacentIds }: Props) {
   const [newNote, setNewNote] = useState("");
   const [isAddingNote, startAddNote] = useTransition();
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+
+  // ── Aggiunta / rimozione analisi (solo campioni modificabili) ─────────
+  const editable = sample.status === "pending" || sample.status === "in_progress";
+  const [addOpen, setAddOpen] = useState(false);
+  const [addSearch, setAddSearch] = useState("");
+  const [selectedToAdd, setSelectedToAdd] = useState<Set<string>>(new Set());
+  const [isMutatingItems, startMutateItems] = useTransition();
+  const [removeTarget, setRemoveTarget] = useState<SampleDoc["items"][number] | null>(null);
+
+  function toggleSelectToAdd(analysisId: string) {
+    setSelectedToAdd((prev) => {
+      const next = new Set(prev);
+      if (next.has(analysisId)) next.delete(analysisId);
+      else next.add(analysisId);
+      return next;
+    });
+  }
+
+  function handleAddAnalyses() {
+    if (selectedToAdd.size === 0) return;
+    startMutateItems(async () => {
+      const res = await addSampleAnalyses(sample.id, [...selectedToAdd], version);
+      if (res.success) {
+        setVersion(res.data.version);
+        setSelectedToAdd(new Set());
+        setAddSearch("");
+        setAddOpen(false);
+        toast.success(
+          selectedToAdd.size === 1 ? "Analisi aggiunta" : "Analisi aggiunte",
+        );
+        router.refresh();
+      } else {
+        toast.error(res.error);
+      }
+    });
+  }
+
+  function handleRemoveAnalysis() {
+    const target = removeTarget;
+    if (!target) return;
+    startMutateItems(async () => {
+      const res = await removeSampleAnalysis(sample.id, target.analysisId, version);
+      if (res.success) {
+        setVersion(res.data.version);
+        setRemoveTarget(null);
+        toast.success("Analisi rimossa");
+        router.refresh();
+      } else {
+        toast.error(res.error);
+      }
+    });
+  }
 
   function handleTransition(to: SampleStatus) {
     startTransition(async () => {
@@ -186,6 +250,23 @@ export function SampleDetailClient({ sample, adjacentIds }: Props) {
     (it) => it.coveredByPackageId && !it.chargeAnyway,
   );
 
+  // Catalogo analisi aggiungibili (attive, non archiviate, non già presenti)
+  const presentIds = new Set(sample.items.map((it) => it.analysisId));
+  const addableAnalyses = analyses
+    .filter((a) => a.active && a.deletedAt === null && !presentIds.has(a.id))
+    .filter((a) => {
+      if (!addSearch.trim()) return true;
+      const q = addSearch.toLowerCase();
+      return a.name.toLowerCase().includes(q) || a.code.toLowerCase().includes(q);
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, "it"));
+
+  // Avviso disallineamento col pagamento collegato
+  const paymentMismatch =
+    linkedPayment !== null &&
+    linkedPayment.status !== "cancelled" &&
+    linkedPayment.totalAmountCents !== sample.estimatedTotalCents;
+
   return (
     <div className="p-4 md:p-6 max-w-4xl space-y-6">
       {/* Breadcrumb */}
@@ -272,6 +353,23 @@ export function SampleDetailClient({ sample, adjacentIds }: Props) {
         </div>
       </div>
 
+      {/* Avviso disallineamento pagamento */}
+      {paymentMismatch && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 flex items-start gap-3 dark:border-amber-700/50 dark:bg-amber-950/30">
+          <AlertTriangle className="size-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />
+          <div className="text-sm">
+            <p className="font-medium text-amber-800 dark:text-amber-300">
+              Il totale del campione non corrisponde al pagamento collegato
+            </p>
+            <p className="text-amber-700/90 dark:text-amber-400/90 mt-0.5">
+              Totale stimato attuale: <strong>{formatEUR(sample.estimatedTotalCents)}</strong> ·
+              Pagamento collegato: <strong>{formatEUR(linkedPayment!.totalAmountCents)}</strong>.
+              Aggiorna manualmente il pagamento dalla sezione Pagamenti se necessario.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Riepilogo */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="rounded-xl border border-border bg-card p-4">
@@ -298,23 +396,36 @@ export function SampleDetailClient({ sample, adjacentIds }: Props) {
 
       {/* Tabella analisi con risultati editabili */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold">Analisi richieste</h2>
-          {(sample.status === "in_progress" || sample.status === "completed") && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isSavingResults}
-              onClick={handleSaveResults}
-            >
-              {isSavingResults ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <Save className="size-3.5" strokeWidth={1.75} />
-              )}
-              Salva risultati
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {editable && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isMutatingItems}
+                onClick={() => setAddOpen(true)}
+              >
+                <Plus className="size-3.5" strokeWidth={1.75} />
+                Aggiungi analisi
+              </Button>
+            )}
+            {(sample.status === "in_progress" || sample.status === "completed") && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isSavingResults}
+                onClick={handleSaveResults}
+              >
+                {isSavingResults ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Save className="size-3.5" strokeWidth={1.75} />
+                )}
+                Salva risultati
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="divide-y divide-border">
@@ -325,7 +436,11 @@ export function SampleDetailClient({ sample, adjacentIds }: Props) {
             return (
               <div
                 key={item.analysisId}
-                className="grid grid-cols-[1fr_160px_120px] gap-3 px-4 py-3 items-center"
+                className={`grid gap-3 px-4 py-3 items-center ${
+                  editable
+                    ? "grid-cols-[1fr_160px_120px_36px]"
+                    : "grid-cols-[1fr_160px_120px]"
+                }`}
               >
                 <div>
                   <p className="text-sm font-medium">
@@ -385,6 +500,26 @@ export function SampleDetailClient({ sample, adjacentIds }: Props) {
                     </Badge>
                   )}
                 </div>
+
+                {/* Rimuovi analisi (solo campioni modificabili) */}
+                {editable && (
+                  <div className="flex justify-end">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 text-muted-foreground hover:text-destructive"
+                      disabled={isMutatingItems || sample.items.length <= 1}
+                      title={
+                        sample.items.length <= 1
+                          ? "Deve restare almeno un'analisi"
+                          : "Rimuovi analisi"
+                      }
+                      onClick={() => setRemoveTarget(item)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -491,6 +626,126 @@ export function SampleDetailClient({ sample, adjacentIds }: Props) {
             >
               {isPending && <Loader2 className="size-3.5 animate-spin" />}
               Annulla campione
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog aggiungi analisi */}
+      <Dialog
+        open={addOpen}
+        onOpenChange={(o) => {
+          setAddOpen(o);
+          if (!o) {
+            setAddSearch("");
+            setSelectedToAdd(new Set());
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Aggiungi analisi</DialogTitle>
+            <DialogDescription>
+              Seleziona le analisi da aggiungere al campione. La copertura da
+              pacchetto, se disponibile, viene assegnata automaticamente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Cerca per nome o codice…"
+              className="pl-8 h-8 text-sm"
+              value={addSearch}
+              onChange={(e) => setAddSearch(e.target.value)}
+            />
+          </div>
+
+          <div className="rounded-xl border border-border divide-y divide-border max-h-72 overflow-y-auto">
+            {addableAnalyses.length === 0 ? (
+              <p className="px-3 py-4 text-sm text-center text-muted-foreground">
+                Nessuna analisi disponibile da aggiungere
+              </p>
+            ) : (
+              addableAnalyses.map((a) => (
+                <label
+                  key={a.id}
+                  className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/50 select-none transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    className="size-4 shrink-0 cursor-pointer accent-primary"
+                    checked={selectedToAdd.has(a.id)}
+                    onChange={() => toggleSelectToAdd(a.id)}
+                  />
+                  <span className="flex-1 min-w-0">
+                    <span className="font-semibold text-sm">{a.name}</span>
+                    <span className="font-mono text-xs text-muted-foreground ml-1.5">
+                      {a.code}
+                    </span>
+                  </span>
+                  <span className="tabular-nums text-xs text-muted-foreground shrink-0">
+                    {formatEUR(a.defaultPriceCents)}
+                  </span>
+                </label>
+              ))
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setAddOpen(false)}
+              disabled={isMutatingItems}
+            >
+              Annulla
+            </Button>
+            <Button
+              disabled={isMutatingItems || selectedToAdd.size === 0}
+              onClick={handleAddAnalyses}
+            >
+              {isMutatingItems && <Loader2 className="size-3.5 animate-spin" />}
+              Aggiungi{selectedToAdd.size > 0 ? ` (${selectedToAdd.size})` : ""}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog conferma rimozione analisi */}
+      <Dialog open={removeTarget !== null} onOpenChange={(o) => !o && setRemoveTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rimuovi analisi</DialogTitle>
+            <DialogDescription>
+              {removeTarget && (
+                <>
+                  Rimuovere{" "}
+                  <strong>
+                    {removeTarget.analysisCodeSnapshot} – {removeTarget.analysisNameSnapshot}
+                  </strong>{" "}
+                  dal campione?
+                  {removeTarget.coveredByPackageId && !removeTarget.chargeAnyway
+                    ? " L'analisi coperta verrà restituita al pacchetto."
+                    : ""}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRemoveTarget(null)}
+              disabled={isMutatingItems}
+            >
+              Torna indietro
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={isMutatingItems}
+              onClick={handleRemoveAnalysis}
+            >
+              {isMutatingItems && <Loader2 className="size-3.5 animate-spin" />}
+              Rimuovi
             </Button>
           </DialogFooter>
         </DialogContent>

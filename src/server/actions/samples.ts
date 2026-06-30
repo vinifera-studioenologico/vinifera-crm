@@ -12,7 +12,7 @@ import { SampleFormSchema } from "@/schemas/sample";
 import type { SampleDoc, SampleStatus } from "@/schemas/sample";
 import { tsToISO, civilDateToEndOfDay, generateDueDates } from "@/lib/utils/date";
 import type { ActionResult, PaginatedResult } from "@/types";
-import { computeSampleTotal } from "@/lib/calc/sample";
+import { computeSampleTotal, assignPackageCoverage } from "@/lib/calc/sample";
 import { splitInCents } from "@/lib/utils/money";
 import { getClient } from "./clients";
 
@@ -127,6 +127,232 @@ export async function getAdjacentInProgressSamples(
     nextId: idx < ids.length - 1 ? ids[idx + 1]! : null,
   };
 }
+
+// ── Riepilogo pagamento collegato (per banner avviso disallineamento) ──
+export async function getLinkedPaymentSummary(
+  paymentId: string,
+): Promise<{ totalAmountCents: number; status: string } | null> {
+  await requireAdmin();
+  const snap = await adminDb.collection("payments").doc(paymentId).get();
+  if (!snap.exists) return null;
+  const d = snap.data()!;
+  return {
+    totalAmountCents: (d["totalAmountCents"] as number) ?? 0,
+    status: (d["status"] as string) ?? "pending",
+  };
+}
+
+// ── Stati in cui il campione è modificabile (items) ───────────────────
+const EDITABLE_STATUSES: SampleStatus[] = ["pending", "in_progress"];
+
+// ── Aggiungi analisi a un campione in lavorazione ─────────────────────
+export async function addSampleAnalyses(
+  sampleId: string,
+  analysisIds: string[],
+  expectedVersion: number,
+): Promise<ActionResult<{ version: number }>> {
+  const actor = await requireAdmin();
+
+  if (!Array.isArray(analysisIds) || analysisIds.length === 0) {
+    return { success: false, error: "Nessuna analisi selezionata" };
+  }
+
+  try {
+    const result = await adminDb.runTransaction(async (tx) => {
+      const sampleRef = adminDb.collection(COL).doc(sampleId);
+
+      // ── FASE LETTURE ──────────────────────────────────────────────
+      const sampleSnap = await tx.get(sampleRef);
+      if (!sampleSnap.exists) return { code: "not_found" as const };
+
+      const sampleData = sampleSnap.data()!;
+      const status = sampleData["status"] as SampleStatus;
+      if (!EDITABLE_STATUSES.includes(status)) return { code: "locked" as const };
+      if ((sampleData["version"] ?? 0) !== expectedVersion) return { code: "conflict" as const };
+
+      const clientId = sampleData["clientId"] as string;
+      const currentItems = (sampleData["items"] ?? []) as SampleDoc["items"];
+      const existingIds = new Set(currentItems.map((it) => it.analysisId));
+
+      const uniqueIds = [...new Set(analysisIds)];
+      const analysisRefs = uniqueIds.map((id) => adminDb.collection("analyses").doc(id));
+
+      const pkgQuery = adminDb
+        .collection("clientPackages")
+        .where("clientId", "==", clientId)
+        .where("status", "==", "active");
+
+      const [analysisSnaps, pkgQuerySnap] = await Promise.all([
+        Promise.all(analysisRefs.map((ref) => tx.get(ref))),
+        tx.get(pkgQuery),
+      ]);
+
+      // Costruisci snapshot autoritativi (prezzo dal catalogo) per le sole
+      // analisi non già presenti nel campione. Le chiavi opzionali sono
+      // omesse se prive di valore: l'Admin SDK rifiuta i campi `undefined`.
+      const toAdd: SampleDoc["items"] = [];
+      for (let i = 0; i < uniqueIds.length; i++) {
+        const id = uniqueIds[i]!;
+        if (existingIds.has(id)) continue; // già presente: ignora
+        const aSnap = analysisSnaps[i]!;
+        if (!aSnap.exists) return { code: "analysis_missing" as const };
+        const a = aSnap.data()!;
+        if (a["deletedAt"] != null) return { code: "analysis_archived" as const };
+        const item: SampleDoc["items"][number] = {
+          analysisId: id,
+          analysisCodeSnapshot: a["code"] ?? "",
+          analysisNameSnapshot: a["name"] ?? "",
+          unitPriceCents: (a["defaultPriceCents"] as number) ?? 0,
+          chargeAnyway: false,
+        };
+        if (a["unit"]) item.unitSnapshot = a["unit"] as string;
+        if (a["description"]) item.descriptionSnapshot = a["description"] as string;
+        toAdd.push(item);
+      }
+
+      if (toAdd.length === 0) return { code: "noop" as const, version: expectedVersion };
+
+      // Pacchetti attivi ordinati dal più vecchio (consuma prima i vecchi)
+      const packages = pkgQuerySnap.docs
+        .map((dpkg) => ({
+          id: dpkg.id,
+          remainingAnalyses: (dpkg.data()["remainingAnalyses"] as number) ?? 0,
+          createdAtMs: dpkg.data()["createdAt"]?.toMillis?.() ?? 0,
+        }))
+        .sort((x, y) => x.createdAtMs - y.createdAtMs);
+
+      const { coverage, decrements } = assignPackageCoverage(
+        packages.map((p) => ({ id: p.id, remainingAnalyses: p.remainingAnalyses })),
+        toAdd.length,
+      );
+
+      toAdd.forEach((item, i) => {
+        const pkgId = coverage[i];
+        if (pkgId) item.coveredByPackageId = pkgId;
+      });
+
+      const newItems = [...currentItems, ...toAdd];
+      const newTotal = computeSampleTotal(newItems);
+      const newVersion = (sampleData["version"] ?? 0) + 1;
+
+      // ── FASE SCRITTURE ────────────────────────────────────────────
+      tx.update(sampleRef, {
+        items: newItems,
+        estimatedTotalCents: newTotal,
+        version: newVersion,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: actor.uid,
+      });
+
+      for (const [pkgId, count] of Object.entries(decrements)) {
+        const pkg = packages.find((p) => p.id === pkgId)!;
+        const remaining = pkg.remainingAnalyses - count;
+        tx.update(adminDb.collection("clientPackages").doc(pkgId), {
+          remainingAnalyses: Math.max(0, remaining),
+          status: remaining <= 0 ? "exhausted" : "active",
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+
+      return { code: "ok" as const, version: newVersion };
+    });
+
+    if (result.code === "not_found") return { success: false, error: "Campione non trovato" };
+    if (result.code === "locked") return { success: false, error: "Il campione non è modificabile in questo stato" };
+    if (result.code === "conflict") return { success: false, error: "Il documento è stato modificato. Ricarica la pagina." };
+    if (result.code === "analysis_missing") return { success: false, error: "Analisi non trovata" };
+    if (result.code === "analysis_archived") return { success: false, error: "Analisi archiviata: non aggiungibile" };
+
+    revalidatePath("/samples");
+    revalidatePath(`/samples/${sampleId}`);
+    logger.info("Analisi aggiunte al campione", { sampleId, count: analysisIds.length, uid: actor.uid });
+    return { success: true, data: { version: result.version } };
+  } catch (err) {
+    logger.error("Errore aggiunta analisi campione", err);
+    return { success: false, error: "Errore durante il salvataggio. Riprova." };
+  }
+}
+
+// ── Rimuovi un'analisi da un campione in lavorazione ──────────────────
+export async function removeSampleAnalysis(
+  sampleId: string,
+  analysisId: string,
+  expectedVersion: number,
+): Promise<ActionResult<{ version: number }>> {
+  const actor = await requireAdmin();
+
+  try {
+    const result = await adminDb.runTransaction(async (tx) => {
+      const sampleRef = adminDb.collection(COL).doc(sampleId);
+
+      // ── FASE LETTURE ──────────────────────────────────────────────
+      const sampleSnap = await tx.get(sampleRef);
+      if (!sampleSnap.exists) return { code: "not_found" as const };
+
+      const data = sampleSnap.data()!;
+      const status = data["status"] as SampleStatus;
+      if (!EDITABLE_STATUSES.includes(status)) return { code: "locked" as const };
+      if ((data["version"] ?? 0) !== expectedVersion) return { code: "conflict" as const };
+
+      const items = (data["items"] ?? []) as SampleDoc["items"];
+      const idx = items.findIndex((it) => it.analysisId === analysisId);
+      if (idx === -1) return { code: "item_missing" as const };
+      if (items.length <= 1) return { code: "min_one" as const };
+
+      const removed = items[idx]!;
+      const restorePkgId =
+        removed.coveredByPackageId && !removed.chargeAnyway
+          ? removed.coveredByPackageId
+          : null;
+
+      // Leggi il pacchetto da ripristinare (prima delle scritture)
+      const pkgSnap = restorePkgId
+        ? await tx.get(adminDb.collection("clientPackages").doc(restorePkgId))
+        : null;
+
+      const newItems = items.filter((_, i) => i !== idx);
+      const newTotal = computeSampleTotal(newItems);
+      const newVersion = (data["version"] ?? 0) + 1;
+
+      // ── FASE SCRITTURE ────────────────────────────────────────────
+      tx.update(sampleRef, {
+        items: newItems,
+        estimatedTotalCents: newTotal,
+        version: newVersion,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: actor.uid,
+      });
+
+      // Ripristina lo slot nel pacchetto (riattiva se era esaurito, mai se annullato)
+      if (pkgSnap?.exists) {
+        const pkgStatus = pkgSnap.data()!["status"] as string;
+        const newRemaining = ((pkgSnap.data()!["remainingAnalyses"] as number) ?? 0) + 1;
+        tx.update(pkgSnap.ref, {
+          remainingAnalyses: newRemaining,
+          ...(pkgStatus === "exhausted" ? { status: "active" } : {}),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+
+      return { code: "ok" as const, version: newVersion };
+    });
+
+    if (result.code === "not_found") return { success: false, error: "Campione non trovato" };
+    if (result.code === "locked") return { success: false, error: "Il campione non è modificabile in questo stato" };
+    if (result.code === "conflict") return { success: false, error: "Il documento è stato modificato. Ricarica la pagina." };
+    if (result.code === "item_missing") return { success: false, error: "Analisi non presente nel campione" };
+    if (result.code === "min_one") return { success: false, error: "Deve restare almeno un'analisi nel campione" };
+
+    revalidatePath("/samples");
+    revalidatePath(`/samples/${sampleId}`);
+    logger.info("Analisi rimossa dal campione", { sampleId, analysisId, uid: actor.uid });
+    return { success: true, data: { version: result.version } };
+  } catch (err) {
+    logger.error("Errore rimozione analisi campione", err);
+    return { success: false, error: "Errore durante l'eliminazione. Riprova." };
+  }
+}
+
 
 // ── Pacchetti attivi del cliente ──────────────────────────────────────
 export async function getClientActivePkgs(clientId: string) {

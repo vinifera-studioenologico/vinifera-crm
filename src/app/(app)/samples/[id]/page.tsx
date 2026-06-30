@@ -1,5 +1,10 @@
 import { notFound } from "next/navigation";
-import { getSample, getAdjacentInProgressSamples } from "@/server/actions/samples";
+import {
+  getSample,
+  getAdjacentInProgressSamples,
+  getLinkedPaymentSummary,
+} from "@/server/actions/samples";
+import { getAnalyses } from "@/server/actions/analyses";
 import { SampleDetailClient } from "./_components/SampleDetailClient";
 
 interface Props {
@@ -17,10 +22,24 @@ export default async function SampleDetailPage({ params }: Props) {
   const sample = await getSample(id);
   if (!sample) notFound();
 
-  const adjacent =
-    sample.status === "in_progress"
-      ? await getAdjacentInProgressSamples(id)
-      : { prevId: null, nextId: null };
+  const editable = sample.status === "pending" || sample.status === "in_progress";
 
-  return <SampleDetailClient sample={sample} adjacentIds={adjacent} />;
+  const [adjacent, analyses, linkedPayment] = await Promise.all([
+    sample.status === "in_progress"
+      ? getAdjacentInProgressSamples(id)
+      : Promise.resolve({ prevId: null, nextId: null }),
+    editable ? getAnalyses() : Promise.resolve([]),
+    sample.paymentId
+      ? getLinkedPaymentSummary(sample.paymentId)
+      : Promise.resolve(null),
+  ]);
+
+  return (
+    <SampleDetailClient
+      sample={sample}
+      adjacentIds={adjacent}
+      analyses={analyses}
+      linkedPayment={linkedPayment}
+    />
+  );
 }
