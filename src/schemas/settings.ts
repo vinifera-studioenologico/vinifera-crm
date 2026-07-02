@@ -5,6 +5,8 @@ export const NotificationSettingsSchema = z.object({
   telegramChatId: z.string().default(""),
   notifyEmail: z.string().email("Email non valida").or(z.literal("")).default(""),
   installmentWarningDays: z.number().int().min(0).max(30).default(3),
+  notifyNewLeadTelegram: z.boolean().default(false),
+  notifyNewLeadEmail: z.boolean().default(false),
 });
 
 export type NotificationSettingsValues = z.infer<typeof NotificationSettingsSchema>;

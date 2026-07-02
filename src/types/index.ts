@@ -101,3 +101,15 @@ export type {
   KitOfferExpenseValues,
   KitOfferImportValues,
 } from "@/schemas/cost";
+
+export type {
+  ServiceFormValues,
+  ServiceDoc,
+} from "@/schemas/service";
+
+export type {
+  LeadSource,
+  LeadStatus,
+  IncomingLeadValues,
+  LeadDoc,
+} from "@/schemas/lead";

@@ -17,6 +17,8 @@ import {
   ChevronLeft,
   LifeBuoy,
   Coins,
+  Globe,
+  UserPlus,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -28,6 +30,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import { useNewLeadsCount } from "@/hooks/use-new-leads-count";
 import pkg from "../../../package.json";
 
 const NAV_GROUPS = [
@@ -51,6 +54,13 @@ const NAV_GROUPS = [
       { href: "/analyses", label: "Analisi", icon: FlaskConical },
       { href: "/samples", label: "Campioni", icon: TestTube },
       { href: "/reports", label: "Referti", icon: ClipboardList },
+    ],
+  },
+  {
+    label: "Sito Web",
+    items: [
+      { href: "/servizi", label: "Servizi", icon: Globe },
+      { href: "/leads", label: "Lead", icon: UserPlus },
     ],
   },
   {
@@ -83,6 +93,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
+  const newLeadsCount = useNewLeadsCount();
 
   function isActive(href: string) {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -139,6 +150,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   icon={icon}
                   active={isActive(href)}
                   collapsed={collapsed}
+                  badge={href === "/leads" && !!newLeadsCount ? newLeadsCount : undefined}
                 />
               ))}
             </div>
@@ -200,9 +212,10 @@ interface NavItemProps {
   icon: LucideIcon;
   active: boolean;
   collapsed: boolean;
+  badge?: number;
 }
 
-function NavItem({ href, label, icon: Icon, active, collapsed }: NavItemProps) {
+function NavItem({ href, label, icon: Icon, active, collapsed, badge }: NavItemProps) {
   const itemClass = cn(
     "flex items-center h-10 rounded-lg text-sm font-medium transition-colors",
     "hover:bg-accent hover:text-accent-foreground",
@@ -211,10 +224,16 @@ function NavItem({ href, label, icon: Icon, active, collapsed }: NavItemProps) {
   );
 
   const iconEl = (
-    <Icon
-      className={cn("size-[18px] shrink-0", active && "text-primary")}
-      strokeWidth={1.75}
-    />
+    <div className="relative">
+      <Icon
+        className={cn("size-[18px] shrink-0", active && "text-primary")}
+        strokeWidth={1.75}
+      />
+      {/* Dot on icon when sidebar is collapsed */}
+      {badge && collapsed ? (
+        <span className="absolute -top-1 -right-1 size-2 rounded-full bg-destructive" />
+      ) : null}
+    </div>
   );
 
   if (collapsed) {
@@ -238,6 +257,11 @@ function NavItem({ href, label, icon: Icon, active, collapsed }: NavItemProps) {
     <Link href={href} className={itemClass}>
       {iconEl}
       <span className="truncate">{label}</span>
+      {badge ? (
+        <span className="ml-auto flex size-5 items-center justify-center rounded-full bg-destructive text-[10px] font-semibold text-destructive-foreground">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      ) : null}
     </Link>
   );
 }

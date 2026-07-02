@@ -13,6 +13,8 @@ const PROTECTED_PATHS = [
   "/reminders",
   "/stats",
   "/settings",
+  "/servizi",
+  "/leads",
 ];
 
 export function middleware(request: NextRequest) {

@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Loader2, Send, Mail, FlaskConical } from "lucide-react";
+import { Loader2, Send, Mail, FlaskConical, UserPlus } from "lucide-react";
 
 import {
   Form,
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -43,6 +44,8 @@ const NotificationsSchema = z.object({
   telegramChatId: z.string().default(""),
   notifyEmail: z.string().email("Email non valida").or(z.literal("")).default(""),
   installmentWarningDays: z.coerce.number().int().min(0).max(30).default(3),
+  notifyNewLeadTelegram: z.boolean().default(false),
+  notifyNewLeadEmail: z.boolean().default(false),
 });
 
 type NotificationsInput = z.input<typeof NotificationsSchema>;
@@ -63,6 +66,8 @@ export function NotificationsSettingsForm({ initialValues }: Props) {
       telegramChatId: initialValues.telegramChatId,
       notifyEmail: initialValues.notifyEmail,
       installmentWarningDays: initialValues.installmentWarningDays,
+      notifyNewLeadTelegram: initialValues.notifyNewLeadTelegram,
+      notifyNewLeadEmail: initialValues.notifyNewLeadEmail,
     },
     mode: "onTouched",
   });
@@ -261,6 +266,55 @@ export function NotificationsSettingsForm({ initialValues }: Props) {
                     indipendentemente da questa impostazione.
                   </FormDescription>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <UserPlus className="size-4" strokeWidth={1.75} />
+              Lead dal sito
+            </CardTitle>
+            <CardDescription>
+              Ricevi una notifica quando un visitatore compila il modulo di contatto
+              o avvia una conversazione WhatsApp dal sito web.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <FormField
+              control={form.control}
+              name="notifyNewLeadTelegram"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between gap-3 space-y-0 rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="cursor-pointer">Notifica su Telegram</FormLabel>
+                    <FormDescription className="text-xs">
+                      Usa il Bot Token e Chat ID configurati sopra.
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="notifyNewLeadEmail"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between gap-3 space-y-0 rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="cursor-pointer">Notifica via Email</FormLabel>
+                    <FormDescription className="text-xs">
+                      Invia all&apos;indirizzo email notifiche configurato sopra.
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
                 </FormItem>
               )}
             />

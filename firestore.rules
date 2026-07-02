@@ -82,6 +82,16 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Servizi — admin gestisce, API pubblica usa Admin SDK (bypassa le rules)
+    match /services/{serviceId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Lead — admin legge/aggiorna, API pubblica usa Admin SDK per scrivere
+    match /leads/{leadId} {
+      allow read, write: if isAdmin();
+    }
+
     // ── Fallback: nega tutto il resto ────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

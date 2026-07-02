@@ -1,6 +1,6 @@
 {
   "name": "vinifera",
-  "version": "1.4.5",
+  "version": "1.5.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -17,7 +17,8 @@
     "seed:clean": "tsx scripts/unseed-dev.ts",
     "seed:costs": "tsx scripts/seed-costs.ts",
     "seed:costs:clean": "tsx scripts/unseed-costs.ts",
-    "seed:all": "npm run seed:clean && npm run seed:costs:clean && npm run seed && npm run seed:costs",
+    "seed:services": "tsx scripts/seed-services.ts",
+    "seed:all": "npm run seed:clean && npm run seed:costs:clean && npm run seed && npm run seed:costs && npm run seed:services",
     "seed:all:clean": "npm run seed:clean && npm run seed:costs:clean"
   },
   "dependencies": {

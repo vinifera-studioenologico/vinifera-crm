@@ -64,4 +64,15 @@ export const storage: FirebaseStorage = new Proxy({} as FirebaseStorage, {
   },
 });
 
+/** Returns the real Firestore instance (not the lazy Proxy). Use when passing
+ * the db to Firebase SDK functions that do instanceof checks (e.g. collection()). */
+export function getClientDb(): Firestore {
+  if (!_db) _db = getFirestore(getClientApp());
+  if (USE_EMULATORS && !_emuDb) {
+    _emuDb = true;
+    connectFirestoreEmulator(_db, "localhost", 8080);
+  }
+  return _db;
+}
+
 export default getClientApp;

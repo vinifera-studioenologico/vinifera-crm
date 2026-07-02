@@ -28,6 +28,14 @@ service firebase.storage {
       allow write: if false; // solo Admin SDK server-side
     }
 
+    // ── Immagini servizi ──────────────────────────────────────────────
+    // Path: services/{serviceId}/{fileName}
+    // Lettura: admin (UI CRM preview). Scrittura: solo Admin SDK server-side.
+    match /services/{serviceId}/{fileName} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // ── Deny-by-default ───────────────────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;
