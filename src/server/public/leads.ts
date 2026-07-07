@@ -32,6 +32,8 @@ export async function createLeadFromWebsite(
     if (data.utm_source) doc["utmSource"] = data.utm_source;
     if (data.utm_medium) doc["utmMedium"] = data.utm_medium;
     if (data.utm_campaign) doc["utmCampaign"] = data.utm_campaign;
+    if (data.posthog_distinct_id) doc["posthogDistinctId"] = data.posthog_distinct_id;
+    if (data.posthog_session_id) doc["posthogSessionId"] = data.posthog_session_id;
 
     const ref = await adminDb.collection("leads").add(doc);
 

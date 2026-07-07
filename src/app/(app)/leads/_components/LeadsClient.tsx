@@ -3,13 +3,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Play } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { it as itLocale } from "date-fns/locale";
 
-import type { LeadDoc, LeadStatus } from "@/schemas/lead";
-import { getLeads, updateLeadStatus } from "@/server/actions/leads";
+import type { LeadStatus } from "@/schemas/lead";
+import { getLeadsWithSession, updateLeadStatus, type LeadWithSession } from "@/server/actions/leads";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/lib/utils/date";
 
@@ -70,18 +70,18 @@ const SOURCE_LABELS: Record<string, string> = {
 type StatusFilter = "all" | LeadStatus;
 
 interface Props {
-  initialData: LeadDoc[];
+  initialData: LeadWithSession[];
   hasMore: boolean;
   nextCursor: string | null;
 }
 
 export function LeadsClient({ initialData, hasMore: initialHasMore, nextCursor: initialCursor }: Props) {
   const router = useRouter();
-  const [leads, setLeads] = useState<LeadDoc[]>(initialData);
+  const [leads, setLeads] = useState<LeadWithSession[]>(initialData);
   const [cursor, setCursor] = useState<string | null>(initialCursor);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [selected, setSelected] = useState<LeadDoc | null>(null);
+  const [selected, setSelected] = useState<LeadWithSession | null>(null);
   const [newStatus, setNewStatus] = useState<LeadStatus>("new");
   const [notes, setNotes] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -92,7 +92,7 @@ export function LeadsClient({ initialData, hasMore: initialHasMore, nextCursor: 
     setStatusFilter(next);
     setIsLoading(true);
     startTransition(async () => {
-      const result = await getLeads(next === "all" ? {} : { status: next });
+      const result = await getLeadsWithSession(next === "all" ? {} : { status: next });
       setLeads(result.items);
       setCursor(result.nextCursor);
       setHasMore(result.hasMore);
@@ -104,7 +104,7 @@ export function LeadsClient({ initialData, hasMore: initialHasMore, nextCursor: 
     if (!cursor) return;
     setIsLoading(true);
     startTransition(async () => {
-      const result = await getLeads(
+      const result = await getLeadsWithSession(
         statusFilter === "all" ? { cursor } : { status: statusFilter, cursor },
       );
       setLeads((prev) => [...prev, ...result.items]);
@@ -116,14 +116,14 @@ export function LeadsClient({ initialData, hasMore: initialHasMore, nextCursor: 
 
   function refresh() {
     startTransition(async () => {
-      const result = await getLeads(statusFilter === "all" ? {} : { status: statusFilter });
+      const result = await getLeadsWithSession(statusFilter === "all" ? {} : { status: statusFilter });
       setLeads(result.items);
       setCursor(result.nextCursor);
       setHasMore(result.hasMore);
     });
   }
 
-  function openDetail(lead: LeadDoc) {
+  function openDetail(lead: LeadWithSession) {
     setSelected(lead);
     setNewStatus(lead.status);
     setNotes(lead.notes ?? "");
@@ -144,7 +144,7 @@ export function LeadsClient({ initialData, hasMore: initialHasMore, nextCursor: 
     });
   }
 
-  const columns: ColumnDef<LeadDoc>[] = [
+  const columns: ColumnDef<LeadWithSession>[] = [
     {
       accessorKey: "createdAt",
       header: "Data",
@@ -330,6 +330,21 @@ export function LeadsClient({ initialData, hasMore: initialHasMore, nextCursor: 
                   <p className="text-muted-foreground text-xs mb-1">Pagina di provenienza</p>
                   <a href={selected.pageUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline truncate block">
                     {selected.pageUrl}
+                  </a>
+                </div>
+              )}
+
+              {selected.sessionLink && (
+                <div>
+                  <p className="text-muted-foreground text-xs mb-1">Sessione PostHog</p>
+                  <a
+                    href={selected.sessionLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-blue-500 hover:underline font-medium"
+                  >
+                    <Play className="h-3 w-3" />
+                    Guarda la sessione
                   </a>
                 </div>
               )}

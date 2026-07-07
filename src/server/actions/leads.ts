@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireAdmin } from "@/server/auth";
 import { logger } from "@/lib/logger";
+import { replayUrl, personUrl } from "@/server/posthog/client";
 import type { LeadDoc, LeadStatus } from "@/schemas/lead";
 import { tsToISO } from "@/lib/utils/date";
 import type { ActionResult, PaginatedResult } from "@/types";
@@ -32,6 +33,8 @@ function toLeadDoc(id: string, data: FirebaseFirestore.DocumentData): LeadDoc {
     utmSource: data["utmSource"],
     utmMedium: data["utmMedium"],
     utmCampaign: data["utmCampaign"],
+    posthogDistinctId: data["posthogDistinctId"],
+    posthogSessionId: data["posthogSessionId"],
     notes: data["notes"],
     createdAt: tsToISO(data["createdAt"]),
     updatedAt: tsToISO(data["updatedAt"]),
@@ -68,6 +71,28 @@ export async function getLeads(opts: {
   const nextCursor = hasMore ? snap.docs[PAGE_SIZE - 1]!.id : null;
 
   return { items: docs, nextCursor, hasMore };
+}
+
+// ── Lista lead con link sessione PostHog (calcolato server-side) ──────
+export type LeadWithSession = LeadDoc & { sessionLink: string | null };
+
+function withSessionLink(lead: LeadDoc): LeadWithSession {
+  return {
+    ...lead,
+    sessionLink: lead.posthogSessionId
+      ? replayUrl(lead.posthogSessionId)
+      : lead.posthogDistinctId
+        ? personUrl(lead.posthogDistinctId)
+        : null,
+  };
+}
+
+export async function getLeadsWithSession(opts: {
+  status?: LeadStatus;
+  cursor?: string;
+} = {}): Promise<PaginatedResult<LeadWithSession>> {
+  const result = await getLeads(opts);
+  return { ...result, items: result.items.map(withSessionLink) };
 }
 
 // ── Singolo lead ──────────────────────────────────────────────────────

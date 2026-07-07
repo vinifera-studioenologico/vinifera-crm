@@ -20,6 +20,8 @@ export const IncomingLeadSchema = z.object({
   utm_source: z.string().max(100).optional(),
   utm_medium: z.string().max(100).optional(),
   utm_campaign: z.string().max(100).optional(),
+  posthog_distinct_id: z.string().max(200).optional(),
+  posthog_session_id: z.string().max(200).optional(),
 });
 
 export type IncomingLeadValues = z.infer<typeof IncomingLeadSchema>;
@@ -40,6 +42,8 @@ export const LeadDocSchema = z.object({
   utmSource: z.string().optional(),
   utmMedium: z.string().optional(),
   utmCampaign: z.string().optional(),
+  posthogDistinctId: z.string().optional(),
+  posthogSessionId: z.string().optional(),
   notes: z.string().optional(),
   createdAt: z.any(),
   updatedAt: z.any(),

@@ -15,6 +15,7 @@ const PROTECTED_PATHS = [
   "/settings",
   "/servizi",
   "/leads",
+  "/analytics",
 ];
 
 export function middleware(request: NextRequest) {

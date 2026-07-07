@@ -19,6 +19,7 @@ import {
   Coins,
   Globe,
   UserPlus,
+  LineChart,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -61,6 +62,7 @@ const NAV_GROUPS = [
     items: [
       { href: "/servizi", label: "Servizi", icon: Globe },
       { href: "/leads", label: "Lead", icon: UserPlus },
+      { href: "/analytics", label: "Analytics", icon: LineChart },
     ],
   },
   {
