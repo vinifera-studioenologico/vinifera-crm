@@ -1,10 +1,13 @@
-"use server";
+﻿"use server";
 import "server-only";
 
 import { requireAdmin } from "@/server/auth";
 import { hogql } from "./client";
 
 export type RangeDays = 7 | 30 | 90;
+
+/** Data go-live: ignora tutti gli eventi precedenti (test/dev). */
+const LIVE_SINCE = "2026-07-09 14:00:00";
 
 /** Trend visitatori + pageview per giorno. */
 export async function getTraffic(days: RangeDays) {
@@ -13,7 +16,8 @@ export async function getTraffic(days: RangeDays) {
     `SELECT toDate(timestamp) AS day, count() AS pageviews,
             count(DISTINCT person_id) AS visitors
      FROM events
-     WHERE event = '$pageview' AND timestamp >= now() - INTERVAL ${days} DAY
+     WHERE event = '$pageview' AND timestamp >= toDateTime('${LIVE_SINCE}', 'Europe/Rome')
+       AND timestamp >= now() - INTERVAL ${days} DAY
      GROUP BY day ORDER BY day`,
     "crm_traffic_trend",
   );
@@ -26,7 +30,8 @@ export async function getKpis(days: RangeDays) {
   const { results } = await hogql<[string, number, number]>(
     `SELECT event, count() AS n, count(DISTINCT person_id) AS people
      FROM events
-     WHERE timestamp >= now() - INTERVAL ${days} DAY
+     WHERE timestamp >= toDateTime('${LIVE_SINCE}', 'Europe/Rome')
+       AND timestamp >= now() - INTERVAL ${days} DAY
        AND event IN ('$pageview','service_viewed','lead_modal_opened',
                      'lead_submitted','phone_call_clicked','whatsapp_clicked')
      GROUP BY event`,
@@ -42,7 +47,8 @@ export async function getTopPages(days: RangeDays) {
   const { results } = await hogql<[string, number]>(
     `SELECT properties.$pathname AS path, count() AS views
      FROM events
-     WHERE event = '$pageview' AND timestamp >= now() - INTERVAL ${days} DAY
+     WHERE event = '$pageview' AND timestamp >= toDateTime('${LIVE_SINCE}', 'Europe/Rome')
+       AND timestamp >= now() - INTERVAL ${days} DAY
      GROUP BY path ORDER BY views DESC LIMIT 10`,
     "crm_top_pages",
   );
@@ -55,7 +61,8 @@ export async function getTopServices(days: RangeDays) {
   const { results } = await hogql<[string, number]>(
     `SELECT properties.service AS service, count() AS views
      FROM events
-     WHERE event = 'service_viewed' AND timestamp >= now() - INTERVAL ${days} DAY
+     WHERE event = 'service_viewed' AND timestamp >= toDateTime('${LIVE_SINCE}', 'Europe/Rome')
+       AND timestamp >= now() - INTERVAL ${days} DAY
      GROUP BY service ORDER BY views DESC LIMIT 10`,
     "crm_top_services",
   );
@@ -70,7 +77,8 @@ export async function getSources(days: RangeDays) {
                      properties.$referring_domain, 'diretto') AS source,
             count(DISTINCT person_id) AS visitors
      FROM events
-     WHERE event = '$pageview' AND timestamp >= now() - INTERVAL ${days} DAY
+     WHERE event = '$pageview' AND timestamp >= toDateTime('${LIVE_SINCE}', 'Europe/Rome')
+       AND timestamp >= now() - INTERVAL ${days} DAY
      GROUP BY source ORDER BY visitors DESC LIMIT 10`,
     "crm_sources",
   );
@@ -83,7 +91,8 @@ export async function getLanguageSplit(days: RangeDays) {
   const { results } = await hogql<[string, number]>(
     `SELECT properties.to AS lang, count() AS n
      FROM events
-     WHERE event = 'language_switched' AND timestamp >= now() - INTERVAL ${days} DAY
+     WHERE event = 'language_switched' AND timestamp >= toDateTime('${LIVE_SINCE}', 'Europe/Rome')
+       AND timestamp >= now() - INTERVAL ${days} DAY
      GROUP BY lang ORDER BY n DESC`,
     "crm_language_split",
   );
