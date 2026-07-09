@@ -149,35 +149,45 @@ export function ServiceForm({ existing, onSuccess }: Props) {
     const file = e.target.files?.[0];
     if (!file || !existing) return;
     setIsUploading(true);
-    const fd = new FormData();
-    fd.append("image", file);
-    const result = await uploadServiceImage(existing.id, fd, "cover");
-    if (result.success) {
-      form.setValue("imageUrl", result.data.url);
-      toast.success("Immagine caricata");
-    } else {
-      toast.error(result.error);
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      const result = await uploadServiceImage(existing.id, fd, "cover");
+      if (result.success) {
+        form.setValue("imageUrl", result.data.url);
+        toast.success("Immagine caricata");
+      } else {
+        toast.error(result.error);
+      }
+    } catch {
+      toast.error("Errore durante il caricamento. Riprova.");
+    } finally {
+      setIsUploading(false);
+      e.target.value = "";
     }
-    setIsUploading(false);
-    e.target.value = "";
   }
 
   async function handleGalleryUpload(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !existing) return;
     setIsUploading(true);
-    const slot = `gallery-${images.fields.length}`;
-    const fd = new FormData();
-    fd.append("image", file);
-    const result = await uploadServiceImage(existing.id, fd, slot);
-    if (result.success) {
-      images.append({ url: result.data.url });
-      toast.success("Immagine aggiunta");
-    } else {
-      toast.error(result.error);
+    try {
+      const slot = `gallery-${images.fields.length}`;
+      const fd = new FormData();
+      fd.append("image", file);
+      const result = await uploadServiceImage(existing.id, fd, slot);
+      if (result.success) {
+        images.append({ url: result.data.url });
+        toast.success("Immagine aggiunta");
+      } else {
+        toast.error(result.error);
+      }
+    } catch {
+      toast.error("Errore durante il caricamento. Riprova.");
+    } finally {
+      setIsUploading(false);
+      e.target.value = "";
     }
-    setIsUploading(false);
-    e.target.value = "";
   }
 
   return (
