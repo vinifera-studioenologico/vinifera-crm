@@ -2,12 +2,9 @@
 import "server-only";
 
 import { requireAdmin } from "@/server/auth";
-import { hogql } from "./client";
+import { hogql, LIVE_SINCE } from "./client";
 
 export type RangeDays = 7 | 30 | 90;
-
-/** Data go-live: ignora tutti gli eventi precedenti (test/dev). */
-const LIVE_SINCE = "2026-07-09 14:00:00";
 
 /** Trend visitatori + pageview per giorno. */
 export async function getTraffic(days: RangeDays) {

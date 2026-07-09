@@ -4,6 +4,9 @@ const HOST = process.env.POSTHOG_API_HOST ?? "https://eu.posthog.com";
 const PROJECT = process.env.POSTHOG_PROJECT_ID ?? "";
 const KEY = process.env.POSTHOG_PERSONAL_API_KEY ?? "";
 
+/** Data go-live (UTC): ignora tutti gli eventi/sessioni precedenti (test/dev). */
+export const LIVE_SINCE = "2026-07-09T14:00:00Z";
+
 function assertConfigured() {
   if (!PROJECT || !KEY)
     throw new Error(
@@ -57,11 +60,15 @@ export interface RecordingSummary {
   person: { name: string | null; distinct_ids: string[] } | null;
 }
 
-/** Lista delle registrazioni di sessione più recenti. */
+/** Lista delle registrazioni di sessione più recenti (solo post go-live). */
 export async function listRecordings(limit = 20): Promise<RecordingSummary[]> {
   assertConfigured();
+  const params = new URLSearchParams({
+    limit: String(limit),
+    date_from: LIVE_SINCE,
+  });
   const res = await fetch(
-    `${HOST}/api/projects/${PROJECT}/session_recordings/?limit=${limit}`,
+    `${HOST}/api/projects/${PROJECT}/session_recordings/?${params}`,
     {
       headers: { Authorization: `Bearer ${KEY}` },
       next: { revalidate: 120 },
