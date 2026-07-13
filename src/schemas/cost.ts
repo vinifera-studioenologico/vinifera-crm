@@ -8,6 +8,7 @@ export const ExpenseCategorySchema = z.enum([
   "maintenance",      // manutenzione
   "consumable",       // materiale di consumo
   "kit_purchase",     // acquisto kit (collegato a costKits, ESCLUSO dalla media overhead)
+  "fixed_cost",       // generata automaticamente da un costo fisso alla scadenza
   "other",            // altro
 ]);
 export type ExpenseCategory = z.infer<typeof ExpenseCategorySchema>;
@@ -58,6 +59,8 @@ export const ExpenseDocSchema = ExpenseFormBaseSchema.omit({ totalCents: true })
   // ── Tracciabilità expense ↔ kit ──
   linkedKitIds: z.array(z.string()).optional(),
   kitOfferRef: z.string().nullable().optional(),
+  // ── Tracciabilità expense ↔ costo fisso (generazione automatica a scadenza) ──
+  fixedCostRef: z.string().nullable().optional(),
   version: z.number().int().min(0),
   createdAt: z.any(),
   updatedAt: z.any(),

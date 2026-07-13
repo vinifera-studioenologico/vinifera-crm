@@ -312,7 +312,6 @@ export function AnalysesClient({ initialData }: Props) {
         <DataTable
           columns={columns}
           data={filtered}
-          globalFilter={search}
           emptyMessage={
             showArchived
               ? "Nessuna analisi archiviata corrisponde alla ricerca."

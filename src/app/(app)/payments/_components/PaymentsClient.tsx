@@ -278,7 +278,6 @@ export function PaymentsClient({ initialData }: Props) {
         <DataTable
           columns={columns}
           data={filtered}
-          globalFilter={search}
           emptyMessage={
             showCancelled
               ? "Nessun pagamento annullato corrisponde alla ricerca."

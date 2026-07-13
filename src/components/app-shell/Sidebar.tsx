@@ -130,20 +130,37 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         )}
       </div>
 
-      {/* Website link */}
-      {!collapsed && (
-        <div className="px-5 py-2 border-b border-border">
+      {/* Website link + collapse toggle */}
+      <div
+        className={cn(
+          "flex items-center h-11 shrink-0 border-b border-border",
+          collapsed ? "justify-center" : "justify-between pl-5 pr-2",
+        )}
+      >
+        {!collapsed && (
           <a
             href="https://viniferastudioenologico.it"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[11px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+            className="flex items-center gap-1 truncate text-[11px] text-muted-foreground transition-colors hover:text-foreground"
           >
-            <Globe className="w-3 h-3" />
-            viniferastudioenologico.it
+            <Globe className="size-3 shrink-0" />
+            <span className="truncate">viniferastudioenologico.it</span>
           </a>
-        </div>
-      )}
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggle}
+          className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
+          aria-label={collapsed ? "Espandi sidebar" : "Comprimi sidebar"}
+        >
+          <ChevronLeft
+            className={cn("size-3.5 transition-transform duration-200", collapsed && "rotate-180")}
+            strokeWidth={2}
+          />
+        </Button>
+      </div>
 
       {/* Navigation */}
       <TooltipProvider>
@@ -193,31 +210,55 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </nav>
       </TooltipProvider>
 
-      {/* Collapse toggle */}
+      {/* Footer: versione + badge di credito (ultimo elemento) */}
       <div className="shrink-0 border-t border-border p-2">
         {!collapsed && (
-          <p className="px-2 pb-1 text-[11px] text-muted-foreground/50 select-none">
+          <p className="px-3 pb-1.5 text-[11px] text-muted-foreground/50 select-none">
             v{pkg.version}
           </p>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onToggle}
-          className={cn(
-            "h-9 w-full text-muted-foreground hover:text-foreground",
-            collapsed ? "justify-center" : "justify-end px-2",
+
+        <div className={cn(collapsed ? "flex justify-center" : "px-1")}>
+          {collapsed ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <a
+                    href="https://alessiobernardini.dev/qr"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex size-8 items-center justify-center rounded-lg border border-border bg-white shadow-sm transition-opacity hover:opacity-90"
+                    aria-label="Realizzato da Alessio Bernardini — alessiobernardini.dev"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- next/image blocks local SVGs without dangerouslyAllowSVG */}
+                    <img src="/logo_scuro.svg" alt="" width={16} height={16} className="size-4" />
+                  </a>
+                }
+              />
+              <TooltipContent side="right" sideOffset={8}>
+                Alessio Bernardini · alessiobernardini.dev
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <a
+              href="https://alessiobernardini.dev/qr"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 rounded-lg border border-border bg-white px-2.5 py-1.5 shadow-sm transition-opacity hover:opacity-90"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- next/image blocks local SVGs without dangerouslyAllowSVG */}
+              <img src="/logo_scuro.svg" alt="" width={16} height={16} className="size-4 shrink-0" />
+              <span className="flex flex-col leading-tight">
+                <span className="text-[11px] font-medium" style={{ color: "#06111F" }}>
+                  Alessio Bernardini
+                </span>
+                <span className="text-[9px]" style={{ color: "#2FA7FF" }}>
+                  alessiobernardini.dev
+                </span>
+              </span>
+            </a>
           )}
-          aria-label={collapsed ? "Espandi sidebar" : "Comprimi sidebar"}
-        >
-          <ChevronLeft
-            className={cn(
-              "size-4 transition-transform duration-200",
-              collapsed && "rotate-180",
-            )}
-            strokeWidth={1.75}
-          />
-        </Button>
+        </div>
       </div>
     </aside>
   );

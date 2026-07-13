@@ -347,7 +347,6 @@ export function ClientsClient({ initialData }: Props) {
         <DataTable
           columns={columns}
           data={filtered}
-          globalFilter={search}
           emptyMessage={
             showArchived
               ? "Nessun cliente archiviato corrisponde alla ricerca."

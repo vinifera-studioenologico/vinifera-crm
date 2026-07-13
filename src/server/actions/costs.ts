@@ -76,6 +76,7 @@ function toExpenseDoc(id: string, data: FirebaseFirestore.DocumentData): Expense
     fileHash: data["fileHash"] ?? undefined,
     linkedKitIds: data["linkedKitIds"],
     kitOfferRef: data["kitOfferRef"] ?? null,
+    fixedCostRef: data["fixedCostRef"] ?? null,
     version: data["version"] ?? 0,
     createdAt: tsToISO(data["createdAt"]),
     updatedAt: tsToISO(data["updatedAt"]),
@@ -626,6 +627,10 @@ export async function getCostsSummary(
   let kitPurchasesCents = 0;
   for (const d of expensesSnap.docs) {
     const data = d.data();
+    // Le spese "fixed_cost" (generate automaticamente alla scadenza di un costo
+    // fisso) sono già rappresentate dal pro-rata mensile qui sotto — escluderle
+    // qui evita di contarle due volte (restano comunque visibili nell'elenco spese).
+    if (data["category"] === "fixed_cost") continue;
     const amount: number = data["totalCents"] ?? 0;
     const expDate: string = data["date"] ?? "";
     const pFrom: string | undefined = data["periodFrom"];
@@ -784,8 +789,9 @@ export async function getSuggestedPricing(): Promise<SuggestedPricing[]> {
   }, 0);
 
   // ── Media mensile spese generali (overhead) sugli ultimi 12 mesi ────────────
-  // IMPORTANTE: escludiamo la categoria "kit_purchase" per NON contare due volte
-  // i kit — il loro costo è già imputato tramite costPerTestCents del kit.
+  // IMPORTANTE: escludiamo "kit_purchase" (già imputato tramite costPerTestCents
+  // del kit) e "fixed_cost" (già imputato per intero tramite totalFixedMonthlyCents
+  // qui sotto) per NON contarli due volte.
   const WINDOW_MONTHS = 12;
   const now = new Date();
   const currentIdx = now.getFullYear() * 12 + now.getMonth(); // indice mese corrente
@@ -794,7 +800,7 @@ export async function getSuggestedPricing(): Promise<SuggestedPricing[]> {
   let overheadWindowCents = 0;
   for (const d of expensesSnap.docs) {
     const data = d.data();
-    if (data["category"] === "kit_purchase") continue; // anti doppio-conteggio kit
+    if (data["category"] === "kit_purchase" || data["category"] === "fixed_cost") continue; // anti doppio-conteggio
     const amount: number = data["totalCents"] ?? 0;
     const expDate: string = data["date"] ?? "";
     const pFrom: string | undefined = data["periodFrom"];

@@ -37,12 +37,13 @@ const CATEGORY_LABELS: Record<string, string> = {
   maintenance: "Manutenzione",
   consumable: "Materiale consumo",
   kit_purchase: "Acquisto kit",
+  fixed_cost: "Costo fisso",
   other: "Altro",
 };
 
 const ExpenseClientSchema = z.object({
   description: z.string().min(1, "Descrizione obbligatoria").max(300),
-  category: z.enum(["supplier_invoice", "utility", "maintenance", "consumable", "kit_purchase", "other"]),
+  category: z.enum(["supplier_invoice", "utility", "maintenance", "consumable", "kit_purchase", "fixed_cost", "other"]),
   supplier: z.string().max(200).optional(),
   invoiceNumber: z.string().max(50).optional(),
   date: z.string().min(1, "Data obbligatoria"),

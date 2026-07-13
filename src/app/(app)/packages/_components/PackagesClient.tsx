@@ -291,7 +291,6 @@ export function PackagesClient({ initialData }: Props) {
         <DataTable
           columns={columns}
           data={filtered}
-          globalFilter={search}
           emptyMessage={
             showArchived
               ? "Nessun pacchetto archiviato corrisponde alla ricerca."

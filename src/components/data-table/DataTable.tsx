@@ -27,7 +27,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface DataTableProps<TData> {
   columns: ColumnDef<TData>[];
   data: TData[];
-  globalFilter?: string;
   initialSorting?: SortingState;
   loading?: boolean;
   emptyMessage?: string;
@@ -38,7 +37,6 @@ interface DataTableProps<TData> {
 export function DataTable<TData>({
   columns,
   data,
-  globalFilter,
   initialSorting,
   loading = false,
   emptyMessage = "Nessun elemento trovato.",
@@ -52,7 +50,7 @@ export function DataTable<TData>({
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, columnFilters, globalFilter },
+    state: { sorting, columnFilters },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),

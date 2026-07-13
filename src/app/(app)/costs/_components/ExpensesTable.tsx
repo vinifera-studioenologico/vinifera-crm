@@ -41,6 +41,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   maintenance: "Manutenzione",
   consumable: "Materiale consumo",
   kit_purchase: "Acquisto kit",
+  fixed_cost: "Costo fisso",
   other: "Altro",
 };
 
@@ -53,6 +54,17 @@ export function ExpensesTable({ initialData }: Props) {
   const [search, setSearch] = useState("");
   const [deleting, setDeleting] = useState<ExpenseDoc | null>(null);
   const [, startTransition] = useTransition();
+
+  const filtered = initialData.filter((e) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      e.description.toLowerCase().includes(q) ||
+      (e.supplier?.toLowerCase().includes(q) ?? false) ||
+      (e.invoiceNumber?.toLowerCase().includes(q) ?? false) ||
+      (CATEGORY_LABELS[e.category] ?? e.category).toLowerCase().includes(q)
+    );
+  });
 
   function handleDelete(row: ExpenseDoc) {
     startTransition(async () => {
@@ -197,11 +209,11 @@ export function ExpensesTable({ initialData }: Props) {
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-xs"
         />
-        {initialData.length > 0 && (
+        {filtered.length > 0 && (
           <p className="text-sm text-muted-foreground">
             Totale:{" "}
             <span className="font-semibold text-foreground">
-              {formatEUR(initialData.reduce((s, e) => s + e.totalCents, 0))}
+              {formatEUR(filtered.reduce((s, e) => s + e.totalCents, 0))}
             </span>
           </p>
         )}
@@ -209,8 +221,7 @@ export function ExpensesTable({ initialData }: Props) {
 
       <DataTable
         columns={columns}
-        data={initialData}
-        globalFilter={search}
+        data={filtered}
         initialSorting={[{ id: "date", desc: true }, { id: "createdAt", desc: true }]}
         emptyMessage="Nessuna spesa registrata."
         onRowClick={(row) => router.push(`/costs/expenses/${row.id}`)}

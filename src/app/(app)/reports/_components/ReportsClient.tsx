@@ -267,7 +267,6 @@ export function ReportsClient({ initialData }: Props) {
         <DataTable
           columns={columns}
           data={filtered}
-          globalFilter={search}
           emptyMessage="Nessun referto trovato."
         />
       )}

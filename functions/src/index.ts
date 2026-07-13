@@ -182,6 +182,41 @@ function computeNextFixedCostDue(
   return null;
 }
 
+/** Verifica se oggi è esattamente il giorno di pagamento di un costo fisso. */
+function isFixedCostDueToday(
+  today: Date,
+  frequency: string,
+  paymentDay: number,
+  paymentMonth: number | null,
+): boolean {
+  const year = today.getFullYear();
+  const month = today.getMonth(); // 0-based
+  const maxDay = new Date(year, month + 1, 0).getDate();
+  const effectiveDay = Math.min(paymentDay, maxDay);
+  if (today.getDate() !== effectiveDay) return false;
+
+  if (frequency === "monthly") return true;
+
+  if (frequency === "quarterly" && paymentMonth != null) {
+    const baseMonth = paymentMonth - 1; // 0-based
+    return ((month - baseMonth) % 3 + 3) % 3 === 0;
+  }
+
+  if (frequency === "annual" && paymentMonth != null) {
+    return month === paymentMonth - 1;
+  }
+
+  return false;
+}
+
+/** Formatta una data come "YYYY-MM-DD" (giorno locale, non UTC). */
+function toDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export const checkReminders = onSchedule(
   {
     schedule: "* * * * *", // ogni minuto
@@ -473,22 +508,63 @@ export const checkReminders = onSchedule(
       .get();
 
     let notifiedFixedCosts = 0;
+    let generatedFixedCostExpenses = 0;
 
     for (const fcDoc of fixedCostsSnap.docs) {
       const fc = fcDoc.data();
-      const notifyTelegram = fc["notifyTelegram"] as boolean | undefined;
-      const notifyEmail = fc["notifyEmail"] as boolean | undefined;
-      if (!notifyTelegram && !notifyEmail) continue;
-
-      const daysBefore = (fc["reminderDaysBefore"] as number | undefined) ?? 3;
       const paymentDay = (fc["paymentDay"] as number | undefined) ?? 1;
       const paymentMonth = (fc["paymentMonth"] as number | undefined) ?? null;
       const frequency = (fc["frequency"] as string | undefined) ?? "monthly";
       const name = (fc["name"] as string) ?? "Costo fisso";
       const amountCents = (fc["amountCents"] as number) ?? 0;
+      const today = now.toDate();
+
+      // ── 4a. Alla scadenza esatta: genera automaticamente la spesa in "Spese" ──
+      if (isFixedCostDueToday(today, frequency, paymentDay, paymentMonth)) {
+        const todayStr = toDateStr(today);
+        const lastExpenseCreatedForDue = fc["lastExpenseCreatedForDue"] as string | null | undefined;
+        if (lastExpenseCreatedForDue !== todayStr) {
+          try {
+            await db.collection("costExpenses").add({
+              description: name,
+              category: "fixed_cost",
+              supplier: null,
+              invoiceNumber: null,
+              date: todayStr,
+              periodFrom: null,
+              periodTo: null,
+              totalCents: amountCents,
+              notes: null,
+              items: null,
+              pdfStoragePath: null,
+              pdfUrl: null,
+              aiParsed: false,
+              fixedCostRef: fcDoc.id,
+              version: 0,
+              createdAt: FieldValue.serverTimestamp(),
+              updatedAt: FieldValue.serverTimestamp(),
+              deletedAt: null,
+              createdBy: null,
+            });
+            await fcDoc.ref.update({
+              lastExpenseCreatedForDue: todayStr,
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+            generatedFixedCostExpenses++;
+          } catch (err) {
+            logger.error("Fixed cost expense generation failed", { id: fcDoc.id, err });
+          }
+        }
+      }
+
+      // ── 4b. Promemoria anticipato (invariato) ─────────────────────────
+      const notifyTelegram = fc["notifyTelegram"] as boolean | undefined;
+      const notifyEmail = fc["notifyEmail"] as boolean | undefined;
+      if (!notifyTelegram && !notifyEmail) continue;
+
+      const daysBefore = (fc["reminderDaysBefore"] as number | undefined) ?? 3;
 
       // Calcola la prossima data di scadenza
-      const today = now.toDate();
       const nextDue = computeNextFixedCostDue(today, frequency, paymentDay, paymentMonth);
       if (!nextDue) continue;
 
@@ -543,6 +619,9 @@ export const checkReminders = onSchedule(
 
     if (notifiedFixedCosts > 0) {
       logger.info(`Notified ${notifiedFixedCosts} fixed cost(s) approaching due date`);
+    }
+    if (generatedFixedCostExpenses > 0) {
+      logger.info(`Generated ${generatedFixedCostExpenses} expense(s) from fixed cost(s) due today`);
     }
   },
 );

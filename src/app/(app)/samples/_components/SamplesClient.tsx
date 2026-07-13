@@ -241,7 +241,6 @@ export function SamplesClient({ initialData, clients, analyses }: Props) {
         <DataTable
           columns={columns}
           data={filtered}
-          globalFilter={search}
           emptyMessage="Nessun campione trovato per i filtri selezionati."
         />
       )}

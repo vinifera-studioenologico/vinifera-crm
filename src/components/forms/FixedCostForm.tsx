@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -74,6 +74,51 @@ const MONTH_LABELS: Record<number, string> = {
 interface Props {
   existing?: FixedCostDoc;
   onSuccess?: () => void;
+}
+
+/**
+ * Input numerico che tiene il testo digitato in stato locale, sincronizzando
+ * il form solo quando il valore è un numero valido. Evita che react-hook-form
+ * ripristini il defaultValue mentre il campo è temporaneamente vuoto durante
+ * la digitazione (es. cancellando per riscrivere un nuovo giorno).
+ */
+function IntegerInput({
+  value,
+  onChange,
+  min,
+  max,
+  className,
+}: {
+  value: number | undefined;
+  onChange: (value: number) => void;
+  min: number;
+  max: number;
+  className?: string;
+}) {
+  const [text, setText] = useState(value != null ? String(value) : "");
+
+  return (
+    <Input
+      type="number"
+      min={min}
+      max={max}
+      className={className}
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value);
+        const n = parseInt(e.target.value, 10);
+        if (!isNaN(n)) onChange(n);
+      }}
+      onBlur={() => {
+        const n = parseInt(text, 10);
+        if (isNaN(n) || n < min || n > max) {
+          const fallback = value ?? min;
+          setText(String(fallback));
+          onChange(fallback);
+        }
+      }}
+    />
+  );
 }
 
 export function FixedCostForm({ existing, onSuccess }: Props) {
@@ -212,13 +257,7 @@ export function FixedCostForm({ existing, onSuccess }: Props) {
               <FormItem>
                 <FormLabel>Giorno di pagamento *</FormLabel>
                 <FormControl>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={31}
-                    value={field.value}
-                    onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 1)}
-                  />
+                  <IntegerInput value={field.value} onChange={field.onChange} min={1} max={31} />
                 </FormControl>
                 <p className="text-xs text-muted-foreground">Giorno del mese in cui viene pagato</p>
                 <FormMessage />
@@ -291,13 +330,12 @@ export function FixedCostForm({ existing, onSuccess }: Props) {
               <FormItem>
                 <FormLabel>Giorni di anticipo</FormLabel>
                 <FormControl>
-                  <Input
-                    type="number"
+                  <IntegerInput
+                    value={field.value}
+                    onChange={field.onChange}
                     min={0}
                     max={30}
                     className="w-20"
-                    value={field.value}
-                    onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
                   />
                 </FormControl>
                 <FormMessage />

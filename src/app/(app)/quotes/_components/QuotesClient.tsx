@@ -336,7 +336,6 @@ export function QuotesClient({ initialData, clients, analyses, packages, default
         <DataTable
           columns={columns}
           data={filtered}
-          globalFilter={search}
           emptyMessage="Nessun preventivo trovato per i filtri selezionati."
         />
       )}

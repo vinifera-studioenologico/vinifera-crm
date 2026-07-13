@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -113,6 +113,107 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
   const [selectedToAdd, setSelectedToAdd] = useState<Set<string>>(new Set());
   const [isMutatingItems, startMutateItems] = useTransition();
   const [removeTarget, setRemoveTarget] = useState<SampleDoc["items"][number] | null>(null);
+
+  // ── Swipe orizzontale (mobile/tablet) per passare al campione prev/next ──
+  const SWIPE_MIN_DISTANCE = 60;
+  const SWIPE_MAX_VISUAL_OFFSET = 96;
+
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const dragDirectionRef = useRef<"horizontal" | "vertical" | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const pendingDeltaRef = useRef(0);
+  const [dragX, setDragX] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+
+  function handleTouchStart(e: React.TouchEvent<HTMLDivElement>) {
+    if (e.touches.length !== 1) {
+      touchStartRef.current = null;
+      return;
+    }
+    const target = e.target as HTMLElement;
+    if (target.closest("input, textarea, select, button, a")) {
+      touchStartRef.current = null;
+      return;
+    }
+    const touch = e.touches[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    dragDirectionRef.current = null;
+  }
+
+  function handleTouchMove(e: React.TouchEvent<HTMLDivElement>) {
+    const start = touchStartRef.current;
+    if (!start) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+
+    // Decide una sola volta se il gesto è orizzontale o verticale
+    if (dragDirectionRef.current === null) {
+      if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) return;
+      dragDirectionRef.current =
+        Math.abs(deltaX) > Math.abs(deltaY) * 1.5 ? "horizontal" : "vertical";
+      if (dragDirectionRef.current === "horizontal") setIsDragging(true);
+    }
+    if (dragDirectionRef.current !== "horizontal") return;
+
+    pendingDeltaRef.current = deltaX;
+    if (rafRef.current === null) {
+      rafRef.current = requestAnimationFrame(() => {
+        setDragX(pendingDeltaRef.current);
+        rafRef.current = null;
+      });
+    }
+  }
+
+  function resetSwipe() {
+    touchStartRef.current = null;
+    dragDirectionRef.current = null;
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    setIsDragging(false);
+    setDragX(0);
+  }
+
+  function handleTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
+    const start = touchStartRef.current;
+    const wasHorizontal = dragDirectionRef.current === "horizontal";
+    if (!start || !wasHorizontal) {
+      resetSwipe();
+      return;
+    }
+
+    const touch = e.changedTouches[0];
+    if (!touch) {
+      resetSwipe();
+      return;
+    }
+    const deltaX = touch.clientX - start.x;
+
+    if (deltaX <= -SWIPE_MIN_DISTANCE && adjacentIds.nextId) {
+      router.push(`/samples/${adjacentIds.nextId}`);
+      return;
+    }
+    if (deltaX >= SWIPE_MIN_DISTANCE && adjacentIds.prevId) {
+      router.push(`/samples/${adjacentIds.prevId}`);
+      return;
+    }
+    resetSwipe();
+  }
+
+  // Offset visivo con resistenza quando non c'è un campione adiacente in quella direzione
+  const swipingToNext = dragX < 0;
+  const hasAdjacentInDragDirection = swipingToNext ? !!adjacentIds.nextId : !!adjacentIds.prevId;
+  const dragResistance = hasAdjacentInDragDirection ? 0.5 : 0.15;
+  const visualOffset = Math.max(
+    -SWIPE_MAX_VISUAL_OFFSET,
+    Math.min(SWIPE_MAX_VISUAL_OFFSET, dragX * dragResistance),
+  );
+  const swipeProgress = Math.min(Math.abs(dragX) / SWIPE_MIN_DISTANCE, 1);
 
   function toggleSelectToAdd(analysisId: string) {
     setSelectedToAdd((prev) => {
@@ -268,7 +369,37 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
     linkedPayment.totalAmountCents !== sample.estimatedTotalCents;
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl space-y-6">
+    <div
+      className="p-4 md:p-6 max-w-4xl space-y-6"
+      style={{
+        transform: dragX !== 0 ? `translateX(${visualOffset}px)` : undefined,
+        transition: isDragging ? "none" : "transform 200ms ease-out",
+        touchAction: "pan-y",
+        userSelect: isDragging ? "none" : undefined,
+      }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={resetSwipe}
+    >
+      {/* Indicatori di swipe (mobile/tablet) */}
+      {isDragging && !swipingToNext && adjacentIds.prevId && (
+        <div
+          className="fixed left-3 top-1/2 z-50 -translate-y-1/2 rounded-full bg-primary p-2.5 text-primary-foreground shadow-lg pointer-events-none"
+          style={{ opacity: swipeProgress }}
+        >
+          <ChevronLeft className="size-5" strokeWidth={2} />
+        </div>
+      )}
+      {isDragging && swipingToNext && adjacentIds.nextId && (
+        <div
+          className="fixed right-3 top-1/2 z-50 -translate-y-1/2 rounded-full bg-primary p-2.5 text-primary-foreground shadow-lg pointer-events-none"
+          style={{ opacity: swipeProgress }}
+        >
+          <ChevronRight className="size-5" strokeWidth={2} />
+        </div>
+      )}
+
       {/* Breadcrumb */}
       <Breadcrumb>
         <BreadcrumbList>

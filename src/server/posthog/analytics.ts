@@ -38,14 +38,24 @@ export async function getKpis(days: RangeDays) {
     Record<string, { n: number; people: number }>;
 }
 
-/** Top 10 pagine per pageview. */
+/** Top 10 pagine per pageview (varianti /it, /en e / della stessa pagina aggregate insieme). */
 export async function getTopPages(days: RangeDays) {
   await requireAdmin();
   const { results } = await hogql<[string, number]>(
-    `SELECT properties.$pathname AS path, count() AS views
-     FROM events
-     WHERE event = '$pageview' AND timestamp >= toDateTime('${LIVE_SINCE}', 'Europe/Rome')
-       AND timestamp >= now() - INTERVAL ${days} DAY
+    `SELECT path, sum(views) AS views FROM (
+       SELECT
+         multiIf(
+           properties.$pathname IN ('/', '/it', '/en'), '/',
+           startsWith(properties.$pathname, '/it/'), substring(properties.$pathname, 4),
+           startsWith(properties.$pathname, '/en/'), substring(properties.$pathname, 4),
+           properties.$pathname
+         ) AS path,
+         count() AS views
+       FROM events
+       WHERE event = '$pageview' AND timestamp >= toDateTime('${LIVE_SINCE}', 'Europe/Rome')
+         AND timestamp >= now() - INTERVAL ${days} DAY
+       GROUP BY properties.$pathname
+     )
      GROUP BY path ORDER BY views DESC LIMIT 10`,
     "crm_top_pages",
   );

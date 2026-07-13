@@ -79,9 +79,8 @@ function fmtDuration(seconds: number): string {
 
 function pageLabel(path: string): string {
   if (!path) return "—";
-  const clean = path.replace(/^\/(it|en)/, "") || "/";
-  if (clean === "/") return "Home";
-  return clean.replace(/-/g, " ").replace(/^\//, "").replace(/\//g, " › ");
+  if (path === "/") return "Home";
+  return path.replace(/-/g, " ").replace(/^\//, "").replace(/\//g, " › ");
 }
 
 function pct(num: number, den: number): string {
