@@ -524,11 +524,14 @@ export const checkReminders = onSchedule(
         const todayStr = toDateStr(today);
         const lastExpenseCreatedForDue = fc["lastExpenseCreatedForDue"] as string | null | undefined;
         if (lastExpenseCreatedForDue !== todayStr) {
+          // Titolo spesa = nome costo fisso; descrizione spesa = descrizione costo fisso
+          // (con fallback al nome, perché la descrizione della spesa è un campo obbligatorio).
+          const fcDescription = (fc["description"] as string | undefined)?.trim();
           try {
             await db.collection("costExpenses").add({
-              description: name,
+              description: fcDescription || name,
               category: "fixed_cost",
-              supplier: null,
+              supplier: name,
               invoiceNumber: null,
               date: todayStr,
               periodFrom: null,

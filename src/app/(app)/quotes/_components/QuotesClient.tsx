@@ -74,7 +74,6 @@ const STATUS_LABELS: Record<QuoteStatus, string> = {
 
 export function QuotesClient({ initialData, clients, analyses, packages, defaultEnpaiaApplied, defaultEnpaiaPercent }: Props) {
   const router = useRouter();
-  const [data, setData] = useState(initialData);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | "all">("all");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -125,7 +124,7 @@ export function QuotesClient({ initialData, clients, analyses, packages, default
     });
   }
 
-  const filtered = data.filter((q) => {
+  const filtered = initialData.filter((q) => {
     if (statusFilter !== "all" && q.status !== statusFilter) return false;
     if (!search) return true;
     const s = search.toLowerCase();
@@ -140,7 +139,7 @@ export function QuotesClient({ initialData, clients, analyses, packages, default
       const result = await deleteQuote(quote.id);
       if (result.success) {
         toast.success("Bozza eliminata");
-        setData((prev) => prev.filter((q) => q.id !== quote.id));
+        router.refresh();
       } else {
         toast.error(result.error);
       }
@@ -245,8 +244,8 @@ export function QuotesClient({ initialData, clients, analyses, packages, default
             Preventivi
           </h1>
           <p className="text-sm text-muted-foreground">
-            {data.filter((q) => q.status === "draft").length} bozze ·{" "}
-            {data.filter((q) => q.status === "pending_approval").length} in approvazione
+            {initialData.filter((q) => q.status === "draft").length} bozze ·{" "}
+            {initialData.filter((q) => q.status === "pending_approval").length} in approvazione
           </p>
         </div>
 

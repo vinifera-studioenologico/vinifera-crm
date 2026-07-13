@@ -46,12 +46,11 @@ interface Props {
 
 export function SamplesClient({ initialData, clients, analyses }: Props) {
   const router = useRouter();
-  const [data] = useState(initialData);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<SampleStatus | "all">("all");
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const filtered = data.filter((s) => {
+  const filtered = initialData.filter((s) => {
     if (statusFilter !== "all" && s.status !== statusFilter) return false;
     if (!search) return true;
     const q = search.toLowerCase();
@@ -151,8 +150,8 @@ export function SamplesClient({ initialData, clients, analyses }: Props) {
             Campioni
           </h1>
           <p className="text-sm text-muted-foreground">
-            {data.filter((s) => s.status === "pending").length} in attesa ·{" "}
-            {data.filter((s) => s.status === "in_progress").length} in lavorazione
+            {initialData.filter((s) => s.status === "pending").length} in attesa ·{" "}
+            {initialData.filter((s) => s.status === "in_progress").length} in lavorazione
           </p>
         </div>
 

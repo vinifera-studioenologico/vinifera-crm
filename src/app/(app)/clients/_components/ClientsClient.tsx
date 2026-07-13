@@ -56,14 +56,13 @@ interface Props {
 
 export function ClientsClient({ initialData }: Props) {
   const router = useRouter();
-  const [data, setData] = useState(initialData);
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [archiving, setArchiving] = useState<ClientDoc | null>(null);
   const [, startTransition] = useTransition();
 
-  const filtered = data.filter((c) => {
+  const filtered = initialData.filter((c) => {
     if (!showArchived && c.deletedAt !== null) return false;
     if (showArchived && c.deletedAt === null) return false;
     if (!search) return true;
@@ -82,11 +81,7 @@ export function ClientsClient({ initialData }: Props) {
       const result = await archiveClient(row.id);
       if (result.success) {
         toast.success("Cliente archiviato");
-        setData((prev) =>
-          prev.map((c) =>
-            c.id === row.id ? { ...c, deletedAt: new Date() } : c,
-          ),
-        );
+        router.refresh();
       } else {
         toast.error(result.error);
       }
@@ -99,9 +94,7 @@ export function ClientsClient({ initialData }: Props) {
       const result = await restoreClient(row.id);
       if (result.success) {
         toast.success("Cliente ripristinato");
-        setData((prev) =>
-          prev.map((c) => (c.id === row.id ? { ...c, deletedAt: null } : c)),
-        );
+        router.refresh();
       } else {
         toast.error(result.error);
       }
@@ -260,7 +253,7 @@ export function ClientsClient({ initialData }: Props) {
             Clienti
           </h1>
           <p className="text-sm text-muted-foreground">
-            {data.filter((c) => c.deletedAt === null).length} clienti attivi
+            {initialData.filter((c) => c.deletedAt === null).length} clienti attivi
           </p>
         </div>
 

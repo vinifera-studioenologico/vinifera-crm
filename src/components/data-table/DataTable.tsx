@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   flexRender,
   getCoreRowModel,
@@ -11,7 +12,7 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from "@tanstack/react-table";
-import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronsUpDown, RefreshCw } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import {
@@ -23,6 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 interface DataTableProps<TData> {
   columns: ColumnDef<TData>[];
@@ -45,6 +47,8 @@ export function DataTable<TData>({
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>(initialSorting ?? []);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const router = useRouter();
+  const [isRefreshing, startRefresh] = useTransition();
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -58,9 +62,32 @@ export function DataTable<TData>({
     getFilteredRowModel: getFilteredRowModel(),
   });
 
+  function handleReload() {
+    startRefresh(() => {
+      router.refresh();
+    });
+  }
+
+  const reloadBar = (
+    <div className="flex items-center justify-end border-b border-border px-2 py-1">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-7 text-muted-foreground hover:text-foreground"
+        onClick={handleReload}
+        disabled={isRefreshing}
+        aria-label="Aggiorna dati"
+        title="Aggiorna dati"
+      >
+        <RefreshCw className={cn("size-3.5", isRefreshing && "animate-spin")} strokeWidth={1.75} />
+      </Button>
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="rounded-xl border border-border overflow-hidden">
+        {reloadBar}
         <Table>
           <TableHeader>
             <TableRow>
@@ -89,6 +116,7 @@ export function DataTable<TData>({
 
   return (
     <div className="rounded-xl border border-border overflow-hidden">
+      {reloadBar}
       <div className="overflow-x-auto">
       <Table>
         <TableHeader>
