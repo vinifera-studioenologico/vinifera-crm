@@ -12,6 +12,7 @@ import { ServiceFormSchema } from "@/schemas/service";
 import type { ServiceDoc } from "@/schemas/service";
 import type { ActionResult } from "@/types";
 import { toServiceDoc } from "@/server/public/services";
+import { triggerSiteRevalidation } from "@/server/site-revalidation";
 
 const COL = "services";
 
@@ -102,7 +103,7 @@ export async function createService(raw: unknown): Promise<ActionResult<{ id: st
 
     revalidatePath("/servizi");
     revalidatePath(`/servizi/${parsed.data.slug}`);
-    triggerSiteRevalidation();
+    triggerSiteRevalidation("services");
     logger.info("Servizio creato", { id: docRef.id, slug: parsed.data.slug });
     return { success: true, data: { id: docRef.id } };
   } catch (err) {
@@ -193,7 +194,7 @@ export async function updateService(
 
     revalidatePath("/servizi");
     revalidatePath(`/servizi/${parsed.data.slug}`);
-    triggerSiteRevalidation();
+    triggerSiteRevalidation("services");
     logger.info("Servizio aggiornato", { id, uid: actor.uid });
     return { success: true, data: undefined };
   } catch (err) {
@@ -214,7 +215,7 @@ export async function archiveService(id: string): Promise<ActionResult<void>> {
     });
 
     revalidatePath("/servizi");
-    triggerSiteRevalidation();
+    triggerSiteRevalidation("services");
     logger.info("Servizio archiviato", { id, uid: actor.uid });
     return { success: true, data: undefined };
   } catch (err) {
@@ -235,7 +236,7 @@ export async function restoreService(id: string): Promise<ActionResult<void>> {
     });
 
     revalidatePath("/servizi");
-    triggerSiteRevalidation();
+    triggerSiteRevalidation("services");
     logger.info("Servizio ripristinato", { id, uid: actor.uid });
     return { success: true, data: undefined };
   } catch (err) {
@@ -318,18 +319,3 @@ export async function deleteServiceImage(
   }
 }
 
-// ── Trigger revalidation sul sito ─────────────────────────────────────
-async function triggerSiteRevalidation(): Promise<void> {
-  const siteUrl = process.env.SITE_URL;
-  const apiKey = process.env.CRM_API_KEY;
-  if (!siteUrl || !apiKey) return;
-
-  fetch(`${siteUrl}/api/revalidate`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({ tag: "services" }),
-  }).catch((err) => logger.error("Revalidation sito fallita", err));
-}

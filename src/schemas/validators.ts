@@ -116,3 +116,27 @@ export const zAddress = z.object({
 });
 
 export type Address = z.infer<typeof zAddress>;
+
+// ── Validatori per il profilo di fatturazione eventi ──────────────────
+
+// Codice fiscale — regex standard 16 caratteri (formato base, case-insensitive)
+const cfRegex = /^[A-Z]{6}\d{2}[A-EHLMPRST]\d{2}[A-Z]\d{3}[A-Z]$/i;
+
+export const zCodiceFiscale = z
+  .string()
+  .min(1, "Codice fiscale obbligatorio")
+  .regex(cfRegex, "Codice fiscale non valido (16 caratteri)");
+
+// P.IVA italiana — alias esplicito con messaggio ad hoc
+export const zPartitaIva = z
+  .string()
+  .min(1, "Partita IVA obbligatoria")
+  .refine(validateVatNumber, "Partita IVA non valida (11 cifre con check digit corretto)");
+
+// Indirizzo di fatturazione (street + zip + city + province obbligatori)
+export const zBillingAddress = z.object({
+  street: z.string().min(1, "Via obbligatoria"),
+  zip: zZip,
+  city: z.string().min(1, "Città obbligatoria"),
+  province: z.string().min(1, "Provincia obbligatoria").max(2, "Inserire la sigla (es. MI)"),
+});

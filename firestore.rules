@@ -92,6 +92,30 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // ── Modulo eventi ────────────────────────────────────────────────
+    // Tutte le scritture da API pubblica passano dall'Admin SDK (bypassa le rules).
+
+    match /events/{eventId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /eventOrders/{orderId} {
+      allow read, write: if isAdmin();
+
+      match /transactions/{txId} {
+        allow read, write: if isAdmin();
+      }
+    }
+
+    match /eventSubscribers/{subscriberId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Rate limit — scritto dall'Admin SDK nei percorsi pubblici
+    match /rateLimits/{limitId} {
+      allow read, write: if isAdmin();
+    }
+
     // ── Fallback: nega tutto il resto ────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

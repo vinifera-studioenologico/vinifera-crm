@@ -20,6 +20,7 @@ import {
   Coins,
   Globe,
   UserPlus,
+  CalendarDays,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -52,6 +53,7 @@ const MORE_ITEMS: ReadonlyArray<{
   { href: "/stats", label: "Statistiche", icon: BarChart2 },
   { href: "/costs", label: "Costi", icon: Coins },
   { href: "/servizi", label: "Servizi", icon: Globe },
+  { href: "/events", label: "Eventi", icon: CalendarDays },
   { href: "/leads", label: "Lead", icon: UserPlus },
   { href: "/support", label: "Supporto", icon: LifeBuoy },
   { href: "/settings/company", label: "Impostazioni", icon: Settings },

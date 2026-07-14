@@ -17,3 +17,6 @@ export * from "./report";
 export * from "./reminder";
 export * from "./settings";
 export * from "./cost";
+export * from "./event";
+export * from "./eventOrder";
+// NOTE: eventCheckout e eventSubscriber NON sono nel barrel (schema di intake pubblico)
