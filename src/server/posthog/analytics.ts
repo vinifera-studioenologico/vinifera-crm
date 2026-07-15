@@ -30,7 +30,8 @@ export async function getKpis(days: RangeDays) {
      WHERE timestamp >= toDateTime('${LIVE_SINCE}', 'Europe/Rome')
        AND timestamp >= now() - INTERVAL ${days} DAY
        AND event IN ('$pageview','service_viewed','lead_modal_opened',
-                     'lead_submitted','phone_call_clicked','whatsapp_clicked')
+                     'lead_submitted','phone_call_clicked','whatsapp_clicked',
+                     'event_checkout_started','event_checkout_completed','event_checkout_expired')
      GROUP BY event`,
     "crm_kpi_summary",
   );
