@@ -129,12 +129,14 @@ export function ManualOrderSheet({ eventId, eventPriceCents }: Props) {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger>
-        <Button size="sm" variant="outline" type="button" onClick={() => setOpen(true)}>
-          <Plus className="mr-1.5 size-4" strokeWidth={1.75} />
-          Registra prenotazione manuale
-        </Button>
-      </SheetTrigger>
+      <SheetTrigger
+        render={
+          <Button size="sm" variant="outline" type="button" onClick={() => setOpen(true)}>
+            <Plus className="mr-1.5 size-4" strokeWidth={1.75} />
+            Registra prenotazione manuale
+          </Button>
+        }
+      />
       <SheetContent className="overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Prenotazione manuale</SheetTitle>

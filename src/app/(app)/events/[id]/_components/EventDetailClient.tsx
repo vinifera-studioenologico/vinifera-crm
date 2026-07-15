@@ -115,6 +115,22 @@ export function EventDetailClient({ event }: Props) {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-3xl">
+      {/* Notifica tutti gli acquirenti */}
+      {event.status !== "cancelled" && event.seatsSold > 0 && (
+        <div className="border border-border rounded-xl p-4 space-y-3">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Send className="size-4" strokeWidth={1.75} />
+            Notifica tutti gli acquirenti
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Invia un messaggio a tutti gli acquirenti con ordine confermato (dedup per email).
+          </p>
+          <Button size="sm" variant="outline" onClick={() => setNotifyDialogOpen(true)}>
+            Componi messaggio
+          </Button>
+        </div>
+      )}
+
       {/* Header azioni */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Badge stato */}
@@ -188,22 +204,6 @@ export function EventDetailClient({ event }: Props) {
 
       {/* Form modifica */}
       <EventForm existing={event} />
-
-      {/* Notifica tutti gli acquirenti */}
-      {event.status !== "cancelled" && event.seatsSold > 0 && (
-        <div className="border border-border rounded-xl p-4 space-y-3">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Send className="size-4" strokeWidth={1.75} />
-            Notifica tutti gli acquirenti
-          </h3>
-          <p className="text-xs text-muted-foreground">
-            Invia un messaggio a tutti gli acquirenti con ordine confermato (dedup per email).
-          </p>
-          <Button size="sm" variant="outline" onClick={() => setNotifyDialogOpen(true)}>
-            Componi messaggio
-          </Button>
-        </div>
-      )}
 
       {/* Dialog conferma cancellazione */}
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
