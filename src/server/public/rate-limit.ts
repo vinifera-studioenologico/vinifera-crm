@@ -2,18 +2,11 @@ import "server-only";
 
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { RATE_LIMIT_SCOPES, isRateLimited } from "@/server/public/rate-limit-logic";
+import type { RateLimitScope } from "@/server/public/rate-limit-logic";
 
-// ── Costanti scope/limiti ─────────────────────────────────────────────
-export const RATE_LIMIT_SCOPES = {
-  /** 5 tentativi di checkout per IP in 10 minuti */
-  "checkout-ip": { limit: 5, windowMs: 10 * 60 * 1000 },
-  /** 3 tentativi di checkout per email in 10 minuti */
-  "checkout-email": { limit: 3, windowMs: 10 * 60 * 1000 },
-  /** 5 iscrizioni alla mailing list per IP in 60 minuti */
-  "subscribe-ip": { limit: 5, windowMs: 60 * 60 * 1000 },
-} as const;
-
-export type RateLimitScope = keyof typeof RATE_LIMIT_SCOPES;
+export { RATE_LIMIT_SCOPES, isRateLimited } from "@/server/public/rate-limit-logic";
+export type { RateLimitScope } from "@/server/public/rate-limit-logic";
 
 const COL = "rateLimits";
 
@@ -45,7 +38,7 @@ export async function checkRateLimit(
     const snap = await tx.get(ref);
     const current: number = snap.exists ? (snap.data()?.["count"] ?? 0) : 0;
 
-    if (current >= effectiveLimit) {
+    if (isRateLimited(current, effectiveLimit)) {
       allowed = false;
       return;
     }

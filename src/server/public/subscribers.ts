@@ -71,41 +71,40 @@ export async function handleSubscribe(
     await adminDb.collection(COL).add({
       email,
       emailNormalized: emailNorm,
-      status: "pending",
+      status: "active",          // iscrizione immediata — nessuna conferma email
       locale,
-      confirmToken,
+      confirmToken,              // conservato per retrocompatibilità
       unsubscribeToken,
       consentAt: FieldValue.serverTimestamp(),
-      confirmedAt: null,
+      confirmedAt: FieldValue.serverTimestamp(), // subito confermato
       unsubscribedAt: null,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
   } else if (decision.action === "resend_confirm") {
-    // Aggiorna token (rigenera) e reinvia
+    // Era pending → porta subito ad active
     await existingDoc!.ref.update({
+      status: "active",
       confirmToken,
+      confirmedAt: FieldValue.serverTimestamp(),
       locale,
       updatedAt: FieldValue.serverTimestamp(),
     });
   } else if (decision.action === "re_subscribe") {
-    // Ripristina a pending con nuovi token
+    // Era unsubscribed → torna active direttamente
     await existingDoc!.ref.update({
-      status: "pending",
+      status: "active",
       locale,
       confirmToken,
       unsubscribeToken,
       consentAt: FieldValue.serverTimestamp(),
-      confirmedAt: null,
+      confirmedAt: FieldValue.serverTimestamp(),
       unsubscribedAt: null,
       updatedAt: FieldValue.serverTimestamp(),
     });
   }
 
-  // Invia email double opt-in
-  await sendConfirmEmail(email, emailNorm, locale, confirmToken).catch((err) =>
-    logger.error("[Subscribers] Errore invio email conferma", err),
-  );
+  // Nessuna email di conferma — l'iscrizione è immediata
 
   return { status: 200, body: { ok: true } };
 }

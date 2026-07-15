@@ -179,7 +179,7 @@ export interface EventOrderSummary {
   paidAt: string | null;
   refundedAt: string | null;
   refundId: string | null;
-  historyConsent: { granted: boolean };
+  historyConsent: { granted: boolean; at: string | null };
   locale: "it" | "en";
   createdAt: string | undefined;
   updatedAt: string | undefined;
@@ -205,7 +205,10 @@ function toOrderSummary(
     paidAt: tsToISO(data["paidAt"]) ?? null,
     refundedAt: tsToISO(data["refundedAt"]) ?? null,
     refundId: data["refundId"] ?? null,
-    historyConsent: data["historyConsent"] ?? { granted: false },
+    historyConsent: {
+      granted: data["historyConsent"]?.["granted"] ?? false,
+      at: tsToISO(data["historyConsent"]?.["at"]) ?? null,
+    },
     locale: data["locale"] ?? "it",
     createdAt: tsToISO(data["createdAt"]),
     updatedAt: tsToISO(data["updatedAt"]),
@@ -247,14 +250,16 @@ export async function getBuyersHistory() {
         seats: data["seats"] ?? 0,
         totalCents: data["totalCents"] ?? 0,
         paidAt: tsToISO(data["paidAt"]) ?? null,
-        createdAt: data["createdAt"],
+        createdAt: tsToISO(data["createdAt"]) ?? null,
         buyer: {
           firstName: data["buyer"]?.firstName ?? "",
           lastName: data["buyer"]?.lastName ?? "",
           emailNormalized: data["buyer"]?.emailNormalized ?? "",
           phoneNormalized: data["buyer"]?.phoneNormalized ?? "",
         },
-        historyConsent: data["historyConsent"] ?? { granted: false },
+        historyConsent: {
+          granted: data["historyConsent"]?.["granted"] ?? false,
+        },
       };
     })
     .filter(Boolean)) as OrderForHistory[];
@@ -321,4 +326,112 @@ export async function getEventsRevenueStats(opts: { year?: number } = {}) {
     byMonth,
     totals: { netCents: totalNetCents, participants: totalParticipants, orders: totalOrders },
   };
+}
+
+// ── Prenotazione manuale (es. da telefono) ────────────────────────────
+export interface ManualOrderInput {
+  seats: number;
+  buyer: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+  };
+  participants: Array<{ firstName: string; lastName: string }>;
+  totalCents: number;        // 0 = gratuito/omaggio; altrimenti importo già riscosso
+  paymentNote: string;       // es. "Pagato in contanti", "Bonifico ricevuto"
+  historyConsent: boolean;
+}
+
+export async function createManualOrder(
+  eventId: string,
+  input: ManualOrderInput,
+): Promise<ActionResult<{ orderNumber: string }>> {
+  const actor = await requireAdmin();
+
+  try {
+    const evSnap = await adminDb.collection("events").doc(eventId).get();
+    if (!evSnap.exists) return { success: false, error: "Evento non trovato" };
+
+    const evData = evSnap.data()!;
+    const year = new Date().getFullYear();
+    let orderNumber = "";
+
+    await adminDb.runTransaction(async (tx) => {
+      const evRef = adminDb.collection("events").doc(eventId);
+      const freshSnap = await tx.get(evRef);
+      const fresh = freshSnap.data()!;
+
+      const seatsSold: number = fresh["seatsSold"] ?? 0;
+      const seatsHeld: number = fresh["seatsHeld"] ?? 0;
+      const capacity: number = fresh["capacity"] ?? 0;
+      if (capacity - seatsSold - seatsHeld < input.seats) {
+        throw new Error("Posti insufficienti");
+      }
+
+      // Contatore ordini
+      const counterRef = adminDb.doc(`counters/eventOrders-${year}`);
+      const counterSnap = await tx.get(counterRef);
+      const next = (counterSnap.data()?.["seq"] ?? 0) + 1;
+      tx.set(counterRef, { seq: next }, { merge: true });
+      orderNumber = `EVT-${year}-${String(next).padStart(4, "0")}`;
+
+      const orderRef = adminDb.collection("eventOrders").doc();
+      tx.set(orderRef, {
+        orderNumber,
+        eventId,
+        eventSnapshot: {
+          slug: evData["slug"] ?? "",
+          titleIt: evData["title"]?.it ?? "",
+          startsAt: evData["startsAt"],
+          locationName: evData["location"]?.name ?? "",
+        },
+        seats: input.seats,
+        unitPriceCents: input.seats > 0 ? Math.round(input.totalCents / input.seats) : 0,
+        totalCents: input.totalCents,
+        status: "paid",
+        buyer: {
+          firstName: input.buyer.firstName,
+          lastName: input.buyer.lastName,
+          email: input.buyer.email,
+          emailNormalized: input.buyer.email.trim().toLowerCase(),
+          phone: input.buyer.phone,
+          phoneNormalized: input.buyer.phone.replace(/\D/g, ""),
+        },
+        participants: input.participants,
+        billing: null,
+        historyConsent: { granted: input.historyConsent, at: input.historyConsent ? Timestamp.now() : null },
+        locale: "it",
+        holdExpiresAt: null,
+        paymentIntentId: null,      // nessun Stripe — pagamento già riscosso
+        paidAt: FieldValue.serverTimestamp(),
+        refundedAt: null,
+        refundId: null,
+        ip: null,
+        notes: input.paymentNote,   // canale/metodo di pagamento
+        source: "manual",           // marca come prenotazione manuale
+        createdBy: actor.uid,
+        version: 0,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        deletedAt: null,
+      });
+
+      tx.update(evRef, {
+        seatsSold: FieldValue.increment(input.seats),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    });
+
+    revalidatePath(`/events/${eventId}`);
+    revalidatePath(`/events/${eventId}/orders`);
+    triggerSiteRevalidation("events");
+    logger.info("Prenotazione manuale creata", { eventId, orderNumber, uid: actor.uid });
+
+    return { success: true, data: { orderNumber } };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Errore durante la registrazione.";
+    logger.error("Errore prenotazione manuale", { eventId, err });
+    return { success: false, error: msg };
+  }
 }

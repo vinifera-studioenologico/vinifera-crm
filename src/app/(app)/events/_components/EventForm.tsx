@@ -590,21 +590,10 @@ export function EventForm({ existing, onSuccess }: Props) {
             Immagine copertina
           </h2>
 
-          <FormField
-            control={form.control}
-            name="imageUrl"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>URL immagine</FormLabel>
-                <FormControl>
-                  <Input placeholder="https://…" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Campo imageUrl nascosto — popolato dall'upload, non editabile manualmente */}
+          <input type="hidden" {...form.register("imageUrl")} />
 
-          {existing && (
+          {existing ? (
             <div className="flex items-center gap-3">
               <input
                 ref={fileInputRef}
@@ -621,7 +610,7 @@ export function EventForm({ existing, onSuccess }: Props) {
                 disabled={uploadingImage}
               >
                 {uploadingImage ? <Loader2 className="size-3.5 animate-spin mr-1" /> : null}
-                Carica immagine
+                {form.watch("imageUrl") ? "Sostituisci immagine" : "Carica immagine"}
               </Button>
               {form.watch("imageUrl") && (
                 <Button
@@ -635,6 +624,10 @@ export function EventForm({ existing, onSuccess }: Props) {
                 </Button>
               )}
             </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Salva prima l&apos;evento in bozza, poi potrai caricare l&apos;immagine dalla pagina di dettaglio.
+            </p>
           )}
 
           {form.watch("imageUrl") && (

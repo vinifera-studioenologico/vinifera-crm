@@ -84,3 +84,11 @@ export function seatsAvailable(ev: {
 export function isFreeEvent(ev: { priceCents: number }): boolean {
   return ev.priceCents === 0;
 }
+
+/**
+ * Eccedenza di overbooking dopo una riduzione di capienza.
+ * Restituisce `null` se non c'è overbooking (occupied <= capacity).
+ */
+export function computeOverbookExcess(occupied: number, capacity: number): number | null {
+  return occupied > capacity ? occupied - capacity : null;
+}

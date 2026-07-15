@@ -8,9 +8,8 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { it as itLocale } from "date-fns/locale";
 
-import type { SubscriberDoc } from "@/schemas/eventSubscriber";
+import type { SubscriberRow } from "@/server/actions/subscribers";
 import { unsubscribeSubscriber } from "@/server/actions/subscribers";
-import { useEventSubscribers } from "@/hooks/useEventSubscribers";
 
 import { DataTable } from "@/components/data-table/DataTable";
 import { Button } from "@/components/ui/button";
@@ -29,12 +28,15 @@ const STATUS_BADGE: Record<string, { label: string; variant: "default" | "outlin
   unsubscribed: { label: "Disiscritto", variant: "destructive" },
 };
 
-export function SubscribersClient() {
+interface Props {
+  initialData: SubscriberRow[];
+}
+
+export function SubscribersClient({ initialData }: Props) {
   const router = useRouter();
-  const { subscribers, loading } = useEventSubscribers();
   const [, startTransition] = useTransition();
 
-  function handleUnsubscribe(sub: SubscriberDoc) {
+  function handleUnsubscribe(sub: SubscriberRow) {
     startTransition(async () => {
       const result = await unsubscribeSubscriber(sub.id);
       if (result.success) {
@@ -47,14 +49,14 @@ export function SubscribersClient() {
   }
 
   function handleExportCsv() {
-    const active = subscribers.filter((s) => s.status !== "unsubscribed");
+    const active = initialData.filter((s) => s.status !== "unsubscribed");
     const rows = [
       ["Email", "Stato", "Lingua", "Data iscrizione"].join(","),
       ...active.map((s) => [
         s.email,
         s.status,
         s.locale,
-        s.createdAt?.toDate?.()?.toLocaleDateString("it-IT") ?? "",
+        s.createdAt ? new Date(s.createdAt).toLocaleDateString("it-IT") : "",
       ].join(",")),
     ];
     const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
@@ -66,7 +68,7 @@ export function SubscribersClient() {
     URL.revokeObjectURL(url);
   }
 
-  const columns: ColumnDef<SubscriberDoc>[] = [
+  const columns: ColumnDef<SubscriberRow>[] = [
     {
       accessorKey: "email",
       header: "Email",
@@ -99,8 +101,7 @@ export function SubscribersClient() {
         const ts = row.original.createdAt;
         if (!ts) return "—";
         try {
-          const d = ts?.toDate?.() ?? new Date(ts);
-          return <span className="text-sm tabular-nums">{format(d, "dd/MM/yyyy", { locale: itLocale })}</span>;
+          return <span className="text-sm tabular-nums">{format(new Date(ts), "dd/MM/yyyy", { locale: itLocale })}</span>;
         } catch { return "—"; }
       },
     },
@@ -124,7 +125,7 @@ export function SubscribersClient() {
     },
   ];
 
-  const activeCount = subscribers.filter((s) => s.status === "active").length;
+  const activeCount = initialData.filter((s) => s.status === "active").length;
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto">
@@ -141,7 +142,7 @@ export function SubscribersClient() {
           </Breadcrumb>
           <h1 className="mt-2 text-2xl font-semibold">Iscritti mailing list</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {activeCount} iscritto/i attivo/i · {subscribers.length} totale
+            {activeCount} iscritto/i attivo/i · {initialData.length} totale
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={activeCount === 0}>
@@ -152,8 +153,7 @@ export function SubscribersClient() {
 
       <DataTable
         columns={columns}
-        data={subscribers}
-        loading={loading}
+        data={initialData}
         initialSorting={[{ id: "createdAt", desc: true }]}
         emptyMessage="Nessun iscritto."
       />

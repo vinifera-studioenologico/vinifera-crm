@@ -2,8 +2,25 @@ import "server-only";
 
 import { buildEmailHtml } from "@/lib/email";
 import { formatEUR } from "@/lib/utils/money";
+import { adminDb } from "@/lib/firebase/admin";
 import { format } from "date-fns";
 import { it as itLocale, enUS } from "date-fns/locale";
+
+// ── Helper: leggi logo e telefono dalle impostazioni azienda ──────────
+async function getCompanyBranding(): Promise<{ logoUrl?: string; whatsappNumber?: string }> {
+  try {
+    const snap = await adminDb.doc("settings/company").get();
+    if (!snap.exists) return {};
+    const data = snap.data()!;
+    const logoUrl: string | undefined = data["logoUrl"] || undefined;
+    const rawPhone: string = data["phone"] ?? "";
+    // Converte "+39 340 541 1749" → "393405411749" (solo cifre)
+    const whatsappNumber = rawPhone.replace(/\D/g, "") || undefined;
+    return { logoUrl, whatsappNumber };
+  } catch {
+    return {};
+  }
+}
 
 export interface OrderEmailData {
   orderNumber: string;
@@ -49,6 +66,8 @@ export async function sendOrderConfirmationEmail(order: OrderEmailData): Promise
     console.log("[Events Email] RESEND_API_KEY non configurato, email non inviata");
     return;
   }
+
+  const [branding] = await Promise.all([getCompanyBranding()]);
 
   const isFree = order.totalCents === 0;
   const eventDate = formatEventDate(order.eventStartsAt, order.locale);
@@ -103,9 +122,8 @@ export async function sendOrderConfirmationEmail(order: OrderEmailData): Promise
   const html = buildEmailHtml({
     title: subject,
     body,
-    footerNote: isIt
-      ? "Non rispondere a questa email — per assistenza scrivici su WhatsApp."
-      : "Do not reply to this email — for support, contact us on WhatsApp.",
+    logoUrl: branding.logoUrl,
+    whatsappNumber: branding.whatsappNumber,
   });
 
   const { Resend } = await import("resend");

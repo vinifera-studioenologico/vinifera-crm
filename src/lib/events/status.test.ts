@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { derivePublicStatus, seatsAvailable, isFreeEvent } from "@/lib/events/status";
+import { derivePublicStatus, seatsAvailable, isFreeEvent, computeOverbookExcess } from "@/lib/events/status";
 
 // ── Helper per costruire input minimal ───────────────────────────────
 function makeEvent(overrides: Partial<Parameters<typeof derivePublicStatus>[0]> = {}) {
@@ -105,5 +105,19 @@ describe("isFreeEvent", () => {
 
   it("restituisce false per priceCents positivo qualsiasi", () => {
     expect(isFreeEvent({ priceCents: 1000 })).toBe(false);
+  });
+});
+
+describe("computeOverbookExcess", () => {
+  it("3 ordini paid da 2 posti (6 occupati), riduzione capienza a 4 → eccedenza 2", () => {
+    expect(computeOverbookExcess(6, 4)).toBe(2);
+  });
+
+  it("occupied === capacity → null (nessun overbooking)", () => {
+    expect(computeOverbookExcess(4, 4)).toBeNull();
+  });
+
+  it("occupied < capacity → null", () => {
+    expect(computeOverbookExcess(3, 10)).toBeNull();
   });
 });

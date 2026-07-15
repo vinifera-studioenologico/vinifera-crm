@@ -15,7 +15,7 @@ import type { ActionResult } from "@/types";
 import { NotificationSettingsSchema } from "@/schemas/settings";
 import { triggerSiteRevalidation } from "@/server/site-revalidation";
 import { tsToISO } from "@/lib/utils/date";
-import { seatsAvailable } from "@/lib/events/status";
+import { seatsAvailable, computeOverbookExcess } from "@/lib/events/status";
 import { getStripe } from "@/lib/stripe";
 import { buildEmailHtml } from "@/lib/email";
 import {
@@ -264,7 +264,7 @@ export async function updateEvent(
       const seatsSold: number = current["seatsSold"] ?? 0;
       const seatsHeld: number = current["seatsHeld"] ?? 0;
       const occupied = seatsSold + seatsHeld;
-      const excess = occupied > d.capacity ? occupied - d.capacity : null;
+      const excess = computeOverbookExcess(occupied, d.capacity);
 
       tx.update(docRef, updateDoc);
       return { ok: true, overbookedExcess: excess };

@@ -12,7 +12,7 @@ export interface OrderForHistory {
   seats: number;
   totalCents: number;
   paidAt: unknown; // Timestamp | string | null
-  createdAt: unknown;
+  createdAt: string | null; // ISO — già convertito da tsToISO
   buyer: {
     firstName: string;
     lastName: string;

@@ -18,8 +18,10 @@
     "seed:costs": "tsx scripts/seed-costs.ts",
     "seed:costs:clean": "tsx scripts/unseed-costs.ts",
     "seed:services": "tsx scripts/seed-services.ts",
-    "seed:all": "npm run seed:clean && npm run seed:costs:clean && npm run seed && npm run seed:costs && npm run seed:services",
-    "seed:all:clean": "npm run seed:clean && npm run seed:costs:clean"
+    "seed:events": "tsx scripts/seed-events.ts",
+    "seed:events:clean": "tsx scripts/unseed-events.ts",
+    "seed:all": "npm run seed:clean && npm run seed:costs:clean && npm run seed:events:clean && npm run seed && npm run seed:costs && npm run seed:services && npm run seed:events",
+    "seed:all:clean": "npm run seed:clean && npm run seed:costs:clean && npm run seed:events:clean"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
