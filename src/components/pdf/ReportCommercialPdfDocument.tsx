@@ -20,6 +20,14 @@ const ACCENT = "#111827";
 const BG_CLIENT = "#F3F4F6";
 const BG_TABLE_HEADER = "#F3F4F6";
 
+const SAMPLING_BY_LABEL: Record<string, string> = {
+  client: "Cliente",
+  lab: "Laboratorio",
+};
+
+const DEFAULT_REPORT_LEGAL_NOTE =
+  "Il presente referto riguarda esclusivamente i campioni in esso descritti; i risultati si riferiscono ai campioni così come ricevuti. Il laboratorio declina ogni responsabilità per le informazioni fornite dal cliente (prodotto dichiarato, descrizione, imballaggio, etichetta campione). Il presente documento non può essere riprodotto parzialmente senza autorizzazione scritta del laboratorio.";
+
 // ── Stili ─────────────────────────────────────────────────────────────
 const S = StyleSheet.create({
   page: {
@@ -121,6 +129,14 @@ const S = StyleSheet.create({
   sampleName: { fontSize: 9, color: "#444" },
   sampleMeta: { fontSize: 8, color: "#444", textAlign: "right" },
 
+  // Metadati campione (prodotto dichiarato, quantità, imballaggio, ecc.)
+  sampleDetails: {
+    padding: "6pt 10pt",
+    backgroundColor: "#F9FAFB",
+    borderBottom: "0.5pt solid #eee",
+  },
+  sampleDetailsText: { fontSize: 7.5, color: "#555" },
+
   // Tabella analisi con prezzi
   tableHeader: {
     flexDirection: "row",
@@ -136,11 +152,9 @@ const S = StyleSheet.create({
   },
   tableRowAlt: { backgroundColor: "#fafafa" },
 
-  colAnalysis: { width: 90 },
-  colCode: { width: 70 },
+  colAnalysis: { width: 337 },  // 479 (row inner) - colResult(50) - colUnit(30) - colPrice(62)
   colResult: { width: 50, textAlign: "center" },
   colUnit: { width: 30, textAlign: "center" },
-  colMethod: { width: 177, textAlign: "center" },
   colPrice: { width: 62, textAlign: "center" },
 
   cellText: { fontSize: 8.5 },
@@ -148,6 +162,8 @@ const S = StyleSheet.create({
   cellNoResult: { fontSize: 8.5, color: "#aaa", fontStyle: "italic", textAlign: "center" },
   cellPrice: { fontSize: 8.5, fontFamily: "Helvetica-Bold", textAlign: "center" },
   cellPriceFree: { fontSize: 7.5, color: "#888", textAlign: "center", fontStyle: "italic" },
+  paramName: { fontSize: 8.5 },
+  paramMethod: { fontSize: 7, fontStyle: "italic", color: "#888", marginTop: 1 },
 
   // Subtotale campione
   sampleSubtotal: {
@@ -185,6 +201,14 @@ const S = StyleSheet.create({
     marginBottom: 4,
   },
   reportNotesText: { fontSize: 8.5, color: "#444", lineHeight: 1.5 },
+
+  // Nota legale
+  legalNote: {
+    marginTop: 14,
+    fontSize: 6.5,
+    color: "#999",
+    lineHeight: 1.4,
+  },
 
   // Footer
   footerText: { fontSize: 7, color: "#999" },
@@ -294,10 +318,7 @@ export function ReportCommercialPdfDocument({ reportNumber, company, client, sam
   const totalUsed = clientPackages?.reduce((a, p) => a + (p.totalAnalyses - p.remainingAnalyses), 0) ?? 0;
   const totalRemaining = clientPackages?.reduce((a, p) => a + p.remainingAnalyses, 0) ?? 0;
 
-  // Mostra colonna Metodo solo se almeno un item ha la descrizione
-  const hasMethod = samples.some((s) => s.items.some((it) => it.descriptionSnapshot));
-  // Senza Metodo, la sua larghezza (177) va ad Analisi: 90 + 177 = 267
-  const colAnalysisWidth = hasMethod ? 90 : 267;
+  const legalNote = company?.reportLegalNote || DEFAULT_REPORT_LEGAL_NOTE;
 
   return (
     <Document
@@ -379,6 +400,13 @@ export function ReportCommercialPdfDocument({ reportNumber, company, client, sam
           const sampleTotal = sample.items.reduce((a, item) =>
             a + (item.coveredByPackageId && !item.chargeAnyway ? 0 : item.unitPriceCents), 0);
 
+          const detailLines = [
+            sample.declaredProduct && `Prodotto dichiarato: ${sample.declaredProduct}`,
+            sample.sampleQuantity && `Quantità: ${sample.sampleQuantity}`,
+            sample.packaging && `Imballaggio: ${sample.packaging}`,
+            sample.samplingBy && `Campionamento a cura di: ${SAMPLING_BY_LABEL[sample.samplingBy]}`,
+          ].filter(Boolean) as string[];
+
           return (
             <View key={sample.id} style={S.sampleCard} wrap={false}>
               {/* Header campione */}
@@ -393,29 +421,38 @@ export function ReportCommercialPdfDocument({ reportNumber, company, client, sam
                 </View>
               </View>
 
+              {/* Metadati campione (solo se compilati) */}
+              {detailLines.length > 0 && (
+                <View style={S.sampleDetails}>
+                  <Text style={S.sampleDetailsText}>{detailLines.join("  ·  ")}</Text>
+                </View>
+              )}
+
               {/* Tabella */}
               <View style={S.tableHeader}>
-                <Text style={[S.tableHeaderText, { width: colAnalysisWidth }]}>Analisi</Text>
-                <Text style={[S.tableHeaderText, S.colCode]}>Codice OIV</Text>
+                <Text style={[S.tableHeaderText, S.colAnalysis, { textAlign: "left" }]}>Analisi / Metodo</Text>
                 <Text style={[S.tableHeaderText, S.colResult]}>Risultato</Text>
                 <Text style={[S.tableHeaderText, S.colUnit]}>U.M.</Text>
-                {hasMethod && <Text style={[S.tableHeaderText, S.colMethod]}>Metodo</Text>}
                 <Text style={[S.tableHeaderText, S.colPrice]}>Prezzo</Text>
               </View>
 
               {sample.items.map((item, i) => {
                 const isFree = !!item.coveredByPackageId && !item.chargeAnyway;
                 const code = item.analysisCodeSnapshot ?? "";
-                const method = item.descriptionSnapshot ?? "";
-                const codeFontSize = dynamicFontSize(code, 8.5, [[8, 8], [14, 7], [20, 6], [999, 5.5]]);
-                const methodFontSize = dynamicFontSize(method, 7.5, [[30, 7.5], [60, 6.5], [999, 6]]);
+                const description = item.descriptionSnapshot ?? "";
+                const methodLine = [code, description].filter(Boolean).join(" · ");
+                const methodFontSize = dynamicFontSize(methodLine, 7, [[40, 7], [70, 6.5], [999, 6]]);
 
                 return (
                   <View key={item.analysisId} style={[S.tableRow, i % 2 === 1 ? S.tableRowAlt : {}]}>
-                    <Text style={[S.cellText, { width: colAnalysisWidth }]}>{item.analysisNameSnapshot}</Text>
-                    <Text style={[S.colCode, { fontSize: codeFontSize, fontFamily: "Courier" }]}>
-                      {code}
-                    </Text>
+                    <View style={S.colAnalysis}>
+                      <Text style={S.paramName}>{item.analysisNameSnapshot}</Text>
+                      {methodLine && (
+                        <Text style={[S.paramMethod, { fontSize: methodFontSize }]}>
+                          {methodLine}
+                        </Text>
+                      )}
+                    </View>
                     {item.result ? (
                       <Text style={[S.cellResult, S.colResult]}>{item.result}</Text>
                     ) : (
@@ -424,11 +461,6 @@ export function ReportCommercialPdfDocument({ reportNumber, company, client, sam
                     <Text style={[S.cellText, S.colUnit, { color: "#555" }]}>
                       {item.unitSnapshot ?? ""}
                     </Text>
-                    {hasMethod && (
-                      <Text style={[S.colMethod, { fontSize: methodFontSize, color: "#555" }]}>
-                        {method}
-                      </Text>
-                    )}
                     {isFree ? (
                       <Text style={[S.cellPriceFree, S.colPrice]}>Da pacchetto</Text>
                     ) : (
@@ -461,6 +493,9 @@ export function ReportCommercialPdfDocument({ reportNumber, company, client, sam
             <Text style={S.reportNotesText}>{notes}</Text>
           </View>
         )}
+
+        {/* Nota legale */}
+        <Text style={S.legalNote}>{legalNote}</Text>
 
         {/* Footer */}
         <Text

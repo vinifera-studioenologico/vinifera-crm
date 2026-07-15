@@ -420,6 +420,10 @@ const SAMPLES = [
     clientNameSnapshot: "Cantina Rossi S.r.l.",
     sampleName: "Sangiovese IGT 2024 — Lotto A",
     receivedAt: pastDays(10),
+    declaredProduct: "Sangiovese IGT 2024",
+    sampleQuantity: "1 lt",
+    packaging: "Contenitore plastico sigillato",
+    samplingBy: "client",
     status: "in_progress",
     items: [
       { analysisId: id("AN", 1), analysisCodeSnapshot: "SO2-L", analysisNameSnapshot: "Solforosa libera", unitPriceCents: 1200, coveredByPackageId: id("CP", 1), chargeAnyway: false },
@@ -436,6 +440,10 @@ const SAMPLES = [
     clientNameSnapshot: "Cantina Rossi S.r.l.",
     sampleName: "Sangiovese IGT 2024 — Lotto B",
     receivedAt: pastDays(8),
+    declaredProduct: "Sangiovese IGT 2024",
+    sampleQuantity: "0,50 lt",
+    packaging: "Bottiglia vetro con tappo corona sigillato",
+    samplingBy: "lab",
     status: "completed",
     items: [
       { analysisId: id("AN", 1), analysisCodeSnapshot: "SO2-L", analysisNameSnapshot: "Solforosa libera", unitPriceCents: 1200, coveredByPackageId: id("CP", 1), chargeAnyway: false, result: "18 mg/L" },

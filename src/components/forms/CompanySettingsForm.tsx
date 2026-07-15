@@ -60,6 +60,7 @@ export function CompanySettingsForm({ defaultValues }: Props) {
       defaultEnpaiaApplied: true,
       quoteFooterNote: "",
       reportFooterNote: "",
+      reportLegalNote: "",
       quoteFiscalNote: "",
       quoteConditions: "",
       quotePrivacyNote: "",
@@ -509,6 +510,24 @@ export function CompanySettingsForm({ defaultValues }: Props) {
                     placeholder="Es. Laboratorio accreditato Accredia n. 1234"
                     rows={3}
                     className="resize-none"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="reportLegalNote"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nota legale referto</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Nota legale mostrata in fondo al referto PDF (responsabilità sui dati dichiarati dal cliente, conservazione campioni, divieto di riproduzione parziale...). Se lasciata vuota, viene usato un testo predefinito."
+                    rows={4}
+                    className="resize-y"
                     {...field}
                   />
                 </FormControl>

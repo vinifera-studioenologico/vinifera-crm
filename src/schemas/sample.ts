@@ -34,15 +34,33 @@ export const SampleNoteSchema = z.object({
 
 export type SampleNote = z.infer<typeof SampleNoteSchema>;
 
+// ── Campionamento a cura di ────────────────────────────────────────────
+export const SampleSamplingBySchema = z.enum(["client", "lab"]);
+export type SampleSamplingBy = z.infer<typeof SampleSamplingBySchema>;
+
 // ── Form step 1: dati base campione ───────────────────────────────────
 export const SampleBaseFormSchema = z.object({
   clientId: z.string().min(1, "Seleziona un cliente"),
   sampleName: zNonEmptyString.max(200, "Nome campione troppo lungo"),
   receivedAt: z.string().min(1, "Data ricezione obbligatoria"), // "YYYY-MM-DD"
+  declaredProduct: z.string().max(200).optional(),
+  sampleQuantity: z.string().max(50).optional(),
+  packaging: z.string().max(200).optional(),
+  samplingBy: SampleSamplingBySchema.optional(),
   notes: z.string().max(2000).optional(),
 });
 
 export type SampleBaseFormValues = z.infer<typeof SampleBaseFormSchema>;
+
+// ── Form modifica metadati campione (post-creazione) ──────────────────
+export const SampleMetadataFormSchema = z.object({
+  declaredProduct: z.string().max(200).optional(),
+  sampleQuantity: z.string().max(50).optional(),
+  packaging: z.string().max(200).optional(),
+  samplingBy: SampleSamplingBySchema.optional(),
+});
+
+export type SampleMetadataFormValues = z.infer<typeof SampleMetadataFormSchema>;
 
 // ── Form step 2: analisi richieste ────────────────────────────────────
 export const SampleItemsFormSchema = z.object({
@@ -85,6 +103,10 @@ export const SampleDocSchema = z.object({
   clientNameSnapshot: z.string(),
   sampleName: z.string(),
   receivedAt: z.any(),            // Timestamp
+  declaredProduct: z.string().optional(),
+  sampleQuantity: z.string().optional(),
+  packaging: z.string().optional(),
+  samplingBy: SampleSamplingBySchema.optional(),
   status: SampleStatusSchema,
   items: z.array(SampleItemSchema),
   estimatedTotalCents: zCents,

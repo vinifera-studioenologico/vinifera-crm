@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireAdmin } from "@/server/auth";
 import { logger } from "@/lib/logger";
-import { SampleFormSchema } from "@/schemas/sample";
+import { SampleFormSchema, SampleMetadataFormSchema } from "@/schemas/sample";
 import type { SampleDoc, SampleStatus } from "@/schemas/sample";
 import { tsToISO, civilDateToEndOfDay, generateDueDates } from "@/lib/utils/date";
 import type { ActionResult, PaginatedResult } from "@/types";
@@ -28,6 +28,10 @@ function toSampleDoc(id: string, data: FirebaseFirestore.DocumentData): SampleDo
     clientNameSnapshot: data["clientNameSnapshot"] ?? "",
     sampleName: data["sampleName"] ?? "",
     receivedAt: tsToISO(data["receivedAt"]),
+    declaredProduct: data["declaredProduct"] ?? undefined,
+    sampleQuantity: data["sampleQuantity"] ?? undefined,
+    packaging: data["packaging"] ?? undefined,
+    samplingBy: data["samplingBy"] ?? undefined,
     status: data["status"] ?? "pending",
     items: data["items"] ?? [],
     estimatedTotalCents: data["estimatedTotalCents"] ?? 0,
@@ -442,6 +446,10 @@ export async function createSample(raw: unknown): Promise<ActionResult<{ id: str
         clientNameSnapshot: client.displayName,
         sampleName: data.sampleName,
         receivedAt,
+        declaredProduct: data.declaredProduct ?? null,
+        sampleQuantity: data.sampleQuantity ?? null,
+        packaging: data.packaging ?? null,
+        samplingBy: data.samplingBy ?? null,
         status: "pending",
         items: data.items,
         estimatedTotalCents,
@@ -703,6 +711,51 @@ export async function saveSampleResults(
     return { success: true, data: undefined };
   } catch (err) {
     logger.error("Errore salvataggio risultati campione", err);
+    return { success: false, error: "Errore durante il salvataggio. Riprova." };
+  }
+}
+
+// ── Aggiorna metadati campione (prodotto dichiarato, imballaggio, ecc.) ─
+export async function updateSampleMetadata(
+  id: string,
+  raw: unknown,
+  expectedVersion: number,
+): Promise<ActionResult<{ version: number }>> {
+  const actor = await requireAdmin();
+
+  const parsed = SampleMetadataFormSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: "Dati non validi" };
+  }
+  const data = parsed.data;
+
+  try {
+    const result = await adminDb.runTransaction(async (tx) => {
+      const docRef = adminDb.collection(COL).doc(id);
+      const snap = await tx.get(docRef);
+      if (!snap.exists) return { code: "not_found" as const };
+      if ((snap.data()!["version"] ?? 0) !== expectedVersion) return { code: "conflict" as const };
+
+      const newVersion = expectedVersion + 1;
+      tx.update(docRef, {
+        declaredProduct: data.declaredProduct ?? null,
+        sampleQuantity: data.sampleQuantity ?? null,
+        packaging: data.packaging ?? null,
+        samplingBy: data.samplingBy ?? null,
+        version: newVersion,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: actor.uid,
+      });
+      return { code: "ok" as const, version: newVersion };
+    });
+
+    if (result.code === "not_found") return { success: false, error: "Campione non trovato" };
+    if (result.code === "conflict") return { success: false, error: "Il documento è stato modificato. Ricarica la pagina." };
+
+    revalidatePath(`/samples/${id}`);
+    return { success: true, data: { version: result.version } };
+  } catch (err) {
+    logger.error("Errore aggiornamento metadati campione", err);
     return { success: false, error: "Errore durante il salvataggio. Riprova." };
   }
 }

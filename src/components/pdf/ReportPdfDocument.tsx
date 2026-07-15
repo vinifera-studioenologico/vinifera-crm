@@ -20,6 +20,14 @@ const ACCENT = "#111827";
 const BG_CLIENT = "#F3F4F6";
 const BG_TABLE_HEADER = "#F3F4F6";
 
+const SAMPLING_BY_LABEL: Record<string, string> = {
+  client: "Cliente",
+  lab: "Laboratorio",
+};
+
+const DEFAULT_REPORT_LEGAL_NOTE =
+  "Il presente referto riguarda esclusivamente i campioni in esso descritti; i risultati si riferiscono ai campioni così come ricevuti. Il laboratorio declina ogni responsabilità per le informazioni fornite dal cliente (prodotto dichiarato, descrizione, imballaggio, etichetta campione). Il presente documento non può essere riprodotto parzialmente senza autorizzazione scritta del laboratorio.";
+
 // ── Stili ─────────────────────────────────────────────────────────────
 const S = StyleSheet.create({
   page: {
@@ -119,6 +127,14 @@ const S = StyleSheet.create({
   sampleName: { fontSize: 9, color: "#444" },
   sampleMeta: { fontSize: 8, color: "#444", textAlign: "right" },
 
+  // Metadati campione (prodotto dichiarato, quantità, imballaggio, ecc.)
+  sampleDetails: {
+    padding: "6pt 10pt",
+    backgroundColor: "#F9FAFB",
+    borderBottom: "0.5pt solid #eee",
+  },
+  sampleDetailsText: { fontSize: 7.5, color: "#555" },
+
   // Tabella analisi
   tableHeader: {
     flexDirection: "row",
@@ -134,15 +150,15 @@ const S = StyleSheet.create({
   },
   tableRowAlt: { backgroundColor: "#fafafa" },
 
-  colAnalysis: { width: 100 },
-  colCode: { width: 80 },
+  colAnalysis: { width: 389 },  // 479 (row inner) - colResult(55) - colUnit(35)
   colResult: { width: 55, textAlign: "center" },
   colUnit: { width: 35, textAlign: "center" },
-  colMethod: { width: 209, textAlign: "center" },  // 479 (row inner) - 270 (fixed cols)
 
   cellText: { fontSize: 8.5 },
   cellResult: { fontSize: 8.5, fontFamily: "Helvetica-Bold", color: "#1a1a1a" },
   cellNoResult: { fontSize: 8.5, color: "#aaa", fontStyle: "italic" },
+  paramName: { fontSize: 8.5 },
+  paramMethod: { fontSize: 7, fontStyle: "italic", color: "#888", marginTop: 1 },
 
   // Note campione
   sampleNotes: {
@@ -168,6 +184,14 @@ const S = StyleSheet.create({
     marginBottom: 4,
   },
   reportNotesText: { fontSize: 8.5, color: "#444", lineHeight: 1.5 },
+
+  // Nota legale
+  legalNote: {
+    marginTop: 14,
+    fontSize: 6.5,
+    color: "#999",
+    lineHeight: 1.4,
+  },
 
   // Footer
   footerText: { fontSize: 7, color: "#999" },
@@ -232,10 +256,7 @@ export function ReportPdfDocument({
   const totalUsed = clientPackages?.reduce((a, p) => a + (p.totalAnalyses - p.remainingAnalyses), 0) ?? 0;
   const totalRemaining = clientPackages?.reduce((a, p) => a + p.remainingAnalyses, 0) ?? 0;
 
-  // Mostra colonna Metodo solo se almeno un item ha la descrizione
-  const hasMethod = samples.some((s) => s.items.some((it) => it.descriptionSnapshot));
-  // Senza Metodo, la sua larghezza (209) va ad Analisi
-  const colAnalysisWidth = hasMethod ? 100 : 309;
+  const legalNote = company?.reportLegalNote || DEFAULT_REPORT_LEGAL_NOTE;
 
   return (
     <Document
@@ -318,7 +339,15 @@ export function ReportPdfDocument({
         </View>
 
         {/* ── CAMPIONI ── */}
-        {samples.map((sample) => (
+        {samples.map((sample) => {
+          const detailLines = [
+            sample.declaredProduct && `Prodotto dichiarato: ${sample.declaredProduct}`,
+            sample.sampleQuantity && `Quantità: ${sample.sampleQuantity}`,
+            sample.packaging && `Imballaggio: ${sample.packaging}`,
+            sample.samplingBy && `Campionamento a cura di: ${SAMPLING_BY_LABEL[sample.samplingBy]}`,
+          ].filter(Boolean) as string[];
+
+          return (
           <View key={sample.id} style={S.sampleCard} wrap={false}>
             {/* Header campione */}
             <View style={S.sampleHeader}>
@@ -336,32 +365,39 @@ export function ReportPdfDocument({
               </View>
             </View>
 
+            {/* Metadati campione (solo se compilati) */}
+            {detailLines.length > 0 && (
+              <View style={S.sampleDetails}>
+                <Text style={S.sampleDetailsText}>{detailLines.join("  ·  ")}</Text>
+              </View>
+            )}
+
             {/* Tabella analisi */}
             <View style={S.tableHeader}>
-              <Text style={[S.tableHeaderText, S.colCode, { width: colAnalysisWidth }]}>Analisi</Text>
-              <Text style={[S.tableHeaderText, S.colCode]}>Codice OIV</Text>
+              <Text style={[S.tableHeaderText, S.colAnalysis, { textAlign: "left" }]}>Analisi / Metodo</Text>
               <Text style={[S.tableHeaderText, S.colResult]}>Risultato</Text>
               <Text style={[S.tableHeaderText, S.colUnit]}>U.M.</Text>
-              {hasMethod && <Text style={[S.tableHeaderText, S.colMethod]}>Metodo</Text>}
             </View>
 
             {sample.items.map((item, i) => {
               const code = item.analysisCodeSnapshot ?? "";
-              const method = item.descriptionSnapshot ?? "";
-              const codeFontSize = dynamicFontSize(code, 8.5, [[8, 8.5], [14, 7.5], [20, 6.5], [999, 5.5]]);
-              const methodFontSize = dynamicFontSize(method, 8, [[30, 8], [60, 7], [999, 6.5]]);
+              const description = item.descriptionSnapshot ?? "";
+              const methodLine = [code, description].filter(Boolean).join(" · ");
+              const methodFontSize = dynamicFontSize(methodLine, 7, [[40, 7], [70, 6.5], [999, 6]]);
 
               return (
                 <View
                   key={item.analysisId}
                   style={[S.tableRow, i % 2 === 1 ? S.tableRowAlt : {}]}
                 >
-                  <Text style={[S.cellText, { width: colAnalysisWidth }]}>
-                    {item.analysisNameSnapshot}
-                  </Text>
-                  <Text style={[S.colCode, { fontSize: codeFontSize, fontFamily: "Courier" }]}>
-                    {code}
-                  </Text>
+                  <View style={S.colAnalysis}>
+                    <Text style={S.paramName}>{item.analysisNameSnapshot}</Text>
+                    {methodLine && (
+                      <Text style={[S.paramMethod, { fontSize: methodFontSize }]}>
+                        {methodLine}
+                      </Text>
+                    )}
+                  </View>
                   {item.result ? (
                     <Text style={[S.cellResult, S.colResult]}>{item.result}</Text>
                   ) : (
@@ -370,11 +406,6 @@ export function ReportPdfDocument({
                   <Text style={[S.cellText, S.colUnit, { color: "#555" }]}>
                     {item.unitSnapshot ?? ""}
                   </Text>
-                  {hasMethod && (
-                    <Text style={[S.colMethod, { fontSize: methodFontSize, color: "#555" }]}>
-                      {method}
-                    </Text>
-                  )}
                 </View>
               );
             })}
@@ -386,7 +417,8 @@ export function ReportPdfDocument({
               </View>
             )}
           </View>
-        ))}
+          );
+        })}
 
         {/* ── NOTE REFERTO ── */}
         {notes && (
@@ -395,6 +427,9 @@ export function ReportPdfDocument({
             <Text style={S.reportNotesText}>{notes}</Text>
           </View>
         )}
+
+        {/* ── NOTA LEGALE ── */}
+        <Text style={S.legalNote}>{legalNote}</Text>
 
         {/* ── FOOTER ── */}
         <Text
