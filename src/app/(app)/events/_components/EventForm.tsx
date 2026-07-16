@@ -501,7 +501,7 @@ export function EventForm({ existing, onSuccess }: Props) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    Posti massimi per ordine{isFree ? " *" : ""}
+                    Posti massimi per ogni prenotazione{isFree ? " *" : ""}
                   </FormLabel>
                   {isFree && (
                     <FormDescription className="text-xs text-amber-600 dark:text-amber-400">
