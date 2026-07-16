@@ -285,6 +285,7 @@ export async function updateEvent(
 
     revalidatePath("/events");
     revalidatePath(`/events/${id}`);
+    triggerSiteRevalidation("events");
 
     const { overbookedExcess } = txResult;
 
