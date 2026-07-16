@@ -55,7 +55,7 @@ export async function getTopPages(days: RangeDays) {
        FROM events
        WHERE event = '$pageview' AND timestamp >= toDateTime('${LIVE_SINCE}', 'Europe/Rome')
          AND timestamp >= now() - INTERVAL ${days} DAY
-       GROUP BY properties.$pathname
+       GROUP BY path
      )
      GROUP BY path ORDER BY views DESC LIMIT 10`,
     "crm_top_pages",
