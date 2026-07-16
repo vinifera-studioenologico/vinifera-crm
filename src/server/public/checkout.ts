@@ -1,5 +1,6 @@
 import "server-only";
 
+import type Stripe from "stripe";
 import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin";
 import { stripe } from "@/lib/stripe";
@@ -58,6 +59,35 @@ async function getNextOrderNumber(
   const next = (snap.data()?.["seq"] ?? 0) + 1;
   tx.set(counterRef, { seq: next }, { merge: true });
   return `EVT-${year}-${String(next).padStart(4, "0")}`;
+}
+
+// ── Helper: PaymentIntent con bonifico opzionale ───────────────────────
+// Tenta di creare il PaymentIntent includendo il bonifico (customer_balance);
+// se Stripe lo rifiuta (es. non ancora attivato sull'account live) ritenta
+// senza. Così il bonifico torna disponibile in automatico appena viene
+// attivato su Stripe, senza bisogno di un altro deploy — e nel frattempo
+// un fallimento su quel singolo metodo non rompe il checkout per gli altri.
+async function createPaymentIntentWithBankTransferFallback(
+  base: Pick<
+    Stripe.PaymentIntentCreateParams,
+    "amount" | "currency" | "receipt_email" | "description" | "metadata"
+  >,
+) {
+  try {
+    return await stripe.paymentIntents.create({
+      ...base,
+      payment_method_types: ["card", "customer_balance", "link"],
+      payment_method_options: {
+        customer_balance: {
+          funding_type: "bank_transfer",
+          bank_transfer: { type: "eu_bank_transfer", eu_bank_transfer: { country: "IT" } },
+        },
+      },
+    });
+  } catch (err) {
+    console.warn("[Checkout] customer_balance non disponibile, fallback a card+link:", err);
+    return stripe.paymentIntents.create({ ...base, payment_method_types: ["card", "link"] });
+  }
 }
 
 // ── Tipi risposta checkout ────────────────────────────────────────────
@@ -425,25 +455,12 @@ export async function handleCheckout(
 
   // Crea PaymentIntent Stripe
   try {
-    const pi = await stripe.paymentIntents.create({
+    const pi = await createPaymentIntentWithBankTransferFallback({
       amount: totalCents,
       currency: "eur",
       receipt_email: body.buyer.email,
       description: `${ev.titleIt} × ${body.seats} — ${orderNumber}`,
       metadata: { orderId, eventId: body.event_id, seats: String(body.seats) },
-      // Solo questi metodi (in quest'ordine lato client, vedi CheckoutClient.tsx in
-      // vinifera-site): bonifico, carta (Apple Pay/Google Pay viaggiano sul tipo
-      // "card" come wallet, non sono tipi a parte), Link.
-      payment_method_types: ["card", "customer_balance", "link"],
-      payment_method_options: {
-        customer_balance: {
-          funding_type: "bank_transfer",
-          bank_transfer: {
-            type: "eu_bank_transfer",
-            eu_bank_transfer: { country: "IT" },
-          },
-        },
-      },
     });
 
     await adminDb.collection("eventOrders").doc(orderId).update({
