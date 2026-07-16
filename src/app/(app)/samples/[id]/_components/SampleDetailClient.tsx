@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-import type { SampleDoc, SampleStatus } from "@/schemas/sample";
+import type { SampleDoc, SampleStatus, SampleSamplingBy } from "@/schemas/sample";
 import type { AnalysisDoc } from "@/schemas/analysis";
 import {
   updateSampleStatus,
@@ -27,6 +27,7 @@ import {
   deleteSampleNote,
   addSampleAnalyses,
   removeSampleAnalysis,
+  updateSampleMetadata,
 } from "@/server/actions/samples";
 import { formatEUR } from "@/lib/utils/money";
 import { formatDate } from "@/lib/utils/date";
@@ -105,6 +106,15 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
   const [newNote, setNewNote] = useState("");
   const [isAddingNote, startAddNote] = useTransition();
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+
+  // ── Metadati campione (prodotto dichiarato, quantità, imballaggio, ecc.) ──
+  const [metadata, setMetadata] = useState({
+    declaredProduct: sample.declaredProduct ?? "",
+    sampleQuantity: sample.sampleQuantity ?? "",
+    packaging: sample.packaging ?? "",
+    samplingBy: sample.samplingBy ?? "",
+  });
+  const [isSavingMetadata, startSaveMetadata] = useTransition();
 
   // ── Aggiunta / rimozione analisi (solo campioni modificabili) ─────────
   const editable = sample.status === "pending" || sample.status === "in_progress";
@@ -301,6 +311,27 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
       if (res.success) {
         toast.success("Risultati salvati");
         setVersion((v) => v + 1);
+      } else {
+        toast.error(res.error);
+      }
+    });
+  }
+
+  function handleSaveMetadata() {
+    startSaveMetadata(async () => {
+      const res = await updateSampleMetadata(
+        sample.id,
+        {
+          declaredProduct: metadata.declaredProduct || undefined,
+          sampleQuantity: metadata.sampleQuantity || undefined,
+          packaging: metadata.packaging || undefined,
+          samplingBy: metadata.samplingBy || undefined,
+        },
+        version,
+      );
+      if (res.success) {
+        toast.success("Dettagli campione aggiornati");
+        setVersion(res.data.version);
       } else {
         toast.error(res.error);
       }
@@ -522,6 +553,83 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
           <p className="text-xl font-semibold tabular-nums mt-1">
             {formatEUR(sample.estimatedTotalCents)}
           </p>
+        </div>
+      </div>
+
+      {/* Dettagli campione (mostrati nel referto PDF se compilati) */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold">Dettagli campione</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Campi opzionali: se compilati, vengono riportati nel referto PDF.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={isSavingMetadata}
+            onClick={handleSaveMetadata}
+          >
+            {isSavingMetadata ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Save className="size-3.5" strokeWidth={1.75} />
+            )}
+            Salva
+          </Button>
+        </div>
+        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="sm:col-span-2 space-y-1.5">
+            <label className="text-xs text-muted-foreground">Prodotto dichiarato</label>
+            <Input
+              placeholder="es. Cerasuolo d'Abruzzo Colline Teramane Superiore DOC 2024"
+              className="h-8 text-sm"
+              value={metadata.declaredProduct}
+              onChange={(e) =>
+                setMetadata((prev) => ({ ...prev, declaredProduct: e.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">Quantità campione</label>
+            <Input
+              placeholder="es. 0,50 lt"
+              className="h-8 text-sm"
+              value={metadata.sampleQuantity}
+              onChange={(e) =>
+                setMetadata((prev) => ({ ...prev, sampleQuantity: e.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">Imballaggio</label>
+            <Input
+              placeholder="es. Bottiglia vetro con tappo corona"
+              className="h-8 text-sm"
+              value={metadata.packaging}
+              onChange={(e) =>
+                setMetadata((prev) => ({ ...prev, packaging: e.target.value }))
+              }
+            />
+          </div>
+          <div className="sm:col-span-2 space-y-1.5">
+            <label className="text-xs text-muted-foreground">Campionamento a cura di</label>
+            <select
+              className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50"
+              value={metadata.samplingBy}
+              onChange={(e) =>
+                setMetadata((prev) => ({
+                  ...prev,
+                  samplingBy: e.target.value as SampleSamplingBy | "",
+                }))
+              }
+            >
+              <option value="">— Non specificato —</option>
+              <option value="client">Cliente</option>
+              <option value="lab">Laboratorio</option>
+            </select>
+          </div>
         </div>
       </div>
 

@@ -20,6 +20,9 @@ import {
   Globe,
   UserPlus,
   LineChart,
+  CalendarDays,
+  Users2,
+  TrendingUp,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -61,6 +64,10 @@ const NAV_GROUPS = [
     label: "Sito Web",
     items: [
       { href: "/servizi", label: "Servizi", icon: Globe },
+      { href: "/events", label: "Eventi", icon: CalendarDays },
+      { href: "/events/subscribers", label: "Iscritti", icon: Users2 },
+      { href: "/events/buyers", label: "Acquirenti", icon: Users },
+      { href: "/events/stats", label: "Entrate eventi", icon: TrendingUp },
       { href: "/leads", label: "Lead", icon: UserPlus },
       { href: "/analytics", label: "Analytics", icon: LineChart },
     ],

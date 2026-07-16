@@ -25,6 +25,7 @@ import {
   ExternalLink,
   Loader2,
   AlertCircle,
+  Ticket,
 } from "lucide-react";
 import {
   Card,
@@ -224,6 +225,9 @@ export function AnalyticsClient() {
   const conversionRate = visitors > 0
     ? ((leadsSubmittedPeople / visitors) * 100).toFixed(1)
     : "0";
+  const checkoutStarted = kpis["event_checkout_started"]?.n ?? 0;
+  const checkoutCompleted = kpis["event_checkout_completed"]?.n ?? 0;
+  const checkoutExpired = kpis["event_checkout_expired"]?.n ?? 0;
 
   return (
     <div className="space-y-6">
@@ -470,6 +474,50 @@ export function AnalyticsClient() {
                           style={{ width: `${pageviews > 0 ? (count / pageviews) * 100 : 0}%` }}
                         />
                       </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Modulo eventi — checkout */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-1.5">
+                <Ticket className="h-4 w-4 text-muted-foreground" />
+                Prenotazioni eventi
+              </CardTitle>
+              <CardDescription>Checkout avviati, completati e scaduti (gratuiti + a pagamento)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {checkoutStarted === 0 ? (
+                <p className="text-sm text-muted-foreground">Nessun dato nel periodo</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-4">
+                  {[
+                    { label: "Checkout avviati", value: checkoutStarted },
+                    {
+                      label: "Completati",
+                      value: checkoutCompleted,
+                      hint: pct(checkoutCompleted, checkoutStarted),
+                    },
+                    {
+                      label: "Scaduti",
+                      value: checkoutExpired,
+                      hint: pct(checkoutExpired, checkoutStarted),
+                    },
+                  ].map(({ label, value, hint }) => (
+                    <div key={label}>
+                      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+                      <p className="text-2xl font-semibold tabular-nums">
+                        {fmt.format(value)}
+                        {hint && (
+                          <span className="text-xs text-muted-foreground font-normal ml-1.5">
+                            {hint}
+                          </span>
+                        )}
+                      </p>
                     </div>
                   ))}
                 </div>

@@ -106,6 +106,7 @@ export const CompanySettingsSchema = z.object({
   defaultEnpaiaApplied: z.boolean(),
   quoteFooterNote: z.string().max(1000).optional(),
   reportFooterNote: z.string().max(1000).optional(),
+  reportLegalNote: z.string().max(2000).optional(),
   // Testi personalizzati PDF preventivo
   quoteFiscalNote: z.string().max(3000).optional(),
   quoteConditions: z.string().max(5000).optional(),

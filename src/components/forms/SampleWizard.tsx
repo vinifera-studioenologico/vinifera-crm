@@ -205,6 +205,79 @@ function Step1({ clients }: { clients: ClientDoc[] }) {
 
       <FormField
         control={form.control}
+        name="declaredProduct"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Prodotto dichiarato</FormLabel>
+            <FormControl>
+              <Input
+                placeholder="es. Cerasuolo d'Abruzzo Colline Teramane Superiore DOC 2024"
+                {...field}
+                value={field.value ?? ""}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <div className="grid grid-cols-2 gap-4">
+        <FormField
+          control={form.control}
+          name="sampleQuantity"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Quantità campione</FormLabel>
+              <FormControl>
+                <Input placeholder="es. 0,50 lt" {...field} value={field.value ?? ""} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="packaging"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Imballaggio</FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="es. Bottiglia vetro con tappo corona"
+                  {...field}
+                  value={field.value ?? ""}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
+
+      <FormField
+        control={form.control}
+        name="samplingBy"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Campionamento a cura di</FormLabel>
+            <FormControl>
+              <select
+                className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50"
+                value={field.value ?? ""}
+                onChange={(e) => field.onChange(e.target.value || undefined)}
+              >
+                <option value="">— Non specificato —</option>
+                <option value="client">Cliente</option>
+                <option value="lab">Laboratorio</option>
+              </select>
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
         name="notes"
         render={({ field }) => (
           <FormItem>
@@ -758,6 +831,9 @@ export function SampleWizard({
       clientId: defaultClientId ?? "",
       sampleName: "",
       receivedAt: today,
+      declaredProduct: "",
+      sampleQuantity: "",
+      packaging: "",
       notes: "",
       items: [],
       createPayment: false,

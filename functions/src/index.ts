@@ -9,18 +9,27 @@
  */
 
 import { onSchedule } from "firebase-functions/v2/scheduler";
-import { defineSecret } from "firebase-functions/params";
+import { defineSecret, defineString } from "firebase-functions/params";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
+import {
+  computeNextOccurrence,
+  buildNewEventSlug,
+  shiftDate,
+} from "./event-logic";
 
 initializeApp();
 
 const db = getFirestore();
 
-// ── Secrets (impostati tramite firebase functions:secrets:set) ─────────
+// ── Secrets e params ──────────────────────────────────────────────────
 const resendApiKey = defineSecret("RESEND_API_KEY");
 const resendFromEmail = defineSecret("RESEND_FROM_EMAIL");
+// Nuovi per checkEvents (indipendenti dagli env Vercel — impostare con firebase functions:secrets:set)
+const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
+const crmApiKey = defineSecret("CRM_API_KEY");
+const siteUrl = defineString("SITE_URL", { default: "" });
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -625,6 +634,330 @@ export const checkReminders = onSchedule(
     }
     if (generatedFixedCostExpenses > 0) {
       logger.info(`Generated ${generatedFixedCostExpenses} expense(s) from fixed cost(s) due today`);
+    }
+  },
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  checkEvents — Scadenza hold, apertura prenotazioni, ricorrenza eventi
+// ─────────────────────────────────────────────────────────────────────────────
+
+const HOLD_GRACE_SECONDS = 90;
+
+export const checkEvents = onSchedule(
+  {
+    schedule: "* * * * *",
+    timeZone: "Europe/Rome",
+    secrets: [stripeSecretKey, crmApiKey],
+    memory: "256MiB",
+    timeoutSeconds: 60,
+    region: "europe-west1",
+  },
+  async () => {
+    const now = new Date();
+
+    // ── 1. Rilascio hold scaduti ──────────────────────────────────────
+    // Cerca ordini pending_payment con holdExpiresAt <= now - grace (90s)
+    const graceThreshold = Timestamp.fromDate(
+      new Date(now.getTime() - HOLD_GRACE_SECONDS * 1000),
+    );
+
+    const holdSnap = await db
+      .collection("eventOrders")
+      .where("status", "==", "pending_payment")
+      .where("holdExpiresAt", "<=", graceThreshold)
+      .get();
+
+    let releasedCount = 0;
+
+    for (const orderDoc of holdSnap.docs) {
+      const d = orderDoc.data();
+      const piId = d["paymentIntentId"] as string | null;
+      const eventId = d["eventId"] as string;
+      const seats = (d["seats"] as number) ?? 0;
+
+      try {
+        // Cancella il PaymentIntent (se già succeeded, Stripe ignora silenziosamente)
+        if (piId) {
+          const Stripe = await import("stripe");
+          const stripe = new Stripe.default(stripeSecretKey.value(), {
+            apiVersion: "2026-06-24.dahlia" as const,
+          } as Parameters<typeof Stripe.default>[1]);
+          await stripe.paymentIntents.cancel(piId).catch((err: { code?: string }) => {
+            if (err?.code === "payment_intent_unexpected_state") {
+              // Già succeeded — il webhook M4 gestirà la riconciliazione
+              logger.info(`PI ${piId} già in stato terminale, skip cancel`);
+            } else {
+              throw err;
+            }
+          });
+        }
+
+        // Transazione: marca expired + rilascia seatsHeld
+        await db.runTransaction(async (tx) => {
+          const orderRef = db.collection("eventOrders").doc(orderDoc.id);
+          const eventRef = db.collection("events").doc(eventId);
+
+          const freshOrder = await tx.get(orderRef);
+          // Idempotenza: se non è più pending_payment, skip
+          if (freshOrder.data()?.["status"] !== "pending_payment") return;
+
+          tx.update(orderRef, {
+            status: "expired",
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+          tx.update(eventRef, {
+            seatsHeld: FieldValue.increment(-seats),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        });
+
+        releasedCount++;
+        logger.info(`Hold rilasciato: ordine ${orderDoc.id}, evento ${eventId}`);
+      } catch (err) {
+        logger.error(`Errore rilascio hold per ordine ${orderDoc.id}`, err);
+      }
+    }
+
+    // Se almeno un hold è stato rilasciato → revalidation push
+    if (releasedCount > 0) {
+      const url = siteUrl.value();
+      const key = crmApiKey.value();
+      if (url && key) {
+        fetch(`${url}/api/revalidate`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${key}`,
+          },
+          body: JSON.stringify({ tag: "events" }),
+        }).catch((err) => logger.error("Revalidation push fallita", err));
+      }
+      logger.info(`${releasedCount} hold rilasciato/i`);
+    }
+
+    // ── 2. Apertura prenotazioni (bookingOpensAt → bookable) ──────────
+    // Lo stato bookable è derivato — nessuna scrittura necessaria per la correttezza.
+    // Qui gestiamo: push revalidation + TODO M7 (notifica mailing list).
+    const bookingOpenSnap = await db
+      .collection("events")
+      .where("status", "==", "published")
+      .where("bookingOpensAt", "<=", Timestamp.fromDate(now))
+      .where("subscribersNotifiedAt", "==", null)
+      .get();
+
+    for (const evDoc of bookingOpenSnap.docs) {
+      const d = evDoc.data();
+      const bookingOpensAt = (d["bookingOpensAt"] as Timestamp | null)?.toDate();
+
+      // Verifica che bookingOpensAt sia davvero passato (la query potrebbe contenere
+      // eventi con bookingOpensAt null per via di Firestore null ordering)
+      if (!bookingOpensAt || bookingOpensAt > now) continue;
+
+      try {
+        // Push revalidation per aggiornare il badge sul sito
+        const url = siteUrl.value();
+        const key = crmApiKey.value();
+        if (url && key) {
+          fetch(`${url}/api/revalidate`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${key}`,
+            },
+            body: JSON.stringify({ tag: "events" }),
+          }).catch((err) => logger.error("Revalidation push fallita", err));
+        }
+
+        // M7: notifica mailing list (guardia transazionale su subscribersNotifiedAt)
+        const canNotify = await db.runTransaction(async (tx) => {
+          const freshSnap = await tx.get(evDoc.ref);
+          if (!freshSnap.exists) return false;
+          const current = freshSnap.data()!;
+          if (current["subscribersNotifiedAt"] !== null && current["subscribersNotifiedAt"] !== undefined) {
+            return false; // già notificato
+          }
+          tx.update(evDoc.ref, {
+            subscribersNotifiedAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+          return true;
+        });
+
+        if (canNotify) {
+          // Invia email agli iscritti attivi
+          const subscribersSnap = await db
+            .collection("eventSubscribers")
+            .where("status", "==", "active")
+            .get();
+
+          const resendKey = resendApiKey.value();
+          const fromEmail = resendFromEmail.value() || "noreply@vinifera.app";
+          const siteUrlVal = siteUrl.value();
+
+          if (resendKey && !subscribersSnap.empty) {
+            const { Resend } = await import("resend");
+            const resend = new Resend(resendKey);
+            const evData = evDoc.data();
+            const titleIt = (evData["title"] as Record<string, string>)?.["it"] ?? "";
+            const slug = evData["slug"] as string ?? "";
+            const startsAtDate = (evData["startsAt"] as Timestamp).toDate();
+
+            for (const subDoc of subscribersSnap.docs) {
+              const sub = subDoc.data();
+              const locale: string = sub["locale"] ?? "it";
+              const email: string = sub["email"] ?? "";
+              const unsubToken: string = sub["unsubscribeToken"] ?? "";
+              if (!email) continue;
+
+              const isIt = locale === "it";
+              const eventTitle = (evData["title"] as Record<string, string>)?.[locale] || titleIt;
+              const eventUrl = `${siteUrlVal}/${locale}/eventi/${slug}`;
+              const unsubUrl = `${siteUrlVal}/${locale}/eventi/disiscrizione?token=${unsubToken}`;
+              const dateStr = startsAtDate.toLocaleDateString(isIt ? "it-IT" : "en-GB", {
+                day: "numeric", month: "long", year: "numeric",
+              });
+
+              const subject = isIt
+                ? `Nuovo evento disponibile: ${eventTitle}`
+                : `New event available: ${eventTitle}`;
+
+              const html = buildEmailHtml(subject,
+                isIt
+                  ? `<p>Le prenotazioni per <strong>${eventTitle}</strong> sono ora aperte.</p><p>📅 ${dateStr}</p><p style="margin:20px 0"><a href="${eventUrl}" style="display:inline-block;padding:12px 24px;background:#145a44;color:white;text-decoration:none;border-radius:8px;font-weight:600;">Scopri l'evento</a></p><p style="font-size:11px;color:#9ca3af"><a href="${unsubUrl}" style="color:#9ca3af;">Disiscrivi</a></p>`
+                  : `<p>Bookings for <strong>${eventTitle}</strong> are now open.</p><p>📅 ${dateStr}</p><p style="margin:20px 0"><a href="${eventUrl}" style="display:inline-block;padding:12px 24px;background:#145a44;color:white;text-decoration:none;border-radius:8px;font-weight:600;">Discover the event</a></p><p style="font-size:11px;color:#9ca3af"><a href="${unsubUrl}" style="color:#9ca3af;">Unsubscribe</a></p>`,
+              );
+
+              await resend.emails.send({ from: fromEmail, to: email, subject, html }).catch(() => {});
+            }
+          }
+        }
+
+        logger.info(`Apertura prenotazioni rilevata per evento ${evDoc.id}`);
+      } catch (err) {
+        logger.error(`Errore apertura prenotazioni evento ${evDoc.id}`, err);
+      }
+    }
+
+    // ── 3. Ricorrenza eventi conclusi ─────────────────────────────────
+    // Cerca eventi published con startsAt < now, recurrence != null, recurrenceProcessedAt == null
+    const pastRecurringSnap = await db
+      .collection("events")
+      .where("status", "==", "published")
+      .where("startsAt", "<", Timestamp.fromDate(now))
+      .where("recurrenceProcessedAt", "==", null)
+      .get();
+
+    for (const evDoc of pastRecurringSnap.docs) {
+      const d = evDoc.data();
+      const recurrence = d["recurrence"] as {
+        rule: "daily" | "weekly" | "monthly" | "yearly";
+        interval: number;
+        until?: Timestamp;
+      } | null;
+
+      // Salta se nessuna ricorrenza configurata
+      if (!recurrence) continue;
+
+      const startsAt = (d["startsAt"] as Timestamp).toDate();
+      const endsAt = (d["endsAt"] as Timestamp | null)?.toDate() ?? null;
+      const bookingOpensAt = (d["bookingOpensAt"] as Timestamp | null)?.toDate() ?? null;
+      const bookingClosesAt = (d["bookingClosesAt"] as Timestamp | null)?.toDate() ?? null;
+      const until = recurrence.until ? recurrence.until.toDate() : null;
+
+      // Calcola la data della prossima istanza
+      const nextStartsAt = computeNextOccurrence(startsAt, recurrence.rule, recurrence.interval);
+
+      // Se until è superato, non creare
+      if (until && nextStartsAt > until) {
+        // Setta recurrenceProcessedAt per non riprocessare
+        await evDoc.ref.update({
+          recurrenceProcessedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        continue;
+      }
+
+      const deltaMs = nextStartsAt.getTime() - startsAt.getTime();
+      const newSlug = buildNewEventSlug(d["slug"] as string, nextStartsAt);
+
+      // Verifica unicità slug (non duplicare se già esiste)
+      const slugCheck = await db
+        .collection("events")
+        .where("slug", "==", newSlug)
+        .where("deletedAt", "==", null)
+        .limit(1)
+        .get();
+
+      if (!slugCheck.empty) {
+        // Istanza già creata (invocazione precedente) — setta guard
+        await evDoc.ref.update({
+          recurrenceProcessedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        continue;
+      }
+
+      try {
+        const newDoc: Record<string, unknown> = {
+          slug: newSlug,
+          status: "draft",
+          title: d["title"],
+          summary: d["summary"],
+          description: d["description"],
+          imageUrl: d["imageUrl"],
+          images: d["images"],
+          location: d["location"],
+          startsAt: Timestamp.fromDate(nextStartsAt),
+          endsAt: endsAt ? Timestamp.fromDate(shiftDate(endsAt, deltaMs)!) : null,
+          bookingOpensAt: bookingOpensAt ? Timestamp.fromDate(shiftDate(bookingOpensAt, deltaMs)!) : null,
+          bookingClosesAt: bookingClosesAt ? Timestamp.fromDate(shiftDate(bookingClosesAt, deltaMs)!) : null,
+          capacity: d["capacity"],
+          maxSeatsPerOrder: d["maxSeatsPerOrder"] ?? null,
+          priceCents: d["priceCents"],
+          discountedPriceCents: d["discountedPriceCents"] ?? null,
+          featured: false, // la nuova istanza non è in evidenza di default
+          recurrence: d["recurrence"],
+          recurrenceParentId: evDoc.id,
+          recurrenceProcessedAt: null,
+          seatsSold: 0,
+          seatsHeld: 0,
+          subscribersNotifiedAt: null,
+          cancelledAt: null,
+          version: 0,
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+          deletedAt: null,
+          createdBy: d["createdBy"] ?? null,
+        };
+
+        await db.runTransaction(async (tx) => {
+          // Crea la nuova istanza draft
+          const newEvRef = db.collection("events").doc();
+          tx.set(newEvRef, newDoc);
+
+          // Marca l'istanza corrente come processata
+          tx.update(evDoc.ref, {
+            recurrenceProcessedAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        });
+
+        // Notifica admin via Telegram
+        const notif = await loadNotifConfig();
+        const msgText = [
+          `📅 <b>Nuova istanza evento creata in bozza</b>`,
+          `Evento: <b>${(d["title"] as Record<string, string>)?.["it"] ?? newSlug}</b>`,
+          `Data: ${nextStartsAt.toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" })}`,
+          `Slug: <code>${newSlug}</code>`,
+          `Azione: pubblica manualmente dal CRM prima dell'apertura prenotazioni.`,
+        ].join("\n");
+        await sendTelegram(notif.telegramToken, notif.telegramChatId, msgText);
+
+        logger.info(`Nuova istanza ricorrente creata: ${newSlug} per evento ${evDoc.id}`);
+      } catch (err) {
+        logger.error(`Errore creazione istanza ricorrente per evento ${evDoc.id}`, err);
+      }
     }
   },
 );
