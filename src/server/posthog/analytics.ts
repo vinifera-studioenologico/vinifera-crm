@@ -47,8 +47,8 @@ export async function getTopPages(days: RangeDays) {
        SELECT
          multiIf(
            properties.$pathname IN ('/', '/it', '/en'), '/',
-           startsWith(properties.$pathname, '/it/'), substring(properties.$pathname, 4),
-           startsWith(properties.$pathname, '/en/'), substring(properties.$pathname, 4),
+           startsWith(properties.$pathname, '/it/'), substring(properties.$pathname, 4, length(properties.$pathname)),
+           startsWith(properties.$pathname, '/en/'), substring(properties.$pathname, 4, length(properties.$pathname)),
            properties.$pathname
          ) AS path,
          count() AS views
