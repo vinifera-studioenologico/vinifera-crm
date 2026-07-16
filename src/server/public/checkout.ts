@@ -431,7 +431,19 @@ export async function handleCheckout(
       receipt_email: body.buyer.email,
       description: `${ev.titleIt} × ${body.seats} — ${orderNumber}`,
       metadata: { orderId, eventId: body.event_id, seats: String(body.seats) },
-      automatic_payment_methods: { enabled: true },
+      // Solo questi metodi (in quest'ordine lato client, vedi CheckoutClient.tsx in
+      // vinifera-site): bonifico, carta (Apple Pay/Google Pay viaggiano sul tipo
+      // "card" come wallet, non sono tipi a parte), Link.
+      payment_method_types: ["card", "customer_balance", "link"],
+      payment_method_options: {
+        customer_balance: {
+          funding_type: "bank_transfer",
+          bank_transfer: {
+            type: "eu_bank_transfer",
+            eu_bank_transfer: { country: "IT" },
+          },
+        },
+      },
     });
 
     await adminDb.collection("eventOrders").doc(orderId).update({
