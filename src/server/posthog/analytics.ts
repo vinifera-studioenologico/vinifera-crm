@@ -2,7 +2,7 @@
 import "server-only";
 
 import { requireAdmin } from "@/server/auth";
-import { hogql, LIVE_SINCE } from "./client";
+import { hogql, LIVE_SINCE, EVENTS_LIVE_SINCE } from "./client";
 
 export type RangeDays = 7 | 30 | 90;
 
@@ -27,11 +27,15 @@ export async function getKpis(days: RangeDays) {
   const { results } = await hogql<[string, number, number]>(
     `SELECT event, count() AS n, count(DISTINCT person_id) AS people
      FROM events
-     WHERE timestamp >= toDateTime('${LIVE_SINCE}', 'Europe/Rome')
-       AND timestamp >= now() - INTERVAL ${days} DAY
-       AND event IN ('$pageview','service_viewed','lead_modal_opened',
-                     'lead_submitted','phone_call_clicked','whatsapp_clicked',
-                     'event_checkout_started','event_checkout_completed','event_checkout_expired')
+     WHERE timestamp >= now() - INTERVAL ${days} DAY
+       AND (
+         (event IN ('$pageview','service_viewed','lead_modal_opened',
+                    'lead_submitted','phone_call_clicked','whatsapp_clicked')
+          AND timestamp >= toDateTime('${LIVE_SINCE}', 'Europe/Rome'))
+         OR
+         (event IN ('event_checkout_started','event_checkout_completed','event_checkout_expired')
+          AND timestamp >= toDateTime('${EVENTS_LIVE_SINCE}', 'Europe/Rome'))
+       )
      GROUP BY event`,
     "crm_kpi_summary",
   );

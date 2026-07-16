@@ -7,6 +7,13 @@ const KEY = process.env.POSTHOG_PERSONAL_API_KEY ?? "";
 /** Data go-live (UTC): ignora tutti gli eventi/sessioni precedenti (test/dev). */
 export const LIVE_SINCE = "2026-07-09T14:00:00Z";
 
+/**
+ * Go-live specifico per il modulo eventi (checkout): 2026-07-16 16:45 Europe/Rome (= 14:45 UTC,
+ * CEST). Ignora i checkout precedenti (dati di test) senza toccare LIVE_SINCE usato dal resto
+ * delle analytics.
+ */
+export const EVENTS_LIVE_SINCE = "2026-07-16T14:45:00Z";
+
 function assertConfigured() {
   if (!PROJECT || !KEY)
     throw new Error(
