@@ -36,6 +36,18 @@ service firebase.storage {
       allow write: if false;
     }
 
+    // ── Immagini eventi ──────────────────────────────────────────────
+    // Path: events/{eventId}/{fileName}
+    // Immagini pubbliche (mostrate su vinifera-site) → lettura libera.
+    // Scrittura diretta da browser (Client SDK) per bypassare il limite di
+    // body size delle Vercel Serverless Functions sui Server Actions.
+    match /events/{eventId}/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin()
+        && request.resource.size < 20 * 1024 * 1024
+        && request.resource.contentType.matches("image/(png|jpeg|webp)");
+    }
+
     // ── Deny-by-default ───────────────────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;

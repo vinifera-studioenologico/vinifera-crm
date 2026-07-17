@@ -473,47 +473,11 @@ export async function restoreEvent(id: string): Promise<ActionResult<void>> {
   }
 }
 
-// ── Upload immagine evento su Storage ─────────────────────────────────
-export async function uploadEventImage(
-  eventId: string,
-  formData: FormData,
-  slot: string,
-): Promise<ActionResult<{ url: string }>> {
-  await requireAdmin();
-
-  const file = formData.get("image");
-  if (!(file instanceof File)) return { success: false, error: "File non trovato" };
-  if (file.size > 10 * 1024 * 1024)
-    return { success: false, error: "L'immagine non può superare 10MB" };
-
-  const allowedMimes = ["image/png", "image/jpeg", "image/webp"];
-  if (!allowedMimes.includes(file.type))
-    return { success: false, error: "Formato non supportato. Carica un'immagine PNG, JPEG o WebP." };
-
-  try {
-    const ext = file.name.split(".").pop() ?? "jpg";
-    const storagePath = `events/${eventId}/${slot}.${ext}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const bucket = adminStorage.bucket();
-    const fileRef = bucket.file(storagePath);
-
-    await fileRef.save(buffer, {
-      metadata: { contentType: file.type, cacheControl: "public, max-age=31536000" },
-    });
-
-    const [signedUrl] = await fileRef.getSignedUrl({
-      action: "read",
-      expires: Date.now() + 10 * 365 * 24 * 60 * 60 * 1000,
-    });
-
-    return { success: true, data: { url: signedUrl } };
-  } catch (err) {
-    logger.error("Errore upload immagine evento", err);
-    return { success: false, error: "Errore durante il caricamento. Riprova." };
-  }
-}
-
 // ── Cancella immagine evento da Storage ───────────────────────────────
+// Nota: l'upload avviene lato client, direttamente su Firebase Storage
+// (vedi EventForm.tsx) per non passare i byte del file attraverso una
+// Server Action — le Vercel Serverless Functions impongono un limite di
+// body size di ~4.5MB non aggirabile da config applicativa.
 export async function deleteEventImage(
   eventId: string,
   slot: string,

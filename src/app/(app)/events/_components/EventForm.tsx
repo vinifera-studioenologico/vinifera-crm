@@ -7,14 +7,11 @@ import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import type { EventDoc } from "@/schemas/event";
-import {
-  createEvent,
-  updateEvent,
-  uploadEventImage,
-  deleteEventImage,
-} from "@/server/actions/events";
+import { createEvent, updateEvent, deleteEventImage } from "@/server/actions/events";
+import { storage } from "@/lib/firebase/client";
 import { toCents, fromCents } from "@/lib/utils/money";
 
 import {
@@ -216,7 +213,11 @@ export function EventForm({ existing, onSuccess }: Props) {
     });
   }
 
-  const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+  // Upload diretto browser → Firebase Storage (bypassa il limite di body size
+  // delle Vercel Serverless Functions, che bloccherebbe file oltre ~4.5MB
+  // se passassero per una Server Action). Il limite qui deve restare
+  // allineato a quello imposto in storage.rules (20MB).
+  const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 
   async function handleImageUpload(
     e: React.ChangeEvent<HTMLInputElement>,
@@ -226,32 +227,33 @@ export function EventForm({ existing, onSuccess }: Props) {
     if (!file || !existing) return;
     const setUploading = slot === "preview" ? setUploadingPreview : setUploadingCover;
     const field = slot === "preview" ? "previewImageUrl" : "imageUrl";
-    const ref = slot === "preview" ? previewFileInputRef : coverFileInputRef;
+    const fileInputRef = slot === "preview" ? previewFileInputRef : coverFileInputRef;
 
     if (file.size > MAX_IMAGE_BYTES) {
       toast.error(
-        `L'immagine non può superare 10MB (file selezionato: ${(file.size / (1024 * 1024)).toFixed(1)}MB)`,
+        `L'immagine non può superare 20MB (file selezionato: ${(file.size / (1024 * 1024)).toFixed(1)}MB)`,
       );
-      if (ref.current) ref.current.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("image", file);
-      const result = await uploadEventImage(existing.id, fd, slot);
-      if (result.success) {
-        form.setValue(field, result.data.url);
-        toast.success("Immagine caricata");
-      } else {
-        toast.error(result.error);
-      }
-    } catch {
-      toast.error("Errore imprevisto durante il caricamento. Riprova.");
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const objRef = storageRef(storage, `events/${existing.id}/${slot}.${ext}`);
+      await uploadBytes(objRef, file, {
+        contentType: file.type,
+        cacheControl: "public, max-age=31536000",
+      });
+      const url = await getDownloadURL(objRef);
+      form.setValue(field, url);
+      toast.success("Immagine caricata");
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "Errore sconosciuto";
+      toast.error(`Errore durante il caricamento: ${detail}`);
     } finally {
       setUploading(false);
-      if (ref.current) ref.current.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -632,7 +634,7 @@ export function EventForm({ existing, onSuccess }: Props) {
             <Label>Immagine anteprima</Label>
             <p className="text-xs text-muted-foreground">
               Usata nella card dell&apos;elenco eventi e nel widget di promozione. Formato{" "}
-              <strong>4:3</strong> (es. 1200×900px), file PNG/JPEG/WebP, max 10MB.
+              <strong>4:3</strong> (es. 1200×900px), file PNG/JPEG/WebP, max 20MB.
             </p>
 
             {existing ? (
@@ -689,7 +691,7 @@ export function EventForm({ existing, onSuccess }: Props) {
             <Label>Immagine copertina</Label>
             <p className="text-xs text-muted-foreground">
               Usata come banner nella pagina di dettaglio dell&apos;evento. Formato{" "}
-              <strong>16:7</strong> (es. 1600×700px), file PNG/JPEG/WebP, max 10MB.
+              <strong>16:7</strong> (es. 1600×700px), file PNG/JPEG/WebP, max 20MB.
             </p>
 
             {existing ? (
