@@ -483,8 +483,8 @@ export async function uploadEventImage(
 
   const file = formData.get("image");
   if (!(file instanceof File)) return { success: false, error: "File non trovato" };
-  if (file.size > 5 * 1024 * 1024)
-    return { success: false, error: "L'immagine non può superare 5MB" };
+  if (file.size > 10 * 1024 * 1024)
+    return { success: false, error: "L'immagine non può superare 10MB" };
 
   const allowedMimes = ["image/png", "image/jpeg", "image/webp"];
   if (!allowedMimes.includes(file.type))

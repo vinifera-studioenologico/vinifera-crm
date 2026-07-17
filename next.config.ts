@@ -3,8 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
-      // Le immagini dei servizi possono arrivare fino a 5 MB
-      bodySizeLimit: "6mb",
+      // Le immagini eventi possono arrivare fino a 10 MB (+ margine per overhead multipart)
+      bodySizeLimit: "12mb",
     },
   },
 };
