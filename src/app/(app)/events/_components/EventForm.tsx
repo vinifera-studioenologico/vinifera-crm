@@ -47,6 +47,7 @@ const EventClientSchema = z.object({
   description_it: z.string(),
   description_en: z.string(),
 
+  previewImageUrl: z.union([z.literal(""), z.string().url("URL non valido")]),
   imageUrl: z.union([z.literal(""), z.string().url("URL non valido")]),
 
   location_name: z.string().min(1, "Obbligatorio"),
@@ -93,6 +94,7 @@ function toFormValues(doc?: EventDoc): FormInput {
     summary_en: doc?.summary?.en ?? "",
     description_it: doc?.description?.it ?? "",
     description_en: doc?.description?.en ?? "",
+    previewImageUrl: doc?.previewImageUrl ?? "",
     imageUrl: doc?.imageUrl ?? "",
     location_name: doc?.location?.name ?? "",
     location_address: doc?.location?.address ?? "",
@@ -124,6 +126,7 @@ function toServerPayload(values: FormInput) {
     title: { it: values.title_it, en: values.title_en },
     summary: { it: values.summary_it, en: values.summary_en },
     description: { it: values.description_it, en: values.description_en },
+    previewImageUrl: values.previewImageUrl,
     imageUrl: values.imageUrl,
     images: [],
     location: {
@@ -157,8 +160,10 @@ export function EventForm({ existing, onSuccess }: Props) {
   const [overbookingWarning, setOverbookingWarning] = useState<{
     excess: number;
   } | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const previewFileInputRef = useRef<HTMLInputElement>(null);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingPreview, setUploadingPreview] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
 
   const form = useForm<FormInput>({
     resolver: zodResolver(EventClientSchema),
@@ -207,31 +212,38 @@ export function EventForm({ existing, onSuccess }: Props) {
     });
   }
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleImageUpload(
+    e: React.ChangeEvent<HTMLInputElement>,
+    slot: "preview" | "cover",
+  ) {
     const file = e.target.files?.[0];
     if (!file || !existing) return;
-    setUploadingImage(true);
+    const setUploading = slot === "preview" ? setUploadingPreview : setUploadingCover;
+    const field = slot === "preview" ? "previewImageUrl" : "imageUrl";
+    setUploading(true);
     try {
       const fd = new FormData();
       fd.append("image", file);
-      const result = await uploadEventImage(existing.id, fd, "cover");
+      const result = await uploadEventImage(existing.id, fd, slot);
       if (result.success) {
-        form.setValue("imageUrl", result.data.url);
+        form.setValue(field, result.data.url);
         toast.success("Immagine caricata");
       } else {
         toast.error(result.error);
       }
     } finally {
-      setUploadingImage(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      setUploading(false);
+      const ref = slot === "preview" ? previewFileInputRef : coverFileInputRef;
+      if (ref.current) ref.current.value = "";
     }
   }
 
-  async function handleImageDelete() {
+  async function handleImageDelete(slot: "preview" | "cover") {
     if (!existing) return;
-    const result = await deleteEventImage(existing.id, "cover");
+    const field = slot === "preview" ? "previewImageUrl" : "imageUrl";
+    const result = await deleteEventImage(existing.id, slot);
     if (result.success) {
-      form.setValue("imageUrl", "");
+      form.setValue(field, "");
       toast.success("Immagine rimossa");
     } else {
       toast.error(result.error);
@@ -584,62 +596,129 @@ export function EventForm({ existing, onSuccess }: Props) {
           )}
         </section>
 
-        {/* ── Immagine ── */}
-        <section className="space-y-4">
+        {/* ── Immagini ── */}
+        <section className="space-y-6">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            Immagine copertina
+            Immagini
           </h2>
 
-          {/* Campo imageUrl nascosto — popolato dall'upload, non editabile manualmente */}
+          {/* Campi nascosti — popolati dall'upload, non editabili manualmente */}
+          <input type="hidden" {...form.register("previewImageUrl")} />
           <input type="hidden" {...form.register("imageUrl")} />
 
-          {existing ? (
-            <div className="flex items-center gap-3">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                className="hidden"
-                onChange={handleImageUpload}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingImage}
-              >
-                {uploadingImage ? <Loader2 className="size-3.5 animate-spin mr-1" /> : null}
-                {form.watch("imageUrl") ? "Sostituisci immagine" : "Carica immagine"}
-              </Button>
-              {form.watch("imageUrl") && (
+          {/* Immagine anteprima (elenco eventi + widget promo) */}
+          <div className="space-y-2">
+            <Label>Immagine anteprima</Label>
+            <p className="text-xs text-muted-foreground">
+              Usata nella card dell&apos;elenco eventi e nel widget di promozione. Formato{" "}
+              <strong>4:3</strong> (es. 1200×900px), file PNG/JPEG/WebP, max 5MB.
+            </p>
+
+            {existing ? (
+              <div className="flex items-center gap-3">
+                <input
+                  ref={previewFileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => handleImageUpload(e, "preview")}
+                />
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  className="text-destructive"
-                  onClick={handleImageDelete}
+                  onClick={() => previewFileInputRef.current?.click()}
+                  disabled={uploadingPreview}
                 >
-                  Rimuovi
+                  {uploadingPreview ? <Loader2 className="size-3.5 animate-spin mr-1" /> : null}
+                  {form.watch("previewImageUrl") ? "Sostituisci immagine" : "Carica immagine"}
                 </Button>
-              )}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              Salva prima l&apos;evento in bozza, poi potrai caricare l&apos;immagine dalla pagina di dettaglio.
-            </p>
-          )}
+                {form.watch("previewImageUrl") && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive"
+                    onClick={() => handleImageDelete("preview")}
+                  >
+                    Rimuovi
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Salva prima l&apos;evento in bozza, poi potrai caricare l&apos;immagine dalla pagina di dettaglio.
+              </p>
+            )}
 
-          {form.watch("imageUrl") && (
-            <div className="relative w-full max-w-sm h-36 border rounded-lg overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={form.watch("imageUrl")}
-                alt="Anteprima"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
+            {form.watch("previewImageUrl") && (
+              <div className="relative w-full max-w-sm aspect-4/3 border rounded-lg overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={form.watch("previewImageUrl")}
+                  alt="Anteprima"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Immagine copertina (hero pagina dettaglio evento) */}
+          <div className="space-y-2">
+            <Label>Immagine copertina</Label>
+            <p className="text-xs text-muted-foreground">
+              Usata come banner nella pagina di dettaglio dell&apos;evento. Formato{" "}
+              <strong>16:7</strong> (es. 1600×700px), file PNG/JPEG/WebP, max 5MB.
+            </p>
+
+            {existing ? (
+              <div className="flex items-center gap-3">
+                <input
+                  ref={coverFileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => handleImageUpload(e, "cover")}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => coverFileInputRef.current?.click()}
+                  disabled={uploadingCover}
+                >
+                  {uploadingCover ? <Loader2 className="size-3.5 animate-spin mr-1" /> : null}
+                  {form.watch("imageUrl") ? "Sostituisci immagine" : "Carica immagine"}
+                </Button>
+                {form.watch("imageUrl") && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive"
+                    onClick={() => handleImageDelete("cover")}
+                  >
+                    Rimuovi
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Salva prima l&apos;evento in bozza, poi potrai caricare l&apos;immagine dalla pagina di dettaglio.
+              </p>
+            )}
+
+            {form.watch("imageUrl") && (
+              <div className="relative w-full max-w-sm aspect-16/7 border rounded-lg overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={form.watch("imageUrl")}
+                  alt="Copertina"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+          </div>
         </section>
 
         {/* ── Opzioni ── */}

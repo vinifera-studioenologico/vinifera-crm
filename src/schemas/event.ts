@@ -30,6 +30,9 @@ const EventFormObject = z.object({
   summary: zBilingualRequired,
   description: zBilingualOptional,
 
+  // Immagine anteprima (card elenco eventi + widget promo) — formato 4:3, min 1200×900px
+  previewImageUrl: z.union([z.literal(""), z.string().url("URL immagine non valido")]),
+  // Immagine copertina (hero pagina dettaglio evento) — formato 16:7, min 1600×700px
   imageUrl: z.union([z.literal(""), z.string().url("URL immagine non valido")]),
   images: z.array(z.string().url()).default([]),
 

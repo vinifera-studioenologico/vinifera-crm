@@ -12,6 +12,7 @@ const validBase = {
   title: { it: "Degustazione Vini 2026", en: "Wine Tasting 2026" },
   summary: { it: "Degustazione guidata", en: "Guided tasting" },
   description: { it: "", en: "" },
+  previewImageUrl: "",
   imageUrl: "",
   images: [],
   location: { name: "Cantina Vinifera", address: "Via Tevere 1", city: "Roma" },

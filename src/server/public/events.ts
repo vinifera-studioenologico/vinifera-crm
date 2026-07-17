@@ -15,6 +15,7 @@ export interface PublicEventDto {
   title: { it: string; en: string };
   summary: { it: string; en: string };
   description: { it: string; en: string };
+  previewImageUrl: string;
   imageUrl: string;
   images: string[];
   location: { name: string; address: string; city: string };
@@ -97,6 +98,7 @@ function toPublicEventDto(
     title: data["title"] ?? { it: "", en: "" },
     summary: data["summary"] ?? { it: "", en: "" },
     description: data["description"] ?? { it: "", en: "" },
+    previewImageUrl: data["previewImageUrl"] ?? "",
     imageUrl: data["imageUrl"] ?? "",
     images: data["images"] ?? [],
     location: data["location"] ?? { name: "", address: "", city: "" },
