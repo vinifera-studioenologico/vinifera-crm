@@ -177,40 +177,46 @@ export function EventForm({ existing, onSuccess }: Props) {
       setOverbookingWarning(null);
       const payload = toServerPayload(values);
 
-      if (existing) {
-        const result = await updateEvent(existing.id, payload, existing.version);
-        if (!result.success) {
-          toast.error(result.error);
-          if (result.fieldErrors) {
-            for (const [path, msgs] of Object.entries(result.fieldErrors)) {
-              form.setError(path as keyof FormInput, { message: msgs[0] });
+      try {
+        if (existing) {
+          const result = await updateEvent(existing.id, payload, existing.version);
+          if (!result.success) {
+            toast.error(result.error);
+            if (result.fieldErrors) {
+              for (const [path, msgs] of Object.entries(result.fieldErrors)) {
+                form.setError(path as keyof FormInput, { message: msgs[0] });
+              }
             }
+            return;
           }
-          return;
-        }
-        if (result.data.warning === "overbooked") {
-          setOverbookingWarning({ excess: result.data.excess ?? 0 });
-        }
-        toast.success("Evento aggiornato");
-        router.refresh();
-        onSuccess?.(existing.id);
-      } else {
-        const result = await createEvent(payload);
-        if (!result.success) {
-          toast.error(result.error);
-          if (result.fieldErrors) {
-            for (const [path, msgs] of Object.entries(result.fieldErrors)) {
-              form.setError(path as keyof FormInput, { message: msgs[0] });
+          if (result.data.warning === "overbooked") {
+            setOverbookingWarning({ excess: result.data.excess ?? 0 });
+          }
+          toast.success("Evento aggiornato");
+          router.refresh();
+          onSuccess?.(existing.id);
+        } else {
+          const result = await createEvent(payload);
+          if (!result.success) {
+            toast.error(result.error);
+            if (result.fieldErrors) {
+              for (const [path, msgs] of Object.entries(result.fieldErrors)) {
+                form.setError(path as keyof FormInput, { message: msgs[0] });
+              }
             }
+            return;
           }
-          return;
+          toast.success("Evento creato");
+          router.push(`/events/${result.data.id}`);
+          onSuccess?.(result.data.id);
         }
-        toast.success("Evento creato");
-        router.push(`/events/${result.data.id}`);
-        onSuccess?.(result.data.id);
+      } catch {
+        toast.error("Errore imprevisto durante il salvataggio. Riprova.");
       }
     });
   }
+
+  const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
   async function handleImageUpload(
     e: React.ChangeEvent<HTMLInputElement>,
@@ -220,6 +226,16 @@ export function EventForm({ existing, onSuccess }: Props) {
     if (!file || !existing) return;
     const setUploading = slot === "preview" ? setUploadingPreview : setUploadingCover;
     const field = slot === "preview" ? "previewImageUrl" : "imageUrl";
+    const ref = slot === "preview" ? previewFileInputRef : coverFileInputRef;
+
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast.error(
+        `L'immagine non può superare 10MB (file selezionato: ${(file.size / (1024 * 1024)).toFixed(1)}MB)`,
+      );
+      if (ref.current) ref.current.value = "";
+      return;
+    }
+
     setUploading(true);
     try {
       const fd = new FormData();
@@ -231,9 +247,10 @@ export function EventForm({ existing, onSuccess }: Props) {
       } else {
         toast.error(result.error);
       }
+    } catch {
+      toast.error("Errore imprevisto durante il caricamento. Riprova.");
     } finally {
       setUploading(false);
-      const ref = slot === "preview" ? previewFileInputRef : coverFileInputRef;
       if (ref.current) ref.current.value = "";
     }
   }
@@ -241,12 +258,16 @@ export function EventForm({ existing, onSuccess }: Props) {
   async function handleImageDelete(slot: "preview" | "cover") {
     if (!existing) return;
     const field = slot === "preview" ? "previewImageUrl" : "imageUrl";
-    const result = await deleteEventImage(existing.id, slot);
-    if (result.success) {
-      form.setValue(field, "");
-      toast.success("Immagine rimossa");
-    } else {
-      toast.error(result.error);
+    try {
+      const result = await deleteEventImage(existing.id, slot);
+      if (result.success) {
+        form.setValue(field, "");
+        toast.success("Immagine rimossa");
+      } else {
+        toast.error(result.error);
+      }
+    } catch {
+      toast.error("Errore imprevisto durante la rimozione. Riprova.");
     }
   }
 
@@ -611,7 +632,7 @@ export function EventForm({ existing, onSuccess }: Props) {
             <Label>Immagine anteprima</Label>
             <p className="text-xs text-muted-foreground">
               Usata nella card dell&apos;elenco eventi e nel widget di promozione. Formato{" "}
-              <strong>4:3</strong> (es. 1200×900px), file PNG/JPEG/WebP, max 5MB.
+              <strong>4:3</strong> (es. 1200×900px), file PNG/JPEG/WebP, max 10MB.
             </p>
 
             {existing ? (
@@ -668,7 +689,7 @@ export function EventForm({ existing, onSuccess }: Props) {
             <Label>Immagine copertina</Label>
             <p className="text-xs text-muted-foreground">
               Usata come banner nella pagina di dettaglio dell&apos;evento. Formato{" "}
-              <strong>16:7</strong> (es. 1600×700px), file PNG/JPEG/WebP, max 5MB.
+              <strong>16:7</strong> (es. 1600×700px), file PNG/JPEG/WebP, max 10MB.
             </p>
 
             {existing ? (
