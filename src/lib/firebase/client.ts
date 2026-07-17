@@ -75,4 +75,15 @@ export function getClientDb(): Firestore {
   return _db;
 }
 
+/** Returns the real Storage instance (not the lazy Proxy). Use when passing
+ * storage to Firebase SDK functions that do instanceof checks (e.g. ref()). */
+export function getClientStorage(): FirebaseStorage {
+  if (!_storage) _storage = getStorage(getClientApp());
+  if (USE_EMULATORS && !_emuStorage) {
+    _emuStorage = true;
+    connectStorageEmulator(_storage, "localhost", 9199);
+  }
+  return _storage;
+}
+
 export default getClientApp;

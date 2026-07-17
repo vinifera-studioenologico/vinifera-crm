@@ -11,7 +11,7 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage
 
 import type { EventDoc } from "@/schemas/event";
 import { createEvent, updateEvent, deleteEventImage } from "@/server/actions/events";
-import { storage } from "@/lib/firebase/client";
+import { getClientStorage } from "@/lib/firebase/client";
 import { toCents, fromCents } from "@/lib/utils/money";
 
 import {
@@ -240,7 +240,7 @@ export function EventForm({ existing, onSuccess }: Props) {
     setUploading(true);
     try {
       const ext = file.name.split(".").pop() ?? "jpg";
-      const objRef = storageRef(storage, `events/${existing.id}/${slot}.${ext}`);
+      const objRef = storageRef(getClientStorage(), `events/${existing.id}/${slot}.${ext}`);
       await uploadBytes(objRef, file, {
         contentType: file.type,
         cacheControl: "public, max-age=31536000",
