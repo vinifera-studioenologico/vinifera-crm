@@ -8,7 +8,12 @@ import { revalidatePath } from "next/cache";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireAdmin } from "@/server/auth";
 import { logger } from "@/lib/logger";
-import { PaymentFormSchema, MarkInstallmentPaidSchema } from "@/schemas/payment";
+import {
+  PaymentFormSchema,
+  MarkInstallmentPaidSchema,
+  UpdatePaymentSchema,
+  UpdateInstallmentSchema,
+} from "@/schemas/payment";
 import type { PaymentDoc, InstallmentDoc } from "@/schemas/payment";
 import { tsToISO, generateDueDates, civilDateToEndOfDay } from "@/lib/utils/date";
 import type { ActionResult, PaginatedResult } from "@/types";
@@ -28,6 +33,7 @@ function toPaymentDoc(id: string, data: FirebaseFirestore.DocumentData): Payment
     clientId: data["clientId"] ?? "",
     source: data["source"] ?? { kind: "manual" },
     description: data["description"] ?? "",
+    notes: data["notes"] ?? null,
     totalAmountCents: data["totalAmountCents"] ?? 0,
     paidAmountCents: data["paidAmountCents"] ?? 0,
     status: data["status"] ?? "pending",
@@ -39,6 +45,13 @@ function toPaymentDoc(id: string, data: FirebaseFirestore.DocumentData): Payment
   };
 }
 
+// handle both field name conventions: current writers use "dueAt", but
+// scripts/seed-dev.ts (and possibly other legacy data) wrote "dueDate"
+function installmentDueDate(data: FirebaseFirestore.DocumentData): Date {
+  const ts = (data["dueAt"] ?? data["dueDate"]) as FirebaseFirestore.Timestamp;
+  return ts.toDate();
+}
+
 function toInstallmentDoc(
   id: string,
   data: FirebaseFirestore.DocumentData,
@@ -46,7 +59,6 @@ function toInstallmentDoc(
   return {
     id,
     index: data["index"] ?? 0,
-    // handle both field name conventions (createSample wrote "dueAt")
     dueDate: tsToISO(data["dueAt"] ?? data["dueDate"]),
     amountCents: data["amountCents"] ?? 0,
     status: data["status"] ?? "pending",
@@ -178,7 +190,7 @@ export async function markInstallmentPaid(
             status: isCurrent
               ? "paid"
               : (d.data()["status"] as InstallmentForCalc["status"]),
-            dueDate: (d.data()["dueAt"] as FirebaseFirestore.Timestamp).toDate(),
+            dueDate: installmentDueDate(d.data()),
             amountCents: (d.data()["amountCents"] as number) ?? 0,
           };
         },
@@ -425,5 +437,241 @@ export async function createManualPayment(
   } catch (err) {
     logger.error("createManualPayment failed", { err });
     return { success: false, error: "Errore durante la creazione del pagamento" };
+  }
+}
+
+// ── Modifica pagamento (descrizione/note) ──────────────────────────────
+export async function updatePayment(raw: unknown): Promise<ActionResult<void>> {
+  await requireAdmin();
+
+  const parsed = UpdatePaymentSchema.safeParse(raw);
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string[]> = {};
+    for (const issue of parsed.error.issues) {
+      const path = issue.path.join(".");
+      if (!fieldErrors[path]) fieldErrors[path] = [];
+      fieldErrors[path]!.push(issue.message);
+    }
+    return { success: false, error: "Dati non validi", fieldErrors };
+  }
+
+  const data = parsed.data;
+
+  try {
+    const ref = adminDb.collection(COL).doc(data.paymentId);
+    const snap = await ref.get();
+    if (!snap.exists) return { success: false, error: "Pagamento non trovato" };
+
+    const paymentData = snap.data()!;
+    if (paymentData["status"] === "paid") {
+      return { success: false, error: "Non è possibile modificare un pagamento già completato" };
+    }
+    if (paymentData["status"] === "cancelled") {
+      return { success: false, error: "Non è possibile modificare un pagamento annullato" };
+    }
+
+    await ref.update({
+      description: data.description,
+      notes: data.notes ?? null,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    const clientId = paymentData["clientId"] as string | undefined;
+    if (clientId) revalidatePath(`/clients/${clientId}/payments`);
+    revalidatePath("/payments");
+    return { success: true, data: undefined };
+  } catch (err) {
+    logger.error("updatePayment failed", { err });
+    return { success: false, error: "Errore durante la modifica del pagamento" };
+  }
+}
+
+// ── Modifica rata (importo/scadenza) ────────────────────────────────────
+export async function updateInstallment(raw: unknown): Promise<ActionResult<void>> {
+  await requireAdmin();
+
+  const parsed = UpdateInstallmentSchema.safeParse(raw);
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string[]> = {};
+    for (const issue of parsed.error.issues) {
+      const path = issue.path.join(".");
+      if (!fieldErrors[path]) fieldErrors[path] = [];
+      fieldErrors[path]!.push(issue.message);
+    }
+    return { success: false, error: "Dati non validi", fieldErrors };
+  }
+
+  const data = parsed.data;
+  const newAmountCents = data.amountCents as number;
+
+  try {
+    let clientIdForRevalidate: string | undefined;
+
+    await adminDb.runTransaction(async (tx) => {
+      const installRef = adminDb
+        .collection(COL)
+        .doc(data.paymentId)
+        .collection("installments")
+        .doc(data.installmentId);
+      const paymentRef = adminDb.collection(COL).doc(data.paymentId);
+
+      const [installSnap, paymentSnap, allInstallmentsSnap] = await Promise.all([
+        tx.get(installRef),
+        tx.get(paymentRef),
+        tx.get(adminDb.collection(COL).doc(data.paymentId).collection("installments")),
+      ]);
+
+      if (!installSnap.exists) throw new Error("Rata non trovata");
+      if (!paymentSnap.exists) throw new Error("Pagamento non trovato");
+
+      const installData = installSnap.data()!;
+      const paymentData = paymentSnap.data()!;
+
+      if (paymentData["status"] === "paid" || paymentData["status"] === "cancelled") {
+        throw new Error("Non è possibile modificare una rata di un pagamento completato o annullato");
+      }
+      if (installData["status"] !== "pending" && installData["status"] !== "overdue") {
+        throw new Error("Non è possibile modificare una rata già pagata o annullata");
+      }
+
+      const oldAmountCents = (installData["amountCents"] as number) ?? 0;
+      const amountDelta = newAmountCents - oldAmountCents;
+      const newDueAt = Timestamp.fromDate(civilDateToEndOfDay(data.dueDate));
+
+      const now = new Date();
+      const installmentsForCalc: InstallmentForCalc[] = allInstallmentsSnap.docs.map((d) => {
+        const isCurrent = d.id === data.installmentId;
+        return {
+          status: d.data()["status"] as InstallmentForCalc["status"],
+          dueDate: isCurrent ? newDueAt.toDate() : installmentDueDate(d.data()),
+          amountCents: isCurrent ? newAmountCents : ((d.data()["amountCents"] as number) ?? 0),
+        };
+      });
+      const totalAmount = (paymentData["totalAmountCents"] as number) ?? 0;
+      const paidAmount = (paymentData["paidAmountCents"] as number) ?? 0;
+      const newPaymentStatus = derivePaymentStatus(
+        { totalAmountCents: totalAmount + amountDelta, paidAmountCents: paidAmount, cancelled: false },
+        installmentsForCalc,
+        now,
+      );
+
+      tx.update(installRef, {
+        amountCents: newAmountCents,
+        dueAt: newDueAt,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      tx.update(paymentRef, {
+        totalAmountCents: FieldValue.increment(amountDelta),
+        status: newPaymentStatus,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      const clientId = paymentData["clientId"] as string | undefined;
+      if (clientId) {
+        clientIdForRevalidate = clientId;
+        const clientRef = adminDb.collection("clients").doc(clientId);
+        tx.update(clientRef, {
+          "stats.pendingAmountCents": FieldValue.increment(amountDelta),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    });
+
+    if (clientIdForRevalidate) revalidatePath(`/clients/${clientIdForRevalidate}/payments`);
+    revalidatePath("/payments");
+    return { success: true, data: undefined };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Errore durante la modifica della rata";
+    logger.error("updateInstallment failed", { err });
+    return { success: false, error: message };
+  }
+}
+
+// ── Annulla singola rata ─────────────────────────────────────────────────
+export async function cancelInstallment(
+  paymentId: string,
+  installmentId: string,
+): Promise<ActionResult<void>> {
+  await requireAdmin();
+
+  try {
+    let clientIdForRevalidate: string | undefined;
+
+    await adminDb.runTransaction(async (tx) => {
+      const installRef = adminDb
+        .collection(COL)
+        .doc(paymentId)
+        .collection("installments")
+        .doc(installmentId);
+      const paymentRef = adminDb.collection(COL).doc(paymentId);
+
+      const [installSnap, paymentSnap, allInstallmentsSnap] = await Promise.all([
+        tx.get(installRef),
+        tx.get(paymentRef),
+        tx.get(adminDb.collection(COL).doc(paymentId).collection("installments")),
+      ]);
+
+      if (!installSnap.exists) throw new Error("Rata non trovata");
+      if (!paymentSnap.exists) throw new Error("Pagamento non trovato");
+
+      const installData = installSnap.data()!;
+      const paymentData = paymentSnap.data()!;
+
+      if (paymentData["status"] === "paid" || paymentData["status"] === "cancelled") {
+        throw new Error("Non è possibile annullare una rata di un pagamento completato o annullato");
+      }
+      if (installData["status"] !== "pending" && installData["status"] !== "overdue") {
+        throw new Error("Non è possibile annullare una rata già pagata o annullata");
+      }
+
+      const amountCents = (installData["amountCents"] as number) ?? 0;
+
+      const now = new Date();
+      const installmentsForCalc: InstallmentForCalc[] = allInstallmentsSnap.docs.map((d) => {
+        const isCurrent = d.id === installmentId;
+        return {
+          status: isCurrent ? "cancelled" : (d.data()["status"] as InstallmentForCalc["status"]),
+          dueDate: installmentDueDate(d.data()),
+          amountCents: (d.data()["amountCents"] as number) ?? 0,
+        };
+      });
+      const totalAmount = (paymentData["totalAmountCents"] as number) ?? 0;
+      const paidAmount = (paymentData["paidAmountCents"] as number) ?? 0;
+      const newPaymentStatus = derivePaymentStatus(
+        { totalAmountCents: totalAmount - amountCents, paidAmountCents: paidAmount, cancelled: false },
+        installmentsForCalc,
+        now,
+      );
+
+      tx.update(installRef, {
+        status: "cancelled",
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      tx.update(paymentRef, {
+        totalAmountCents: FieldValue.increment(-amountCents),
+        status: newPaymentStatus,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      const clientId = paymentData["clientId"] as string | undefined;
+      if (clientId) {
+        clientIdForRevalidate = clientId;
+        const clientRef = adminDb.collection("clients").doc(clientId);
+        tx.update(clientRef, {
+          "stats.pendingAmountCents": FieldValue.increment(-amountCents),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    });
+
+    if (clientIdForRevalidate) revalidatePath(`/clients/${clientIdForRevalidate}/payments`);
+    revalidatePath("/payments");
+    return { success: true, data: undefined };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Errore durante l'annullamento della rata";
+    logger.error("cancelInstallment failed", { err });
+    return { success: false, error: message };
   }
 }

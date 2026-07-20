@@ -83,12 +83,32 @@ export const MarkInstallmentPaidSchema = z.object({
 
 export type MarkInstallmentPaidValues = z.infer<typeof MarkInstallmentPaidSchema>;
 
+// ── Form "Modifica pagamento" (descrizione/note) ──────────────────────
+export const UpdatePaymentSchema = z.object({
+  paymentId: z.string(),
+  description: z.string().min(1, "Descrizione obbligatoria").max(500),
+  notes: z.string().max(1000).optional(),
+});
+
+export type UpdatePaymentValues = z.infer<typeof UpdatePaymentSchema>;
+
+// ── Form "Modifica rata" (importo/scadenza) ────────────────────────────
+export const UpdateInstallmentSchema = z.object({
+  paymentId: z.string(),
+  installmentId: z.string(),
+  amountCents: zEurInput,
+  dueDate: z.string().min(1, "Data di scadenza obbligatoria"), // "YYYY-MM-DD"
+});
+
+export type UpdateInstallmentValues = z.infer<typeof UpdateInstallmentSchema>;
+
 // ── Documento Firestore pagamento ─────────────────────────────────────
 export const PaymentDocSchema = z.object({
   id: z.string(),
   clientId: z.string(),
   source: PaymentSourceSchema,
   description: z.string(),
+  notes: z.string().nullable().optional(),
   totalAmountCents: zCents,
   paidAmountCents: zCents,
   status: PaymentStatusSchema,

@@ -9,6 +9,8 @@ import {
   Plus,
   Loader2,
   Ban,
+  MoreVertical,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -25,12 +27,15 @@ const METHOD_LABELS: Record<string, string> = {
 import {
   getPaymentInstallments,
   cancelPayment,
+  cancelInstallment,
   createManualPayment,
 } from "@/server/actions/payments";
 import { formatEUR } from "@/lib/utils/money";
 import { formatDate } from "@/lib/utils/date";
 
 import { MarkInstallmentPaidForm } from "@/components/forms/MarkInstallmentPaidForm";
+import { EditPaymentForm } from "@/components/forms/EditPaymentForm";
+import { EditInstallmentForm } from "@/components/forms/EditInstallmentForm";
 import { Button } from "@/components/ui/button";
 import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +48,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Sheet,
   SheetContent,
@@ -301,11 +312,26 @@ function InstallmentRow({
   paymentId: string;
   onPaid: () => void;
 }) {
-  const [showForm, setShowForm] = useState(false);
+  const [mode, setMode] = useState<"none" | "pay" | "edit">("none");
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [isCancelling, startCancel] = useTransition();
   const isPending =
     installment.status === "pending" || installment.status === "overdue";
 
   const dueDateTs = installment.dueDate;
+
+  function handleCancelInstallment() {
+    startCancel(async () => {
+      const result = await cancelInstallment(paymentId, installment.id);
+      if (result.success) {
+        toast.success("Rata annullata");
+        setCancelConfirmOpen(false);
+        onPaid();
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
 
   return (
     <div className="px-4 py-3 space-y-3">
@@ -358,32 +384,95 @@ function InstallmentRow({
                   : "In attesa"}
           </Badge>
 
-          {isPending && !showForm && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-6 text-xs px-2"
-              onClick={() => setShowForm(true)}
-            >
-              Registra
-            </Button>
+          {isPending && mode === "none" && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 text-xs px-2"
+                onClick={() => setMode("pay")}
+              >
+                Registra
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className="flex items-center justify-center size-6 rounded-md hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="Altre azioni sulla rata"
+                >
+                  <MoreVertical className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setMode("edit")} className="gap-2">
+                    <Pencil className="size-3.5" strokeWidth={1.75} />
+                    Modifica rata
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setCancelConfirmOpen(true)}
+                    className="gap-2"
+                  >
+                    <Ban className="size-3.5" strokeWidth={1.75} />
+                    Annulla rata
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           )}
         </div>
       </div>
 
-      {showForm && (
+      {mode === "pay" && (
         <div className="rounded-lg border border-border bg-muted/20 p-3">
           <MarkInstallmentPaidForm
             paymentId={paymentId}
             installment={installment}
             onSuccess={() => {
-              setShowForm(false);
+              setMode("none");
               onPaid();
             }}
-            onCancel={() => setShowForm(false)}
+            onCancel={() => setMode("none")}
           />
         </div>
       )}
+
+      {mode === "edit" && (
+        <div className="rounded-lg border border-border bg-muted/20 p-3">
+          <EditInstallmentForm
+            paymentId={paymentId}
+            installment={installment}
+            onSuccess={() => {
+              setMode("none");
+              onPaid();
+            }}
+            onCancel={() => setMode("none")}
+          />
+        </div>
+      )}
+
+      <Dialog open={cancelConfirmOpen} onOpenChange={setCancelConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Annulla rata</DialogTitle>
+            <DialogDescription>
+              La rata da {formatEUR(installment.amountCents)} sarà annullata. L&apos;operazione
+              non è reversibile.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelConfirmOpen(false)}>
+              Torna indietro
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={isCancelling}
+              onClick={handleCancelInstallment}
+            >
+              {isCancelling && <Loader2 className="size-3.5 animate-spin" />}
+              Annulla rata
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -401,6 +490,7 @@ function PaymentCard({
   const [expanded, setExpanded] = useState(false);
   const [installments, setInstallments] = useState<InstallmentDoc[] | null>(null);
   const [loading, startLoading] = useTransition();
+  const [editSheetOpen, setEditSheetOpen] = useState(false);
 
   function handleExpand() {
     if (expanded) {
@@ -518,7 +608,30 @@ function PaymentCard({
           {payment.status !== "paid" && payment.status !== "cancelled" && (
             <>
               <Separator />
-              <div className="px-4 py-2 flex justify-end">
+              <div className="px-4 py-2 flex justify-end gap-1">
+                <Sheet open={editSheetOpen} onOpenChange={setEditSheetOpen}>
+                  <SheetTrigger
+                    render={
+                      <Button size="sm" variant="ghost" className="text-xs text-muted-foreground">
+                        <Pencil className="size-3.5 mr-1" strokeWidth={1.75} />
+                        Modifica
+                      </Button>
+                    }
+                  />
+                  <SheetContent side="right" className="overflow-y-auto">
+                    <SheetHeader className="mb-6">
+                      <SheetTitle>Modifica pagamento</SheetTitle>
+                    </SheetHeader>
+                    <EditPaymentForm
+                      payment={payment}
+                      onSuccess={() => {
+                        setEditSheetOpen(false);
+                        onInstallmentPaid();
+                      }}
+                      onCancel={() => setEditSheetOpen(false)}
+                    />
+                  </SheetContent>
+                </Sheet>
                 <Button
                   size="sm"
                   variant="ghost"
