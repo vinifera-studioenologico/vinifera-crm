@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import type { ReportDoc } from "@/schemas/report";
-import { sendReportByEmail } from "@/server/actions/reports";
+import { getReports, sendReportByEmail } from "@/server/actions/reports";
 import { formatDate } from "@/lib/utils/date";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { sharePdf } from "@/lib/utils/share";
@@ -36,10 +36,15 @@ type PickerAction = "download" | "email" | "whatsapp";
 
 interface Props {
   initialData: ReportDoc[];
+  hasMore: boolean;
+  nextCursor: string | null;
 }
 
-export function ReportsClient({ initialData }: Props) {
+export function ReportsClient({ initialData, hasMore: initialHasMore, nextCursor: initialCursor }: Props) {
   const router = useRouter();
+  const [reports, setReports] = useState<ReportDoc[]>(initialData);
+  const [cursor, setCursor] = useState<string | null>(initialCursor);
+  const [hasMore, setHasMore] = useState(initialHasMore);
   const [search, setSearch] = useState("");
 
   // Picker tipo PDF
@@ -54,6 +59,7 @@ export function ReportsClient({ initialData }: Props) {
   const [emailBody, setEmailBody] = useState("");
   const [isSending, startSend] = useTransition();
   const [isWhatsApp, setIsWhatsApp] = useState(false);
+  const [isLoadingMore, startLoadMore] = useTransition();
 
   function openPicker(report: ReportDoc, action: PickerAction) {
     setPickerTarget(report);
@@ -98,6 +104,16 @@ export function ReportsClient({ initialData }: Props) {
     }
   }
 
+  function loadMore() {
+    if (!cursor) return;
+    startLoadMore(async () => {
+      const result = await getReports({ cursor });
+      setReports((prev) => [...prev, ...result.items]);
+      setCursor(result.nextCursor);
+      setHasMore(result.hasMore);
+    });
+  }
+
   function handleSend() {
     if (!emailTarget) return;
     startSend(async () => {
@@ -116,7 +132,7 @@ export function ReportsClient({ initialData }: Props) {
     });
   }
 
-  const filtered = initialData.filter((r) => {
+  const filtered = reports.filter((r) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -269,6 +285,14 @@ export function ReportsClient({ initialData }: Props) {
           data={filtered}
           emptyMessage="Nessun referto trovato."
         />
+      )}
+
+      {!search && hasMore && (
+        <div className="flex justify-center">
+          <Button variant="outline" size="sm" onClick={loadMore} disabled={isLoadingMore}>
+            {isLoadingMore ? "Caricamento..." : "Carica altri"}
+          </Button>
+        </div>
       )}
 
       {/* Dialog picker tipo PDF */}

@@ -9,7 +9,11 @@ export default async function ReportsPage() {
   const result = await getReports();
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
-      <ReportsClient initialData={result.items} />
+      <ReportsClient
+        initialData={result.items}
+        hasMore={result.hasMore}
+        nextCursor={result.nextCursor}
+      />
     </div>
   );
 }
