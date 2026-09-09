@@ -15,7 +15,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-import type { PaymentDoc, InstallmentDoc, PaymentStatus } from "@/schemas/payment";
+import type { PaymentDoc, InstallmentDoc } from "@/schemas/payment";
 import type { ClientDoc } from "@/schemas/client";
 
 const METHOD_LABELS: Record<string, string> = {
@@ -75,6 +75,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { PaymentSourceSchema } from "@/schemas/payment";
+import { PaymentStatusBadge, paymentStatusLabel } from "@/components/widgets/PaymentStatusBadge";
 
 // Schema client costruito da zero (senza zEurInput transform)
 // zodResolver richiede che input e output coincidano
@@ -89,46 +90,6 @@ const ManualPaymentFormSchema = z.object({
   notes: z.string().max(1000).optional(),
 });
 type ManualPaymentInput = z.infer<typeof ManualPaymentFormSchema>;
-
-// ── Colori stato pagamento ────────────────────────────────────────────
-const PAYMENT_STATUS_CONFIG: Record<
-  PaymentStatus,
-  { label: string; className: string }
-> = {
-  pending: {
-    label: "In attesa",
-    className:
-      "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400",
-  },
-  partial: {
-    label: "Parziale",
-    className:
-      "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400",
-  },
-  paid: {
-    label: "Pagato",
-    className:
-      "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400",
-  },
-  overdue: {
-    label: "Scaduto",
-    className:
-      "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400",
-  },
-  cancelled: {
-    label: "Annullato",
-    className: "bg-muted text-muted-foreground border-border",
-  },
-};
-
-function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
-  const cfg = PAYMENT_STATUS_CONFIG[status];
-  return (
-    <Badge variant="outline" className={cfg.className}>
-      {cfg.label}
-    </Badge>
-  );
-}
 
 // ── Form pagamento manuale ────────────────────────────────────────────
 
@@ -515,6 +476,7 @@ function PaymentCard({
     sample: "Campione",
     package: "Pacchetto",
     manual: "Manuale",
+    quote: "Preventivo",
   };
 
   return (
@@ -532,7 +494,9 @@ function PaymentCard({
             <Badge variant="outline" className="text-[10px] text-muted-foreground">
               {payment.source.sampleCode
                 ? `Campione · ${payment.source.sampleCode}`
-                : (sourceLabel[payment.source.kind] ?? payment.source.kind)}
+                : payment.source.quoteNumber
+                  ? `Preventivo · ${payment.source.quoteNumber}`
+                  : (sourceLabel[payment.source.kind] ?? payment.source.kind)}
             </Badge>
           </div>
           <div className="flex items-center gap-3 mt-1">
@@ -711,7 +675,7 @@ export function ClientPaymentsClient({ client, initialPayments }: Props) {
             data={initialPayments}
             columns={[
               { header: "Descrizione", accessor: (p: PaymentDoc) => p.description },
-              { header: "Stato", accessor: (p: PaymentDoc) => PAYMENT_STATUS_CONFIG[p.status].label },
+              { header: "Stato", accessor: (p: PaymentDoc) => paymentStatusLabel(p.status) },
               { header: "Importo totale (\u20ac)", accessor: (p: PaymentDoc) => (p.totalAmountCents / 100).toFixed(2).replace(".", ",") },
               { header: "Incassato (\u20ac)", accessor: (p: PaymentDoc) => (p.paidAmountCents / 100).toFixed(2).replace(".", ",") },
               { header: "Residuo (\u20ac)", accessor: (p: PaymentDoc) => ((p.totalAmountCents - p.paidAmountCents) / 100).toFixed(2).replace(".", ",") },

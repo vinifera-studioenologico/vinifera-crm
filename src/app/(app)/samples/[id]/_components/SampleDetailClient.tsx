@@ -20,6 +20,7 @@ import Link from "next/link";
 
 import type { SampleDoc, SampleStatus, SampleSamplingBy } from "@/schemas/sample";
 import type { AnalysisDoc } from "@/schemas/analysis";
+import type { PaymentStatus } from "@/schemas/payment";
 import {
   updateSampleStatus,
   saveSampleResults,
@@ -52,12 +53,13 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { SampleStatusBadge } from "@/components/widgets/SampleStatusBadge";
+import { PaymentStatusBadge } from "@/components/widgets/PaymentStatusBadge";
 
 interface Props {
   sample: SampleDoc;
   adjacentIds: { prevId: string | null; nextId: string | null };
   analyses: AnalysisDoc[];
-  linkedPayment: { totalAmountCents: number; status: string } | null;
+  linkedPayment: { totalAmountCents: number; status: PaymentStatus } | null;
 }
 
 const STATUS_TRANSITIONS: Array<{
@@ -485,6 +487,7 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-2xl font-semibold tracking-tight">{sample.code}</h1>
               <SampleStatusBadge status={sample.status} />
+              <PaymentStatusBadge status={linkedPayment?.status ?? null} />
             </div>
             <p className="text-sm text-muted-foreground">
               {sample.clientNameSnapshot} · {sample.sampleName} · Ricevuto {receivedDate}

@@ -7,12 +7,14 @@ import { Plus, ChevronRight, FlaskConical } from "lucide-react";
 import type { SampleDoc } from "@/schemas/sample";
 import type { ClientDoc } from "@/schemas/client";
 import type { AnalysisDoc } from "@/schemas/analysis";
+import type { PaymentStatus } from "@/schemas/payment";
 import { getClientActivePkgs } from "@/server/actions/samples";
 import { formatEUR } from "@/lib/utils/money";
 import { formatDate } from "@/lib/utils/date";
 
 import { SampleWizard } from "@/components/forms/SampleWizard";
 import { SampleStatusBadge } from "@/components/widgets/SampleStatusBadge";
+import { PaymentStatusBadge, paymentStatusLabel } from "@/components/widgets/PaymentStatusBadge";
 import { Button } from "@/components/ui/button";
 import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import {
@@ -26,15 +28,17 @@ interface ActivePkg {
   id: string;
   packageNameSnapshot: string;
   remainingAnalyses: number;
+  restrictedToAnalysisId?: string | null;
 }
 
 interface Props {
   client: ClientDoc;
   initialSamples: SampleDoc[];
   analyses: AnalysisDoc[];
+  paymentStatuses: Record<string, PaymentStatus>;
 }
 
-export function ClientSamplesClient({ client, initialSamples, analyses }: Props) {
+export function ClientSamplesClient({ client, initialSamples, analyses, paymentStatuses }: Props) {
   const router = useRouter();
   const [samples] = useState(initialSamples);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -63,6 +67,11 @@ export function ClientSamplesClient({ client, initialSamples, analyses }: Props)
               { header: "Codice", accessor: (s: SampleDoc) => s.code },
               { header: "Campione", accessor: (s: SampleDoc) => s.sampleName },
               { header: "Stato", accessor: (s: SampleDoc) => s.status },
+              {
+                header: "Pagamento",
+                accessor: (s: SampleDoc) =>
+                  paymentStatusLabel(s.paymentId ? paymentStatuses[s.paymentId] : null),
+              },
               { header: "N. analisi", accessor: (s: SampleDoc) => String(s.items.length) },
               { header: "Totale stimato (\u20ac)", accessor: (s: SampleDoc) => (s.estimatedTotalCents / 100).toFixed(2).replace(".", ",") },
               { header: "Ricevuto il", accessor: (s: SampleDoc) => s.receivedAt ? formatDate(s.receivedAt as Parameters<typeof formatDate>[0]) : "" },
@@ -114,6 +123,9 @@ export function ClientSamplesClient({ client, initialSamples, analyses }: Props)
                     {s.code}
                   </span>
                   <SampleStatusBadge status={s.status} />
+                  <PaymentStatusBadge
+                    status={s.paymentId ? paymentStatuses[s.paymentId] : null}
+                  />
                 </div>
                 <p className="text-sm font-medium truncate mt-0.5">{s.sampleName}</p>
                 <p className="text-xs text-muted-foreground">

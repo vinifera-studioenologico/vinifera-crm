@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { zCents } from "./validators";
+import { zCents, zEurInput } from "./validators";
 import { ClientSnapshotSchema } from "./client";
+import { PaymentFormSchema } from "./payment";
 
 // ── Status preventivo ─────────────────────────────────────────────────
 export const QuoteStatusSchema = z.enum([
@@ -139,3 +140,24 @@ export function isQuoteTransitionAllowed(
 ): boolean {
   return ALLOWED_QUOTE_TRANSITIONS[from]?.includes(to) ?? false;
 }
+
+// ── Approvazione preventivo con pagamento/pacchetti/crediti (§ docs/crediti-da-preventivo.md) ──
+// Un'unica action transazionale sostituisce le 3 chiamate sequenziali
+// (transitionQuote → purchasePackage → createManualPayment) usate finora
+// dal dialog di approvazione.
+export const ApproveQuotePackageAssignmentSchema = z.object({
+  packageId: z.string().min(1),
+  packageNameSnapshot: z.string(),
+  totalAnalyses: z.number().int().min(1),
+  priceCents: zEurInput,
+});
+export type ApproveQuotePackageAssignment = z.infer<typeof ApproveQuotePackageAssignmentSchema>;
+
+export const ApproveQuoteInputSchema = z.object({
+  quoteId: z.string().min(1),
+  expectedVersion: z.number().int().min(0),
+  // null = approva senza generare pagamento (né pacchetti, né crediti — §9.1)
+  payment: PaymentFormSchema.nullable(),
+  packageAssignments: z.array(ApproveQuotePackageAssignmentSchema),
+});
+export type ApproveQuoteInput = z.infer<typeof ApproveQuoteInputSchema>;

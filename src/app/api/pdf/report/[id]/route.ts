@@ -61,7 +61,11 @@ export async function GET(
     const samples = sampleResults.filter((s) => s !== null);
 
     const allPackages = await getClientPackages(report.clientId);
-    const activePackages = allPackages.filter((p) => p.status === "active");
+    // I crediti da preventivo (origin:"quote") non sono pacchetti commerciali:
+    // esclusi dal riquadro "Saldo pacchetti attivi" (§ docs/crediti-da-preventivo.md).
+    const activePackages = allPackages.filter(
+      (p) => p.status === "active" && p.origin !== "quote",
+    );
 
     const props = { reportNumber: report.number, company, client, samples, notes: report.notes, clientPackages: activePackages };
     const element = isCommercial

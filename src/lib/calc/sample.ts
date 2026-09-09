@@ -24,12 +24,48 @@ export function computeSampleTotal(items: SampleItemForCalc[]): number {
 export interface PackageSlot {
   id: string;
   remainingAnalyses: number;
+  /**
+   * Se presente, questo slot copre SOLO l'analisi con questo id — è un
+   * "credito da preventivo" (§ docs/crediti-da-preventivo.md). Assente per
+   * un pacchetto commerciale classico, che copre qualsiasi analisi.
+   */
+  restrictedToAnalysisId?: string | null;
 }
 
 /**
- * Assegna la copertura da pacchetto a `count` nuove analisi aggiunte a un
- * campione esistente. Consuma gli slot in ordine dei pacchetti forniti
- * (il primo con slot liberi vince).
+ * Sceglie lo slot da usare per UNA analisi, secondo questo ordine:
+ *   1. un credito ristretto a QUESTA analisi (ha priorità: è già stato
+ *      pagato specificamente per lei — consumarlo per ultimo lo lascerebbe
+ *      inutilizzato mentre l'analisi viene ripagata altrove);
+ *   2. un pacchetto generico (nessuna restrizione);
+ *   3. nessuno (`null`) → l'analisi resta a pagamento.
+ *
+ * Un credito ristretto NON copre mai un'analisi diversa da quella per cui
+ * è nato: è l'invariante principale dei crediti da preventivo.
+ *
+ * `packages` deve già essere ordinato FIFO (più vecchio prima) da chi chiama.
+ * `remainingByPkg` riflette gli slot ancora liberi, incluse le assegnazioni
+ * già fatte in questa stessa chiamata/transazione.
+ *
+ * Funzione PURA.
+ */
+export function pickSlotForAnalysis(
+  packages: PackageSlot[],
+  analysisId: string,
+  remainingByPkg: Map<string, number>,
+): string | null {
+  const free = (p: PackageSlot) => (remainingByPkg.get(p.id) ?? 0) > 0;
+  return (
+    packages.find((p) => p.restrictedToAnalysisId === analysisId && free(p))?.id ??
+    packages.find((p) => !p.restrictedToAnalysisId && free(p))?.id ??
+    null
+  );
+}
+
+/**
+ * Assegna la copertura da pacchetto/credito a un elenco di nuove analisi
+ * aggiunte a un campione (nuovo o esistente). Consuma gli slot secondo
+ * l'ordine di `pickSlotForAnalysis`, applicato analisi per analisi.
  *
  * IMPORTANTE: non considera gli item già presenti nel campione — i loro slot
  * sono già stati scalati dal contatore `remainingAnalyses` al momento della
@@ -37,26 +73,27 @@ export interface PackageSlot {
  *
  * Funzione PURA.
  *
- * @returns `coverage[i]` = id del pacchetto che copre la i-esima nuova analisi
- *          (o `null` se nessuno ha slot), e `decrements` = quante analisi
- *          scalare da ciascun pacchetto.
+ * @param packages già ordinati FIFO (più vecchio prima) da chi chiama.
+ * @param analysisIds l'id dell'analisi di ciascuna nuova riga, nello stesso
+ *        ordine in cui compariranno nel campione.
+ * @returns `coverage[i]` = id del pacchetto/credito che copre la i-esima
+ *          nuova analisi (o `null` se nessuno ha slot compatibili), e
+ *          `decrements` = quante analisi scalare da ciascun pacchetto/credito.
  */
 export function assignPackageCoverage(
   packages: PackageSlot[],
-  count: number,
+  analysisIds: string[],
 ): { coverage: (string | null)[]; decrements: Record<string, number> } {
   const remaining = new Map(packages.map((p) => [p.id, p.remainingAnalyses]));
   const decrements: Record<string, number> = {};
   const coverage: (string | null)[] = [];
 
-  for (let i = 0; i < count; i++) {
-    const pkg = packages.find((p) => (remaining.get(p.id) ?? 0) > 0);
-    if (pkg) {
-      coverage.push(pkg.id);
-      remaining.set(pkg.id, (remaining.get(pkg.id) ?? 0) - 1);
-      decrements[pkg.id] = (decrements[pkg.id] ?? 0) + 1;
-    } else {
-      coverage.push(null);
+  for (const analysisId of analysisIds) {
+    const pkgId = pickSlotForAnalysis(packages, analysisId, remaining);
+    coverage.push(pkgId);
+    if (pkgId) {
+      remaining.set(pkgId, (remaining.get(pkgId) ?? 0) - 1);
+      decrements[pkgId] = (decrements[pkgId] ?? 0) + 1;
     }
   }
 

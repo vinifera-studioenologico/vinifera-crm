@@ -24,12 +24,15 @@ import { z } from "zod";
 import type { QuoteDoc, QuoteStatus } from "@/schemas/quote";
 import type { AnalysisDoc } from "@/schemas/analysis";
 import type { ClientDoc } from "@/schemas/client";
-import type { PackageDoc } from "@/schemas/package";
-import { transitionQuote, sendQuoteByEmail, createQuoteRevision } from "@/server/actions/quotes";
+import type { PackageDoc, ClientPackageDoc } from "@/schemas/package";
+import {
+  transitionQuote,
+  approveQuoteWithPayment,
+  sendQuoteByEmail,
+  createQuoteRevision,
+} from "@/server/actions/quotes";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { sharePdf } from "@/lib/utils/share";
-import { createManualPayment } from "@/server/actions/payments";
-import { purchasePackage } from "@/server/actions/clientPackages";
 import { isQuoteTransitionAllowed } from "@/schemas/quote";
 import { PaymentSourceSchema } from "@/schemas/payment";
 import { formatEUR } from "@/lib/utils/money";
@@ -127,13 +130,15 @@ interface Props {
   packages: PackageDoc[];
   defaultEnpaiaApplied?: boolean;
   defaultEnpaiaPercent?: number;
+  /** Crediti (ClientPackageDoc con origin:"quote") generati da questo preventivo. */
+  credits: ClientPackageDoc[];
 }
 
 const _defaultFirstDueDate = new Date(Date.now() + 30 * 86_400_000)
   .toISOString()
   .slice(0, 10);
 
-export function QuoteDetailClient({ quote, clients, analyses, packages, defaultEnpaiaApplied, defaultEnpaiaPercent }: Props) {
+export function QuoteDetailClient({ quote, clients, analyses, packages, defaultEnpaiaApplied, defaultEnpaiaPercent, credits }: Props) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [confirmTransition, setConfirmTransition] = useState<QuoteStatus | null>(null);
@@ -152,39 +157,25 @@ export function QuoteDetailClient({ quote, clients, analyses, packages, defaultE
     packageAssignments?: PackageAssignment[],
   ) {
     startTransition(async () => {
-      const transitionResult = await transitionQuote(quote.id, "approved", quote.version);
-      if (!transitionResult.success) {
-        toast.error(transitionResult.error);
+      // Un'unica azione transazionale: transizione, pagamento, pacchetti e
+      // crediti da preventivo nascono insieme o non nasce nulla — niente
+      // stato intermedio su un documento che, una volta approvato, non è
+      // più ripercorribile all'indietro.
+      const result = await approveQuoteWithPayment({
+        quoteId: quote.id,
+        expectedVersion: quote.version,
+        payment: withPayment && paymentData ? paymentData : null,
+        packageAssignments: withPayment ? (packageAssignments ?? []) : [],
+      });
+
+      if (!result.success) {
+        toast.error(result.error);
         return;
       }
 
-      // Assegna pacchetti al cliente
-      for (const pkg of packageAssignments ?? []) {
-        const pkgResult = await purchasePackage({
-          clientId: quote.clientId,
-          packageId: pkg.packageId,
-          packageNameSnapshot: pkg.packageNameSnapshot,
-          totalAnalyses: pkg.totalAnalyses,
-          priceCents: pkg.priceCents,
-          createPayment: false,
-        });
-        if (!pkgResult.success) {
-          toast.error(`Errore assegnazione "${pkg.packageNameSnapshot}": ${pkgResult.error}`);
-        }
-      }
-
-      if (withPayment && paymentData) {
-        const paymentResult = await createManualPayment(paymentData);
-        if (paymentResult.success) {
-          toast.success("Preventivo approvato e pagamento creato");
-        } else {
-          toast.success("Preventivo approvato");
-          toast.error(`Errore creazione pagamento: ${paymentResult.error}`);
-        }
-      } else {
-        toast.success("Preventivo approvato");
-      }
-
+      toast.success(
+        withPayment ? "Preventivo approvato e pagamento creato" : "Preventivo approvato",
+      );
       setApproveOpen(false);
       router.refresh();
     });
@@ -512,6 +503,43 @@ export function QuoteDetailClient({ quote, clients, analyses, packages, defaultE
         </div>
       </div>
 
+      {/* Crediti generati da questo preventivo (righe analisi singole, §5.5) */}
+      {credits.length > 0 && (
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div className="px-4 py-2.5 bg-muted/40 border-b border-border">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Crediti generati
+            </p>
+          </div>
+          <div className="divide-y divide-border">
+            {credits.map((credit) => {
+              const used = credit.totalAnalyses - credit.remainingAnalyses;
+              const usedPct =
+                credit.totalAnalyses > 0 ? Math.round((used / credit.totalAnalyses) * 100) : 0;
+              return (
+                <div key={credit.id} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Package className="size-3.5 text-muted-foreground shrink-0" strokeWidth={1.75} />
+                      <p className="text-sm font-medium truncate">{credit.packageNameSnapshot}</p>
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
+                      {used}/{credit.totalAnalyses} usati
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all"
+                      style={{ width: `${usedPct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Note */}
       {quote.notes && (
         <div className="rounded-xl border border-border bg-card p-5">
@@ -658,7 +686,10 @@ function ApproveQuoteDialog({
     resolver: zodResolver(ApprovePaymentFormSchema),
     defaultValues: {
       clientId: quote.clientId,
-      source: { kind: "manual", refId: quote.id },
+      // Il server valorizza sempre source con kind:"quote" e il numero
+      // preventivo autoritativo (§ approveQuoteWithPayment) — questo valore
+      // serve solo a soddisfare la validazione Zod del form.
+      source: { kind: "quote", refId: quote.id },
       description: `Preventivo ${quote.number} — ${quote.clientSnapshot.displayName}`,
       totalAmountCents: (quote.totalCents / 100).toFixed(2).replace(".", ","),
       installmentsCount: quote.paymentTerms?.installmentsCount ?? 1,
@@ -790,6 +821,12 @@ function ApproveQuoteDialog({
               onCheckedChange={setWithPayment}
             />
           </div>
+
+          {!withPayment && (
+            <p className="text-xs text-muted-foreground -mt-2">
+              Senza pagamento non verranno assegnati pacchetti né crediti al cliente.
+            </p>
+          )}
 
           {/* Form pagamento (visibile solo se withPayment) */}
           {withPayment && (

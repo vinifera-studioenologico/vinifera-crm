@@ -12,6 +12,7 @@ import { SampleFormSchema, SampleMetadataFormSchema } from "@/schemas/sample";
 import type { SampleDoc, SampleStatus } from "@/schemas/sample";
 import { tsToISO, civilDateToEndOfDay, generateDueDates } from "@/lib/utils/date";
 import type { ActionResult, PaginatedResult } from "@/types";
+import type { PaymentStatus } from "@/schemas/payment";
 import { computeSampleTotal, assignPackageCoverage } from "@/lib/calc/sample";
 import { splitInCents } from "@/lib/utils/money";
 import { getClient } from "./clients";
@@ -135,19 +136,28 @@ export async function getAdjacentInProgressSamples(
 // ── Riepilogo pagamento collegato (per banner avviso disallineamento) ──
 export async function getLinkedPaymentSummary(
   paymentId: string,
-): Promise<{ totalAmountCents: number; status: string } | null> {
+): Promise<{ totalAmountCents: number; status: PaymentStatus } | null> {
   await requireAdmin();
   const snap = await adminDb.collection("payments").doc(paymentId).get();
   if (!snap.exists) return null;
   const d = snap.data()!;
   return {
     totalAmountCents: (d["totalAmountCents"] as number) ?? 0,
-    status: (d["status"] as string) ?? "pending",
+    status: (d["status"] as PaymentStatus) ?? "pending",
   };
 }
 
 // ── Stati in cui il campione è modificabile (items) ───────────────────
 const EDITABLE_STATUSES: SampleStatus[] = ["pending", "in_progress"];
+
+// ── Errore: la copertura pacchetto/credito inviata dal client non è più
+// valida (esaurita, annullata, o riferita a un'altra analisi) ──────────
+class SampleCoverageError extends Error {
+  constructor() {
+    super("La copertura selezionata non è più valida o disponibile. Ricarica la pagina e riprova.");
+    this.name = "SampleCoverageError";
+  }
+}
 
 // ── Aggiungi analisi a un campione in lavorazione ─────────────────────
 export async function addSampleAnalyses(
@@ -216,18 +226,23 @@ export async function addSampleAnalyses(
 
       if (toAdd.length === 0) return { code: "noop" as const, version: expectedVersion };
 
-      // Pacchetti attivi ordinati dal più vecchio (consuma prima i vecchi)
+      // Pacchetti/crediti attivi ordinati dal più vecchio (consuma prima i vecchi)
       const packages = pkgQuerySnap.docs
         .map((dpkg) => ({
           id: dpkg.id,
           remainingAnalyses: (dpkg.data()["remainingAnalyses"] as number) ?? 0,
+          restrictedToAnalysisId: (dpkg.data()["restrictedToAnalysisId"] as string) ?? null,
           createdAtMs: dpkg.data()["createdAt"]?.toMillis?.() ?? 0,
         }))
         .sort((x, y) => x.createdAtMs - y.createdAtMs);
 
       const { coverage, decrements } = assignPackageCoverage(
-        packages.map((p) => ({ id: p.id, remainingAnalyses: p.remainingAnalyses })),
-        toAdd.length,
+        packages.map((p) => ({
+          id: p.id,
+          remainingAnalyses: p.remainingAnalyses,
+          restrictedToAnalysisId: p.restrictedToAnalysisId,
+        })),
+        toAdd.map((item) => item.analysisId),
       );
 
       toAdd.forEach((item, i) => {
@@ -366,11 +381,26 @@ export async function getClientActivePkgs(clientId: string) {
     .where("clientId", "==", clientId)
     .where("status", "==", "active")
     .get();
-  return snap.docs.map((d) => ({
-    id: d.id,
-    packageNameSnapshot: d.data()["packageNameSnapshot"] as string,
-    remainingAnalyses: d.data()["remainingAnalyses"] as number,
-  }));
+  return snap.docs
+    .map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        packageNameSnapshot: data["packageNameSnapshot"] as string,
+        remainingAnalyses: data["remainingAnalyses"] as number,
+        restrictedToAnalysisId: (data["restrictedToAnalysisId"] as string | undefined) ?? null,
+        origin: (data["origin"] as "purchase" | "quote" | undefined) ?? "purchase",
+        createdAtMs: data["createdAt"]?.toMillis?.() ?? 0,
+      };
+    })
+    .sort((a, b) => a.createdAtMs - b.createdAtMs) // FIFO — consuma prima i più vecchi
+    .map(({ id, packageNameSnapshot, remainingAnalyses, restrictedToAnalysisId, origin }) => ({
+      id,
+      packageNameSnapshot,
+      remainingAnalyses,
+      restrictedToAnalysisId,
+      origin,
+    }));
 }
 
 // ── Crea campione (wizard finale) ─────────────────────────────────────
@@ -426,6 +456,47 @@ export async function createSample(raw: unknown): Promise<ActionResult<{ id: str
 
       const pkgSnaps = new Map<string, FirebaseFirestore.DocumentSnapshot>();
       pkgRefs.forEach((ref, i) => pkgSnaps.set(ref.id, pkgSnapsList[i]!));
+
+      // Analisi referenziate da ciascun pacchetto/credito, indipendentemente
+      // da chargeAnyway — serve a validare i crediti ristretti (sotto).
+      const referencedAnalysesByPkg = new Map<string, Set<string>>();
+      for (const item of data.items) {
+        if (!item.coveredByPackageId) continue;
+        const set = referencedAnalysesByPkg.get(item.coveredByPackageId) ?? new Set<string>();
+        set.add(item.analysisId);
+        referencedAnalysesByPkg.set(item.coveredByPackageId, set);
+      }
+
+      // Valida ogni pacchetto/credito referenziato PRIMA di scrivere:
+      // il client si fida di `coveredByPackageId` inviato dal form, ma tra
+      // il caricamento del wizard e il submit lo stato può essere cambiato
+      // (slot esauriti da un'altra sessione, pacchetto annullato, ecc.) —
+      // fallire esplicitamente evita di alterare l'importo in silenzio.
+      for (const [pkgId, count] of packageDecrements) {
+        const pkgSnap = pkgSnaps.get(pkgId);
+        if (!pkgSnap?.exists) {
+          throw new SampleCoverageError();
+        }
+        const pkgData = pkgSnap.data()!;
+        if (pkgData["clientId"] !== data.clientId) {
+          throw new SampleCoverageError();
+        }
+        if (pkgData["status"] !== "active") {
+          throw new SampleCoverageError();
+        }
+        if (((pkgData["remainingAnalyses"] as number) ?? 0) < count) {
+          throw new SampleCoverageError();
+        }
+        const restrictedTo = pkgData["restrictedToAnalysisId"] as string | undefined;
+        if (restrictedTo) {
+          const referenced = referencedAnalysesByPkg.get(pkgId) ?? new Set<string>();
+          for (const analysisId of referenced) {
+            if (analysisId !== restrictedTo) {
+              throw new SampleCoverageError();
+            }
+          }
+        }
+      }
 
       // ── FASE SCRITTURE ────────────────────────────────────────────────
 
@@ -573,6 +644,9 @@ export async function createSample(raw: unknown): Promise<ActionResult<{ id: str
     logger.info("Campione creato", { id: createdId, code: createdCode });
     return { success: true, data: { id: createdId, code: createdCode } };
   } catch (err) {
+    if (err instanceof SampleCoverageError) {
+      return { success: false, error: err.message };
+    }
     logger.error("Errore creazione campione", err);
     return { success: false, error: "Errore durante il salvataggio. Riprova." };
   }
