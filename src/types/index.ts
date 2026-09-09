@@ -66,6 +66,11 @@ export type {
 } from "@/schemas/report";
 
 export type {
+  ReportSummaryDoc,
+  ReportSummaryFormValues,
+} from "@/schemas/reportSummary";
+
+export type {
   ReminderStatus,
   ReminderRelated,
   Recurrence,

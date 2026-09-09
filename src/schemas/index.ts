@@ -14,6 +14,7 @@ export * from "./sample";
 export * from "./quote";
 export * from "./payment";
 export * from "./report";
+export * from "./reportSummary";
 export * from "./reminder";
 export * from "./settings";
 export * from "./cost";

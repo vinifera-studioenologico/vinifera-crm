@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getClient } from "@/server/actions/clients";
 import { getReports } from "@/server/actions/reports";
+import { getReportSummaries } from "@/server/actions/reportSummaries";
 import { ClientReportsClient } from "./_components/ClientReportsClient";
 
 interface Props {
@@ -9,9 +10,10 @@ interface Props {
 
 export default async function ClientReportsPage({ params }: Props) {
   const { id } = await params;
-  const [client, reportsResult] = await Promise.all([
+  const [client, reportsResult, summariesResult] = await Promise.all([
     getClient(id),
     getReports({ clientId: id }),
+    getReportSummaries({ clientId: id }),
   ]);
 
   if (!client) notFound();
@@ -23,6 +25,9 @@ export default async function ClientReportsPage({ params }: Props) {
         initialReports={reportsResult.items}
         hasMore={reportsResult.hasMore}
         nextCursor={reportsResult.nextCursor}
+        initialSummaries={summariesResult.items}
+        summariesHasMore={summariesResult.hasMore}
+        summariesNextCursor={summariesResult.nextCursor}
       />
     </div>
   );
