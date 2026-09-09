@@ -2,37 +2,23 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, FileText, Download, Mail, Send, Loader2, FlaskConical, Receipt } from "lucide-react";
-import { toast } from "sonner";
+import { Plus, Search, FileText } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import type { ReportDoc } from "@/schemas/report";
-import { getReports, searchReports, sendReportByEmail } from "@/server/actions/reports";
+import { getReports, searchReports } from "@/server/actions/reports";
 import { formatDate } from "@/lib/utils/date";
-import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
-import { sharePdf } from "@/lib/utils/share";
 import { DataTable } from "@/components/data-table/DataTable";
 import { CsvExportButton } from "@/components/data-table/CsvExportButton";
+import { ReportActions } from "@/components/reports/ReportActions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbList,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
-
-type PdfType = "technical" | "commercial";
-type PickerAction = "download" | "email" | "whatsapp";
 
 interface Props {
   initialData: ReportDoc[];
@@ -54,62 +40,7 @@ export function ReportsClient({ initialData, hasMore: initialHasMore, nextCursor
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestQueryRef = useRef("");
 
-  // Picker tipo PDF
-  const [pickerTarget, setPickerTarget] = useState<ReportDoc | null>(null);
-  const [pickerAction, setPickerAction] = useState<PickerAction>("download");
-
-  // Email
-  const [emailTarget, setEmailTarget] = useState<ReportDoc | null>(null);
-  const [emailType, setEmailType] = useState<PdfType>("technical");
-  const [emailTo, setEmailTo] = useState("");
-  const [emailSubject, setEmailSubject] = useState("");
-  const [emailBody, setEmailBody] = useState("");
-  const [isSending, startSend] = useTransition();
-  const [isWhatsApp, setIsWhatsApp] = useState(false);
   const [isLoadingMore, startLoadMore] = useTransition();
-
-  function openPicker(report: ReportDoc, action: PickerAction) {
-    setPickerTarget(report);
-    setPickerAction(action);
-  }
-
-  function handlePickType(type: PdfType) {
-    if (!pickerTarget) return;
-    if (pickerAction === "download") {
-      const url = type === "commercial"
-        ? `/api/pdf/report/${pickerTarget.id}?type=commercial`
-        : `/api/pdf/report/${pickerTarget.id}`;
-      window.open(url, "_blank");
-      setPickerTarget(null);
-    } else if (pickerAction === "whatsapp") {
-      const target = pickerTarget;
-      const clientSlug = target.clientSnapshot.displayName.replace(/\s+/g, '_').replace(/[/\\:*?"<>|]/g, '');
-      const filename = type === "commercial"
-        ? `referto-commerciale-${target.number}_${clientSlug}.pdf`
-        : `referto-${target.number}_${clientSlug}.pdf`;
-      const pdfUrl = type === "commercial"
-        ? `/api/pdf/report/${target.id}?type=commercial`
-        : `/api/pdf/report/${target.id}`;
-      setPickerTarget(null);
-      setIsWhatsApp(true);
-      sharePdf(pdfUrl, filename)
-        .then((result) => {
-          if (result === "downloaded")
-            toast.info("PDF scaricato — allegalo su WhatsApp manualmente");
-          else if (result === "error")
-            toast.error("Errore durante la generazione del PDF");
-        })
-        .finally(() => setIsWhatsApp(false));
-    } else {
-      // email
-      setEmailType(type);
-      setEmailTarget(pickerTarget);
-      setEmailTo(pickerTarget.clientSnapshot.email ?? "");
-      setEmailSubject(`Referto ${pickerTarget.number} — ${pickerTarget.clientSnapshot.displayName}`);
-      setEmailBody(`Gentile cliente,\n\nin allegato il referto ${pickerTarget.number}.\n\nCordiali saluti`);
-      setPickerTarget(null);
-    }
-  }
 
   function loadMore() {
     if (!cursor) return;
@@ -142,24 +73,6 @@ export function ReportsClient({ initialData, hasMore: initialHasMore, nextCursor
         setIsSearching(false);
       });
     }, 300);
-  }
-
-  function handleSend() {
-    if (!emailTarget) return;
-    startSend(async () => {
-      const result = await sendReportByEmail(emailTarget.id, {
-        to: emailTo,
-        subject: emailSubject,
-        body: emailBody,
-        type: emailType,
-      });
-      if (result.success) {
-        toast.success("Referto inviato via email");
-        setEmailTarget(null);
-      } else {
-        toast.error(result.error);
-      }
-    });
   }
 
   const isActivelySearching = search.trim().length > 0;
@@ -213,35 +126,7 @@ export function ReportsClient({ initialData, hasMore: initialHasMore, nextCursor
     {
       id: "actions",
       size: 100,
-      cell: ({ row }) => (
-        <div className="flex justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Invia via email"
-            onClick={() => openPicker(row.original, "email")}
-          >
-            <Mail className="size-3.5" strokeWidth={1.75} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Condividi su WhatsApp"
-            disabled={isWhatsApp}
-            onClick={() => openPicker(row.original, "whatsapp")}
-          >
-            <WhatsAppIcon className="size-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Scarica PDF"
-            onClick={() => openPicker(row.original, "download")}
-          >
-            <Download className="size-3.5" strokeWidth={1.75} />
-          </Button>
-        </div>
-      ),
+      cell: ({ row }) => <ReportActions report={row.original} />,
     },
   ];
 
@@ -321,91 +206,6 @@ export function ReportsClient({ initialData, hasMore: initialHasMore, nextCursor
           </Button>
         </div>
       )}
-
-      {/* Dialog picker tipo PDF */}
-      <Dialog open={!!pickerTarget} onOpenChange={(open) => !open && setPickerTarget(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>
-              {pickerAction === "download" ? "Scarica PDF" : pickerAction === "whatsapp" ? "Condividi su WhatsApp" : "Invia via email"}
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground -mt-2">
-            Scegli la versione del referto da {pickerAction === "download" ? "scaricare" : pickerAction === "whatsapp" ? "condividere" : "inviare"}.
-          </p>
-          <div className="grid grid-cols-2 gap-3 py-2">
-            <button
-              onClick={() => handlePickType("technical")}
-              className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 hover:border-primary hover:bg-primary/5 transition-colors text-left"
-            >
-              <FlaskConical className="size-6 text-muted-foreground" strokeWidth={1.5} />
-              <div>
-                <p className="text-sm font-medium">Tecnico</p>
-                <p className="text-xs text-muted-foreground">Risultati analisi, senza prezzi</p>
-              </div>
-            </button>
-            <button
-              onClick={() => handlePickType("commercial")}
-              className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 hover:border-primary hover:bg-primary/5 transition-colors text-left"
-            >
-              <Receipt className="size-6 text-muted-foreground" strokeWidth={1.5} />
-              <div>
-                <p className="text-sm font-medium">Commerciale</p>
-                <p className="text-xs text-muted-foreground">Con prezzi, totale e firme</p>
-              </div>
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog invio email */}
-      <Dialog open={!!emailTarget} onOpenChange={(open) => !open && setEmailTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Invia referto via email</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div className="space-y-1.5">
-              <Label>A (email)</Label>
-              <Input
-                type="email"
-                value={emailTo}
-                onChange={(e) => setEmailTo(e.target.value)}
-                placeholder="cliente@email.com"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Oggetto</Label>
-              <Input
-                value={emailSubject}
-                onChange={(e) => setEmailSubject(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Corpo messaggio</Label>
-              <Textarea
-                rows={4}
-                className="resize-none"
-                value={emailBody}
-                onChange={(e) => setEmailBody(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEmailTarget(null)}>
-              Annulla
-            </Button>
-            <Button disabled={isSending || !emailTo} onClick={handleSend}>
-              {isSending ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <Send className="size-3.5" strokeWidth={1.75} />
-              )}
-              {isSending ? "Invio..." : "Invia"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

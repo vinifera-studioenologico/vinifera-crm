@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   User,
   FileText,
+  FileCheck2,
   FlaskConical,
   Package,
   CreditCard,
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { href: "", label: "Panoramica", icon: User },
   { href: "/samples", label: "Campioni", icon: FlaskConical },
   { href: "/quotes", label: "Preventivi", icon: FileText },
+  { href: "/reports", label: "Referti", icon: FileCheck2 },
   { href: "/packages", label: "Pacchetti", icon: Package },
   { href: "/payments", label: "Pagamenti", icon: CreditCard },
   { href: "/reminders", label: "Promemoria", icon: Bell },
