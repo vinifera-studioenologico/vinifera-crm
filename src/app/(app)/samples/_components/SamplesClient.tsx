@@ -8,6 +8,7 @@ import { Plus, Search, ChevronRight, FlaskConical } from "lucide-react";
 import type { SampleDoc, SampleStatus } from "@/schemas/sample";
 import type { ClientDoc } from "@/schemas/client";
 import type { AnalysisDoc } from "@/schemas/analysis";
+import type { PaymentStatus } from "@/schemas/payment";
 import { formatEUR } from "@/lib/utils/money";
 import { formatDate } from "@/lib/utils/date";
 
@@ -15,6 +16,7 @@ import { DataTable } from "@/components/data-table/DataTable";
 import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import { SampleWizard } from "@/components/forms/SampleWizard";
 import { SampleStatusBadge } from "@/components/widgets/SampleStatusBadge";
+import { PaymentStatusBadge, paymentStatusLabel } from "@/components/widgets/PaymentStatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -42,9 +44,10 @@ interface Props {
   initialData: SampleDoc[];
   clients: ClientDoc[];
   analyses: AnalysisDoc[];
+  paymentStatuses: Record<string, PaymentStatus>;
 }
 
-export function SamplesClient({ initialData, clients, analyses }: Props) {
+export function SamplesClient({ initialData, clients, analyses, paymentStatuses }: Props) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<SampleStatus | "all">("all");
@@ -85,6 +88,18 @@ export function SamplesClient({ initialData, clients, analyses }: Props) {
       header: "Stato",
       size: 140,
       cell: ({ row }) => <SampleStatusBadge status={row.original.status} />,
+    },
+    {
+      id: "paymentStatus",
+      header: "Pagamento",
+      size: 140,
+      cell: ({ row }) => (
+        <PaymentStatusBadge
+          status={
+            row.original.paymentId ? paymentStatuses[row.original.paymentId] : null
+          }
+        />
+      ),
     },
     {
       id: "analyses",
@@ -217,6 +232,11 @@ export function SamplesClient({ initialData, clients, analyses }: Props) {
             { header: "Campione", accessor: (s: SampleDoc) => s.sampleName },
             { header: "Cliente", accessor: (s: SampleDoc) => s.clientNameSnapshot },
             { header: "Stato", accessor: (s: SampleDoc) => STATUS_LABELS[s.status] },
+            {
+              header: "Pagamento",
+              accessor: (s: SampleDoc) =>
+                paymentStatusLabel(s.paymentId ? paymentStatuses[s.paymentId] : null),
+            },
             { header: "N. analisi", accessor: (s: SampleDoc) => String(s.items.length) },
             { header: "Totale stimato (\u20ac)", accessor: (s: SampleDoc) => (s.estimatedTotalCents / 100).toFixed(2).replace(".", ",") },
             { header: "Ricevuto il", accessor: (s: SampleDoc) => s.receivedAt ? formatDate(s.receivedAt as Parameters<typeof formatDate>[0]) : "" },

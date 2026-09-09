@@ -25,13 +25,17 @@ function toClientPackageDoc(
   return {
     id,
     clientId: data["clientId"] ?? "",
-    packageId: data["packageId"] ?? "",
+    packageId: data["packageId"] ?? undefined, // assente sui crediti da preventivo
     packageNameSnapshot: data["packageNameSnapshot"] ?? "",
     totalAnalyses: data["totalAnalyses"] ?? 0,
     remainingAnalyses: data["remainingAnalyses"] ?? 0,
     priceCents: data["priceCents"] ?? 0,
     status: data["status"] ?? "active",
     paymentId: data["paymentId"],
+    origin: data["origin"] ?? undefined,
+    sourceQuoteId: data["sourceQuoteId"] ?? undefined,
+    sourceQuoteNumber: data["sourceQuoteNumber"] ?? undefined,
+    restrictedToAnalysisId: data["restrictedToAnalysisId"] ?? undefined,
     purchasedAt: tsToISO(data["purchasedAt"]),
     cancelledAt: tsToISO(data["cancelledAt"]),
     cancelReason: data["cancelReason"],
@@ -59,6 +63,16 @@ export async function getClientPackage(id: string): Promise<ClientPackageDoc | n
   const doc = await adminDb.collection(COL).doc(id).get();
   if (!doc.exists) return null;
   return toClientPackageDoc(doc.id, doc.data()!);
+}
+
+// ── Crediti generati da un preventivo (dettaglio preventivo) ───────────
+export async function getQuoteCredits(quoteId: string): Promise<ClientPackageDoc[]> {
+  await requireAdmin();
+  const snap = await adminDb
+    .collection(COL)
+    .where("sourceQuoteId", "==", quoteId)
+    .get();
+  return snap.docs.map((d) => toClientPackageDoc(d.id, d.data()));
 }
 
 // ── Acquisto pacchetto ────────────────────────────────────────────────

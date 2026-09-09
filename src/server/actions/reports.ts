@@ -145,7 +145,12 @@ export async function createReport(
   if (samples.length === 0) return { success: false, error: "Nessun campione valido" };
 
   const allPackages = await getClientPackages(data.clientId);
-  const activePackages = allPackages.filter((p) => p.status === "active");
+  // I crediti da preventivo (origin:"quote") non sono pacchetti commerciali:
+  // esclusi dal riquadro "Saldo pacchetti attivi" del referto, che va al
+  // cliente finale (§ docs/crediti-da-preventivo.md).
+  const activePackages = allPackages.filter(
+    (p) => p.status === "active" && p.origin !== "quote",
+  );
 
   try {
     let createdId = "";
@@ -266,7 +271,8 @@ export async function sendReportByEmail(
       const samples = sampleResults.filter((s) => s !== null);
       const { getClientPackages } = await import("./clientPackages");
       const allPkgs = await getClientPackages(report.clientId);
-      const activePackages = allPkgs.filter((p) => p.status === "active");
+      // Vedi nota sopra: i crediti da preventivo non sono pacchetti commerciali.
+      const activePackages = allPkgs.filter((p) => p.status === "active" && p.origin !== "quote");
       const props = { reportNumber: report.number, company, client, samples, notes: report.notes, clientPackages: activePackages };
 
       const element = isCommercial

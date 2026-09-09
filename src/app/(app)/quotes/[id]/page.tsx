@@ -4,6 +4,7 @@ import { getQuote } from "@/server/actions/quotes";
 import { getClients } from "@/server/actions/clients";
 import { getAnalyses } from "@/server/actions/analyses";
 import { getPackages } from "@/server/actions/packages";
+import { getQuoteCredits } from "@/server/actions/clientPackages";
 import { getCompanySettings } from "@/server/actions/settings";
 import { QuoteDetailClient } from "./_components/QuoteDetailClient";
 
@@ -20,12 +21,13 @@ export async function generateMetadata({ params }: Props) {
 export default async function QuoteDetailPage({ params }: Props) {
   const { id } = await params;
 
-  const [quote, clientsResult, analyses, packages, settings] = await Promise.all([
+  const [quote, clientsResult, analyses, packages, settings, credits] = await Promise.all([
     getQuote(id),
     getClients(),
     getAnalyses(),
     getPackages(),
     getCompanySettings(),
+    getQuoteCredits(id),
   ]);
 
   if (!quote) notFound();
@@ -38,6 +40,7 @@ export default async function QuoteDetailPage({ params }: Props) {
       packages={packages}
       defaultEnpaiaApplied={settings?.defaultEnpaiaApplied ?? false}
       defaultEnpaiaPercent={settings?.defaultEnpaiaPercent ?? 4}
+      credits={credits}
     />
   );
 }

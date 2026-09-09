@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Package, Loader2 } from "lucide-react";
+import { Plus, Package, Loader2, FileText } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 
 import type { ClientPackageDoc, ClientPackageStatus, PackageDoc } from "@/schemas/package";
@@ -112,6 +113,11 @@ export function ClientPackagesClient({
             data={initialPackages}
             columns={[
               { header: "Pacchetto", accessor: (p: ClientPackageDoc) => p.packageNameSnapshot },
+              {
+                header: "Origine",
+                accessor: (p: ClientPackageDoc) =>
+                  p.origin === "quote" ? `Preventivo ${p.sourceQuoteNumber ?? ""}`.trim() : "Acquisto",
+              },
               { header: "Stato", accessor: (p: ClientPackageDoc) => STATUS_CONFIG[p.status].label },
               { header: "Analisi totali", accessor: (p: ClientPackageDoc) => String(p.totalAnalyses) },
               { header: "Analisi residue", accessor: (p: ClientPackageDoc) => String(p.remainingAnalyses) },
@@ -237,6 +243,24 @@ function PackageGroup({
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-medium">{pkg.packageNameSnapshot}</p>
                     <ClientPackageStatusBadge status={pkg.status} />
+                    {pkg.origin === "quote" && (
+                      pkg.sourceQuoteId ? (
+                        <Link href={`/quotes/${pkg.sourceQuoteId}`}>
+                          <Badge
+                            variant="outline"
+                            className="gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <FileText className="size-3" strokeWidth={1.75} />
+                            Da preventivo
+                          </Badge>
+                        </Link>
+                      ) : (
+                        <Badge variant="outline" className="gap-1 text-muted-foreground">
+                          <FileText className="size-3" strokeWidth={1.75} />
+                          Da preventivo
+                        </Badge>
+                      )
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     Acquistato{" "}

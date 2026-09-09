@@ -63,13 +63,24 @@ export type ClientPackageFormValues = z.infer<typeof ClientPackageFormSchema>;
 export const ClientPackageDocSchema = z.object({
   id: z.string(),
   clientId: z.string(),
-  packageId: z.string(),
+  packageId: z.string().optional(), // assente per i crediti da preventivo (nessun template)
   packageNameSnapshot: z.string(),
   totalAnalyses: z.number().int().min(0),
   remainingAnalyses: z.number().int().min(0),
   priceCents: zCents,
   status: ClientPackageStatusSchema,
   paymentId: z.string().optional(),
+
+  // ── Crediti da preventivo (§ docs/crediti-da-preventivo.md) ──────────
+  // Campi opzionali e assenti sui documenti esistenti: un pacchetto senza
+  // `restrictedToAnalysisId` resta generico e si comporta come oggi.
+  // Branchare sempre su `origin === "quote"`, mai sulla sola presenza di
+  // `sourceQuoteId`.
+  origin: z.enum(["purchase", "quote"]).optional(), // assente ⇒ "purchase" (retrocompat)
+  sourceQuoteId: z.string().optional(),
+  sourceQuoteNumber: z.string().optional(), // es. "2026/0034", per etichette e link
+  restrictedToAnalysisId: z.string().optional(), // assente ⇒ pacchetto generico
+
   purchasedAt: z.any(),
   cancelledAt: z.any().optional(),
   cancelReason: z.string().optional(),

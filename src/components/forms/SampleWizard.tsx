@@ -32,7 +32,7 @@ const SampleWizardClientSchema = SampleFormSchema
 import type { ClientDoc } from "@/schemas/client";
 import type { AnalysisDoc } from "@/schemas/analysis";
 import { createSample, getClientActivePkgs } from "@/server/actions/samples";
-import { computeSampleTotal } from "@/lib/calc/sample";
+import { computeSampleTotal, pickSlotForAnalysis } from "@/lib/calc/sample";
 import { formatEUR } from "@/lib/utils/money";
 
 import {
@@ -64,6 +64,8 @@ interface ActivePackage {
   id: string;
   packageNameSnapshot: string;
   remainingAnalyses: number;
+  /** Presente solo sui crediti da preventivo: coprono solo questa analisi. */
+  restrictedToAnalysisId?: string | null;
 }
 
 interface Props {
@@ -332,10 +334,12 @@ function Step2({
         usedByPackage[it.coveredByPackageId] = (usedByPackage[it.coveredByPackageId] ?? 0) + 1;
       }
     }
-    // Primo pacchetto con slot effettivi rimasti
-    const availablePkg = activePackages.find(
-      (p) => p.remainingAnalyses - (usedByPackage[p.id] ?? 0) > 0,
+    const remainingMap = new Map(
+      activePackages.map((p) => [p.id, p.remainingAnalyses - (usedByPackage[p.id] ?? 0)]),
     );
+    // Credito ristretto a questa analisi, se disponibile; altrimenti un
+    // pacchetto generico — mai un credito ristretto a un'analisi diversa.
+    const coveredByPackageId = pickSlotForAnalysis(activePackages, analysis.id, remainingMap);
     append({
       analysisId: analysis.id,
       analysisCodeSnapshot: analysis.code,
@@ -343,7 +347,7 @@ function Step2({
       unitSnapshot: analysis.unit ?? undefined,
       descriptionSnapshot: analysis.description ?? undefined,
       unitPriceCents: analysis.defaultPriceCents,
-      coveredByPackageId: availablePkg?.id ?? undefined,
+      coveredByPackageId: coveredByPackageId ?? undefined,
       chargeAnyway: false,
     } as never);
   }
@@ -443,8 +447,12 @@ function Step2({
               }
               const effectiveRemaining = (pkg: ActivePackage) =>
                 Math.max(0, pkg.remainingAnalyses - (usedByOthers[pkg.id] ?? 0));
+              // Solo pacchetti generici o crediti ristretti a QUESTA analisi —
+              // un credito da preventivo non deve mai coprire un'altra analisi.
               const packagesForRow = activePackages.filter(
-                (p) => effectiveRemaining(p) > 0 || p.id === item?.coveredByPackageId,
+                (p) =>
+                  (!p.restrictedToAnalysisId || p.restrictedToAnalysisId === item?.analysisId) &&
+                  (effectiveRemaining(p) > 0 || p.id === item?.coveredByPackageId),
               );
 
               return (

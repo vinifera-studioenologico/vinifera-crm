@@ -118,6 +118,27 @@ export async function getPaymentInstallments(
   return snap.docs.map((d) => toInstallmentDoc(d.id, d.data()));
 }
 
+// ── Stati pagamento per una lista di id (badge nelle liste campioni) ───
+export async function getPaymentStatusesByIds(
+  ids: string[],
+): Promise<Record<string, PaymentDoc["status"]>> {
+  await requireAdmin();
+
+  const uniqueIds = [...new Set(ids)].filter(Boolean);
+  if (uniqueIds.length === 0) return {};
+
+  const refs = uniqueIds.map((id) => adminDb.collection(COL).doc(id));
+  const snaps = await adminDb.getAll(...refs);
+
+  const result: Record<string, PaymentDoc["status"]> = {};
+  for (const snap of snaps) {
+    if (snap.exists) {
+      result[snap.id] = (snap.data()!["status"] as PaymentDoc["status"]) ?? "pending";
+    }
+  }
+  return result;
+}
+
 // ── Registra incasso rata ─────────────────────────────────────────────
 export async function markInstallmentPaid(
   raw: unknown,
@@ -357,7 +378,7 @@ export async function createManualPayment(
 
       tx.set(paymentRef, {
         clientId: data.clientId,
-        source: { kind: "manual" },
+        source: data.source,
         description: data.description,
         totalAmountCents,
         paidAmountCents: hasAcconto ? (isFullyPaid ? totalAmountCents : accontoCents) : 0,

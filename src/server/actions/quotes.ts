@@ -8,11 +8,13 @@ import { revalidatePath } from "next/cache";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireAdmin } from "@/server/auth";
 import { logger } from "@/lib/logger";
-import { QuoteFormSchema, isQuoteTransitionAllowed } from "@/schemas/quote";
-import type { QuoteDoc, QuoteStatus } from "@/schemas/quote";
-import { tsToISO, civilDateToEndOfDay } from "@/lib/utils/date";
+import { QuoteFormSchema, ApproveQuoteInputSchema, isQuoteTransitionAllowed } from "@/schemas/quote";
+import type { QuoteDoc, QuoteStatus, QuoteItem } from "@/schemas/quote";
+import { tsToISO, civilDateToEndOfDay, generateDueDates } from "@/lib/utils/date";
 import type { ActionResult, PaginatedResult } from "@/types";
 import { computeQuoteTotals } from "@/lib/calc/quote";
+import { computeAccontoPlan } from "@/lib/utils/acconto";
+import { deriveQuoteCredits } from "@/lib/calc/quoteCredits";
 import { getClient } from "./clients";
 
 const COL = "quotes";
@@ -286,6 +288,276 @@ export async function updateQuote(
   } catch (err) {
     logger.error("Errore aggiornamento preventivo", err);
     return { success: false, error: "Errore durante il salvataggio. Riprova." };
+  }
+}
+
+// ── Snapshot bloccato all'approvazione (§2.5 — condiviso dai due percorsi
+// che possono portare un preventivo ad "approved") ─────────────────────
+function buildFrozenSnapshot(current: FirebaseFirestore.DocumentData) {
+  return {
+    number: current["number"],
+    clientSnapshot: current["clientSnapshot"],
+    issuedAt: tsToISO(current["issuedAt"]) ?? null,
+    validUntil: tsToISO(current["validUntil"]) ?? null,
+    items: current["items"],
+    subtotalCents: current["subtotalCents"],
+    discounts: current["discounts"],
+    taxes: current["taxes"],
+    totalCents: current["totalCents"],
+    notes: current["notes"] ?? null,
+  };
+}
+
+// ── Approva preventivo + genera pagamento/pacchetti/crediti in un colpo
+// solo (§ docs/crediti-da-preventivo.md) ───────────────────────────────
+// Sostituisce le 3 chiamate sequenziali (transitionQuote → purchasePackage
+// → createManualPayment) usate finora dal dialog di approvazione: qui è
+// tutto in un'unica transazione, quindi non può esistere uno stato
+// intermedio in cui il preventivo è "approved" (stato terminale, mai
+// ripercorribile all'indietro) senza il suo pagamento/pacchetti/crediti.
+export async function approveQuoteWithPayment(
+  raw: unknown,
+): Promise<ActionResult<{ quoteId: string }>> {
+  const actor = await requireAdmin();
+
+  const parsed = ApproveQuoteInputSchema.safeParse(raw);
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string[]> = {};
+    for (const issue of parsed.error.issues) {
+      const path = issue.path.join(".");
+      if (!fieldErrors[path]) fieldErrors[path] = [];
+      fieldErrors[path]!.push(issue.message);
+    }
+    return { success: false, error: "Dati non validi", fieldErrors };
+  }
+
+  const data = parsed.data;
+  // Un pagamento da €0 equivarrebbe a regalare pacchetti/crediti senza
+  // contropartita: trattato come "approvazione senza pagamento" (decisione
+  // di prodotto, vedi docs/crediti-da-preventivo.md §6.2).
+  const hasPayment = data.payment !== null && data.payment.totalAmountCents > 0;
+  const payment = hasPayment ? data.payment! : null;
+
+  try {
+    const result = await adminDb.runTransaction(async (tx) => {
+      const quoteRef = adminDb.collection(COL).doc(data.quoteId);
+
+      // ── FASE LETTURE ──────────────────────────────────────────────
+      const quoteSnap = await tx.get(quoteRef);
+      if (!quoteSnap.exists) return { code: "not_found" as const };
+
+      const current = quoteSnap.data()!;
+      if (current["version"] !== data.expectedVersion) return { code: "conflict" as const };
+
+      const from = current["status"] as QuoteStatus;
+      if (!isQuoteTransitionAllowed(from, "approved")) {
+        return { code: "invalid_transition" as const };
+      }
+
+      const clientId = current["clientId"] as string;
+      const clientRef = adminDb.collection("clients").doc(clientId);
+      const pkgTemplateRefs = data.packageAssignments.map((a) =>
+        adminDb.collection("packages").doc(a.packageId),
+      );
+
+      const [clientSnap, ...pkgTemplateSnaps] = await Promise.all([
+        tx.get(clientRef),
+        ...pkgTemplateRefs.map((ref) => tx.get(ref)),
+      ]);
+
+      if (!clientSnap.exists) return { code: "client_not_found" as const };
+      if (pkgTemplateSnaps.some((s) => !s.exists)) return { code: "package_not_found" as const };
+
+      // Crediti derivati dalle righe kind:"analysis" — solo se nasce un
+      // pagamento vero (decisione 3): senza contropartita sarebbe un regalo.
+      const credits = hasPayment
+        ? deriveQuoteCredits((current["items"] as QuoteItem[]) ?? [])
+        : [];
+
+      const plan = payment
+        ? computeAccontoPlan({
+            totalCents: payment.totalAmountCents,
+            accontoCents: (payment.accontoCents as number | undefined) ?? 0,
+            installmentsCount: payment.installmentsCount,
+          })
+        : null;
+
+      // Guardia sul limite di 500 scritture per transazione di Firestore.
+      const writeCount =
+        1 + // aggiornamento preventivo
+        (hasPayment
+          ? 1 + // documento payment
+            (plan!.hasAcconto ? 1 : 0) + // rata 0 (acconto)
+            (!plan!.isFullyPaid ? plan!.amounts.length + 1 : 0) + // rate ordinarie + stats cliente
+            data.packageAssignments.length +
+            credits.length
+          : 0);
+      if (writeCount > 450) return { code: "too_large" as const };
+
+      // ── FASE SCRITTURE ────────────────────────────────────────────
+      const quoteUpdate: Record<string, unknown> = {
+        status: "approved",
+        version: data.expectedVersion + 1,
+        approvedAt: FieldValue.serverTimestamp(),
+        approvedBy: actor.uid,
+        frozenSnapshot: buildFrozenSnapshot(current),
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: actor.uid,
+      };
+      tx.update(quoteRef, quoteUpdate);
+
+      let paymentId: string | null = null;
+
+      if (hasPayment && payment && plan) {
+        const paymentRef = adminDb.collection("payments").doc();
+        paymentId = paymentRef.id;
+
+        tx.set(paymentRef, {
+          clientId,
+          source: { kind: "quote", refId: data.quoteId, quoteNumber: current["number"] },
+          description: payment.description,
+          totalAmountCents: payment.totalAmountCents,
+          paidAmountCents: plan.paidAmountCents,
+          status: plan.status,
+          installmentsCount: plan.installmentsCount,
+          notes: payment.notes ?? null,
+          version: 0,
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+          createdBy: actor.uid,
+        });
+
+        // Rata 0: acconto già pagato
+        if (plan.hasAcconto) {
+          const accontoRef = paymentRef.collection("installments").doc();
+          const accontoPaidAt = payment.accontoDate
+            ? Timestamp.fromDate(civilDateToEndOfDay(payment.accontoDate))
+            : Timestamp.now();
+          tx.set(accontoRef, {
+            index: 0,
+            amountCents: (payment.accontoCents as number | undefined) ?? 0,
+            paidAmountCents: (payment.accontoCents as number | undefined) ?? 0,
+            dueAt: accontoPaidAt,
+            paidAt: accontoPaidAt,
+            status: "paid",
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        }
+
+        // Rate ordinarie sul residuo (o sull'intero se nessun acconto)
+        if (!plan.isFullyPaid) {
+          const dueDates = generateDueDates(
+            payment.firstDueDate,
+            payment.installmentsCount,
+            payment.installmentPeriod,
+            payment.customInterval,
+            payment.customUnit,
+          );
+
+          for (let i = 0; i < payment.installmentsCount; i++) {
+            const installRef = paymentRef.collection("installments").doc();
+            tx.set(installRef, {
+              index: i + 1,
+              amountCents: plan.amounts[i] ?? 0,
+              paidAmountCents: 0,
+              dueAt: Timestamp.fromDate(
+                dueDates[i] ?? civilDateToEndOfDay(payment.firstDueDate),
+              ),
+              status: "pending",
+              createdAt: FieldValue.serverTimestamp(),
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+          }
+
+          tx.update(clientRef, {
+            "stats.pendingAmountCents": FieldValue.increment(plan.remaining),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        }
+
+        // Pacchetti veri assegnati dal preventivo — SOLO se nasce il
+        // pagamento (decisione 5: corregge il bug per cui un pacchetto
+        // veniva assegnato gratis a switch "Genera pagamento" spento).
+        for (const pkg of data.packageAssignments) {
+          const cpRef = adminDb.collection("clientPackages").doc();
+          tx.set(cpRef, {
+            clientId,
+            packageId: pkg.packageId,
+            packageNameSnapshot: pkg.packageNameSnapshot,
+            totalAnalyses: pkg.totalAnalyses,
+            remainingAnalyses: pkg.totalAnalyses,
+            priceCents: pkg.priceCents,
+            status: "active",
+            origin: "purchase",
+            paymentId: paymentRef.id,
+            purchasedAt: FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+            createdBy: actor.uid,
+          });
+        }
+
+        // Crediti da preventivo — un ClientPackageDoc per riga-analisi,
+        // ristretto a quella specifica analisi (mai un pool generico).
+        for (const credit of credits) {
+          const creditRef = adminDb.collection("clientPackages").doc();
+          tx.set(creditRef, {
+            clientId,
+            packageNameSnapshot: `Da preventivo ${current["number"]} — ${credit.analysisNameSnapshot}`,
+            totalAnalyses: credit.quantity,
+            remainingAnalyses: credit.quantity,
+            priceCents: credit.totalPriceCents,
+            status: "active",
+            origin: "quote",
+            sourceQuoteId: data.quoteId,
+            sourceQuoteNumber: current["number"],
+            restrictedToAnalysisId: credit.analysisId,
+            paymentId: paymentRef.id,
+            purchasedAt: FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+            createdBy: actor.uid,
+          });
+        }
+      }
+
+      return { code: "ok" as const, paymentId, clientId };
+    });
+
+    if (result.code === "not_found") return { success: false, error: "Preventivo non trovato" };
+    if (result.code === "conflict") {
+      return { success: false, error: "Il documento è stato modificato. Ricarica la pagina." };
+    }
+    if (result.code === "invalid_transition") {
+      return { success: false, error: "Transizione di stato non consentita." };
+    }
+    if (result.code === "client_not_found") return { success: false, error: "Cliente non trovato" };
+    if (result.code === "package_not_found") {
+      return { success: false, error: "Uno dei pacchetti selezionati non esiste più" };
+    }
+    if (result.code === "too_large") {
+      return {
+        success: false,
+        error: "Preventivo troppo grande per essere approvato in un'unica operazione",
+      };
+    }
+
+    revalidatePath("/quotes");
+    revalidatePath(`/quotes/${data.quoteId}`);
+    revalidatePath(`/clients/${result.clientId}/payments`);
+    revalidatePath(`/clients/${result.clientId}/packages`);
+    revalidatePath("/payments");
+    logger.info("Preventivo approvato con pagamento", {
+      quoteId: data.quoteId,
+      hasPayment,
+      packageCount: data.packageAssignments.length,
+      uid: actor.uid,
+    });
+    return { success: true, data: { quoteId: data.quoteId } };
+  } catch (err) {
+    logger.error("Errore approvazione preventivo", err);
+    return { success: false, error: "Errore durante l'operazione. Riprova." };
   }
 }
 

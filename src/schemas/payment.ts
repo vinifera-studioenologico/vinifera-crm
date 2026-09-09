@@ -40,9 +40,10 @@ export type TransactionType = z.infer<typeof TransactionTypeSchema>;
 
 // ── Sorgente pagamento ────────────────────────────────────────────────
 export const PaymentSourceSchema = z.object({
-  kind: z.enum(["sample", "package", "manual"]),
+  kind: z.enum(["sample", "package", "manual", "quote"]),
   refId: z.string().optional(),
   sampleCode: z.string().optional(),
+  quoteNumber: z.string().optional(), // es. "2026/0034", solo per kind:"quote"
 });
 export type PaymentSource = z.infer<typeof PaymentSourceSchema>;
 

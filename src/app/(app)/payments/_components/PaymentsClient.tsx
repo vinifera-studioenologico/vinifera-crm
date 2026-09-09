@@ -83,6 +83,7 @@ export function PaymentsClient({ initialData }: Props) {
     sample: "Campione",
     package: "Pacchetto",
     manual: "Manuale",
+    quote: "Preventivo",
   };
 
   const columns: ColumnDef<PaymentDoc>[] = [
@@ -93,7 +94,9 @@ export function PaymentsClient({ initialData }: Props) {
         const src = row.original.source;
         const subline = src.sampleCode
           ? `Campione · ${src.sampleCode}`
-          : (sourceLabel[src.kind] ?? src.kind);
+          : src.quoteNumber
+            ? `Preventivo · ${src.quoteNumber}`
+            : (sourceLabel[src.kind] ?? src.kind);
         return (
           <div>
             <p className="text-sm font-medium">{row.original.description}</p>

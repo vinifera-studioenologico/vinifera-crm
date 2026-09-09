@@ -1,27 +1,15 @@
 /**
- * Test della logica acconto (rata 0 già pagata).
- *
- * Replica esattamente la logica presente in:
+ * Test della logica acconto (rata 0 già pagata), condivisa da:
  *   - server/actions/clientPackages.ts (purchasePackage)
  *   - server/actions/samples.ts (createSample)
  *   - server/actions/payments.ts (createManualPayment)
+ *   - server/actions/quotes.ts (approveQuoteWithPayment)
  */
-import { splitInCents } from "@/lib/utils/money";
+import { computeAccontoPlan } from "@/lib/utils/acconto";
 
-// ── Helper che replica la logica server ───────────────────────────────
+// ── Adapter posizionale: mantiene la firma dei test esistenti ──────────
 function computeAcconto(totalCents: number, accontoCents: number, count: number) {
-  const hasAcconto = accontoCents > 0 && count > 1;
-  const remaining = hasAcconto ? Math.max(0, totalCents - accontoCents) : totalCents;
-  const isFullyPaid = hasAcconto && remaining === 0;
-
-  const paidAmountCents = hasAcconto ? (isFullyPaid ? totalCents : accontoCents) : 0;
-  const status = hasAcconto ? (isFullyPaid ? "paid" : "partial") : "pending";
-  const installmentsCount = hasAcconto ? (isFullyPaid ? 1 : count + 1) : count;
-
-  // Rate ordinarie
-  const amounts = isFullyPaid ? [] : splitInCents(remaining, count);
-
-  return { hasAcconto, remaining, isFullyPaid, paidAmountCents, status, installmentsCount, amounts };
+  return computeAccontoPlan({ totalCents, accontoCents, installmentsCount: count });
 }
 
 // ── Test cases ────────────────────────────────────────────────────────
