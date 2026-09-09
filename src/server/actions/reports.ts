@@ -23,6 +23,8 @@ import type { SampleDoc } from "@/schemas/sample";
 
 const COL = "reports";
 const PAGE_SIZE = 25;
+/** Limite generoso per la ricerca su tutto lo storico (coerente con FETCH_LIMIT in src/lib/search.ts). */
+const SEARCH_FETCH_LIMIT = 2000;
 
 // ── Converti Firestore doc ────────────────────────────────────────────
 function toReportDoc(id: string, data: FirebaseFirestore.DocumentData): ReportDoc {
@@ -74,6 +76,33 @@ export async function getReports(
     nextCursor: hasMore ? (docs[PAGE_SIZE - 1]?.id ?? null) : null,
     hasMore,
   };
+}
+
+// ── Cerca referti su tutto lo storico ─────────────────────────────────
+// Firestore non supporta ricerca full-text/OR su più campi: scarichiamo lo
+// storico (limite generoso) e filtriamo in memoria su numero e nome cliente,
+// stessa strategia di globalSearch() in src/lib/search.ts — così la ricerca
+// copre anche i referti non ancora caricati in pagina (non solo quelli
+// visualizzati tramite "Carica altri").
+export async function searchReports(query: string): Promise<ReportDoc[]> {
+  await requireAdmin();
+
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+
+  const snap = await adminDb
+    .collection(COL)
+    .orderBy("createdAt", "desc")
+    .limit(SEARCH_FETCH_LIMIT)
+    .get();
+
+  return snap.docs
+    .map((d) => toReportDoc(d.id, d.data()))
+    .filter(
+      (r) =>
+        r.number.toLowerCase().includes(q) ||
+        r.clientSnapshot.displayName.toLowerCase().includes(q),
+    );
 }
 
 // ── Singolo referto ───────────────────────────────────────────────────

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Search, FileText, Download, Mail, Send, Loader2, FlaskConical, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import type { ReportDoc } from "@/schemas/report";
-import { getReports, sendReportByEmail } from "@/server/actions/reports";
+import { getReports, searchReports, sendReportByEmail } from "@/server/actions/reports";
 import { formatDate } from "@/lib/utils/date";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { sharePdf } from "@/lib/utils/share";
@@ -46,6 +46,13 @@ export function ReportsClient({ initialData, hasMore: initialHasMore, nextCursor
   const [cursor, setCursor] = useState<string | null>(initialCursor);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [search, setSearch] = useState("");
+
+  // Ricerca su tutto lo storico (server-side, debounce), non solo sui referti
+  // già caricati in pagina — vedi searchReports().
+  const [searchResults, setSearchResults] = useState<ReportDoc[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestQueryRef = useRef("");
 
   // Picker tipo PDF
   const [pickerTarget, setPickerTarget] = useState<ReportDoc | null>(null);
@@ -114,6 +121,29 @@ export function ReportsClient({ initialData, hasMore: initialHasMore, nextCursor
     });
   }
 
+  function handleSearchChange(value: string) {
+    setSearch(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+
+    const trimmed = value.trim();
+    latestQueryRef.current = trimmed;
+
+    if (!trimmed) {
+      setSearchResults(null);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    searchTimerRef.current = setTimeout(() => {
+      searchReports(trimmed).then((results) => {
+        if (latestQueryRef.current !== trimmed) return; // risposta obsoleta, ignora
+        setSearchResults(results);
+        setIsSearching(false);
+      });
+    }, 300);
+  }
+
   function handleSend() {
     if (!emailTarget) return;
     startSend(async () => {
@@ -132,14 +162,10 @@ export function ReportsClient({ initialData, hasMore: initialHasMore, nextCursor
     });
   }
 
-  const filtered = reports.filter((r) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      r.number.toLowerCase().includes(q) ||
-      r.clientSnapshot.displayName.toLowerCase().includes(q)
-    );
-  });
+  const isActivelySearching = search.trim().length > 0;
+  // Con ricerca attiva mostriamo i risultati di searchReports() (tutto lo
+  // storico); altrimenti la lista paginata caricata finora.
+  const filtered = isActivelySearching ? (searchResults ?? []) : reports;
 
   const columns: ColumnDef<ReportDoc>[] = [
     {
@@ -248,7 +274,7 @@ export function ReportsClient({ initialData, hasMore: initialHasMore, nextCursor
           <Input
             placeholder="Cerca per numero o cliente..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-8"
           />
         </div>
@@ -266,7 +292,7 @@ export function ReportsClient({ initialData, hasMore: initialHasMore, nextCursor
       </div>
 
       {/* Tabella / empty */}
-      {filtered.length === 0 && !search ? (
+      {filtered.length === 0 && !isActivelySearching ? (
         <div className="rounded-xl border border-border bg-card p-16 flex flex-col items-center gap-3 text-center">
           <div className="size-12 rounded-full bg-muted flex items-center justify-center">
             <FileText className="size-5 text-muted-foreground" strokeWidth={1.5} />
@@ -283,11 +309,12 @@ export function ReportsClient({ initialData, hasMore: initialHasMore, nextCursor
         <DataTable
           columns={columns}
           data={filtered}
+          loading={isActivelySearching && isSearching}
           emptyMessage="Nessun referto trovato."
         />
       )}
 
-      {!search && hasMore && (
+      {!isActivelySearching && hasMore && (
         <div className="flex justify-center">
           <Button variant="outline" size="sm" onClick={loadMore} disabled={isLoadingMore}>
             {isLoadingMore ? "Caricamento..." : "Carica altri"}
