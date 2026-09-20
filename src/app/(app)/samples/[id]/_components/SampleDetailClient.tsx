@@ -29,6 +29,7 @@ import {
   addSampleAnalyses,
   removeSampleAnalysis,
   updateSampleMetadata,
+  getFirstInProgressSampleId,
 } from "@/server/actions/samples";
 import { formatEUR } from "@/lib/utils/money";
 import { formatDate } from "@/lib/utils/date";
@@ -288,14 +289,21 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
 
       const result = await updateSampleStatus(sample.id, to);
       if (result.success) {
-        toast.success(
-          to === "completed"
-            ? "Campione completato"
-            : to === "in_progress"
-              ? "Lavorazione avviata"
-              : "Campione annullato",
-        );
-        router.refresh();
+        if (to === "completed") {
+          const nextId = await getFirstInProgressSampleId(sample.id);
+          if (nextId) {
+            toast.success("Campione completato — passo al prossimo in lavorazione");
+            router.replace(`/samples/${nextId}`);
+          } else {
+            toast.success("Campione completato — nessun altro campione in lavorazione");
+            router.refresh();
+          }
+        } else {
+          toast.success(
+            to === "in_progress" ? "Lavorazione avviata" : "Campione annullato",
+          );
+          router.refresh();
+        }
       } else {
         toast.error(result.error);
       }

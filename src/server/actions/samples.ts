@@ -133,6 +133,23 @@ export async function getAdjacentInProgressSamples(
   };
 }
 
+// ── Primo campione in lavorazione (per la navigazione automatica dopo il completamento) ──
+export async function getFirstInProgressSampleId(
+  excludeId: string,
+): Promise<string | null> {
+  await requireAdmin();
+
+  const snap = await adminDb
+    .collection(COL)
+    .where("status", "==", "in_progress")
+    .orderBy("createdAt", "desc")
+    .select()
+    .get();
+
+  const first = snap.docs.find((d) => d.id !== excludeId);
+  return first?.id ?? null;
+}
+
 // ── Riepilogo pagamento collegato (per banner avviso disallineamento) ──
 export async function getLinkedPaymentSummary(
   paymentId: string,
