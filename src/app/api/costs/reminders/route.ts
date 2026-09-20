@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { buildEmailHtml } from "@/lib/email";
 import { logger } from "@/lib/logger";
+import { TZ } from "@/lib/utils/date";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -117,6 +118,7 @@ export async function GET(req: NextRequest) {
   const nextMonthName = firstOfNextMonth.toLocaleDateString("it-IT", {
     month: "long",
     year: "numeric",
+    timeZone: TZ,
   });
 
   const totalCents = dueCosts.reduce((s, c) => s + c.amountCents, 0);

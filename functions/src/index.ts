@@ -23,6 +23,8 @@ initializeApp();
 
 const db = getFirestore();
 
+const TZ = "Europe/Rome";
+
 // ── Secrets e params ──────────────────────────────────────────────────
 const resendApiKey = defineSecret("RESEND_API_KEY");
 const resendFromEmail = defineSecret("RESEND_FROM_EMAIL");
@@ -103,6 +105,7 @@ function formatDateIT(d: Date): string {
     day: "2-digit",
     month: "long",
     year: "numeric",
+    timeZone: TZ,
   });
 }
 
@@ -263,12 +266,13 @@ export const checkReminders = onSchedule(
       const description = d["description"] as string | null;
       const channels = d["notifyChannels"] as { telegram: boolean; email: boolean } | null;
       const dueAt = (d["dueAt"] as Timestamp).toDate();
-      const dueDateStr = dueAt.toLocaleDateString("it-IT", {
+      const dueDateStr = dueAt.toLocaleString("it-IT", {
         day: "2-digit",
         month: "long",
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: TZ,
       });
       const recurrence = d["recurrence"] as {
         rule: "daily" | "weekly" | "monthly" | "yearly";
@@ -816,6 +820,7 @@ export const checkEvents = onSchedule(
               const unsubUrl = `${siteUrlVal}/${locale}/eventi/disiscrizione?token=${unsubToken}`;
               const dateStr = startsAtDate.toLocaleDateString(isIt ? "it-IT" : "en-GB", {
                 day: "numeric", month: "long", year: "numeric",
+                timeZone: TZ,
               });
 
               const subject = isIt
@@ -948,7 +953,7 @@ export const checkEvents = onSchedule(
         const msgText = [
           `📅 <b>Nuova istanza evento creata in bozza</b>`,
           `Evento: <b>${(d["title"] as Record<string, string>)?.["it"] ?? newSlug}</b>`,
-          `Data: ${nextStartsAt.toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" })}`,
+          `Data: ${nextStartsAt.toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric", timeZone: TZ })}`,
           `Slug: <code>${newSlug}</code>`,
           `Azione: pubblica manualmente dal CRM prima dell'apertura prenotazioni.`,
         ].join("\n");
