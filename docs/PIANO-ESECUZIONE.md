@@ -67,7 +67,7 @@ correlati insieme e ogni modulo nel suo commit.
 - **Fatto quando**: un promemoria delle 09:00 arriva su Telegram scritto `09:00`, in ora legale e
   in ora solare.
 
-### ⬜ 2. Frecce campioni dopo il completamento
+### ✅ 2. Frecce campioni dopo il completamento
 
 - **Documento**: [`fix-navigazione-campioni.md`](./fix-navigazione-campioni.md)
 - **In una riga**: completando un campione si resta bloccati perché spariscono le frecce; deve
@@ -219,3 +219,4 @@ Una riga per modulo completato.
 | Data | # | Modulo | Esito | Note per chi viene dopo |
 |------|---|--------|-------|-------------------------|
 | 2026-09-20 | 1 | Fix fuso orario nelle notifiche | ✅ Fatto | `functions/` non aveva `node_modules` installati in locale: serve `npm install` dentro `functions/` prima di poterlo buildare. Aggiunta `const TZ = "Europe/Rome"` in cima a `functions/src/index.ts`, `timeZone: TZ` su tutte le formattazioni data/ora coinvolte (righe 108, 275, 823, 956) e in `src/app/api/costs/reminders/route.ts` (import da `@/lib/utils/date`). Verificato con script Node ad-hoc: 09:00 corretto sia in CEST che CET, e le 00:30 CET mostrano il giorno giusto. **⚠️ Manca ancora il deploy manuale**: `npm --prefix functions run build && firebase deploy --only functions` non eseguito in questa sessione — il fix è nel repo ma non in produzione finché non si esegue. |
+| 2026-09-20 | 2 | Frecce campioni dopo il completamento | ✅ Fatto | Aggiunta `getFirstInProgressSampleId(excludeId)` in `src/server/actions/samples.ts` (stessa query/ordinamento delle frecce, ritorno diretto non `ActionResult`, nessun filtro `deletedAt`). `handleTransition` in `SampleDetailClient.tsx` ora, solo per `to === "completed"`, chiama quella action e fa `router.replace` sul risultato o resta con `router.refresh()` se `null`. Verificato end-to-end con Playwright installato ad-hoc (non nel repo) contro dev server + emulatori Firebase locali (mai avviati prima in questa sessione — serviva `npm run emulators` + `npm run seed`): con 4 campioni seed in lavorazione, completandoli in sequenza si passa sempre al successivo, l'ultimo mostra il messaggio "nessun altro campione" e resta in pagina, e il tasto indietro dopo la navigazione automatica non torna al campione appena completato (confermato che `router.replace` non lascia una entry di history separata). Non testato lo swipe iPad (codice non toccato da questo modulo, invariato). |
