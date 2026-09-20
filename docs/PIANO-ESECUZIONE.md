@@ -1,115 +1,212 @@
 # Piano di esecuzione — lavori da appunti cliente 20/09/2026
 
-> **Questo è il file di tracciamento.** Ogni sessione che completa un modulo **aggiorna la riga
-> corrispondente qui dentro**, così non si perde il filo fra una sessione e l'altra.
+> **Questo file si esegue.** Contiene la sequenza dei lavori, il protocollo da seguire e lo stato
+> di avanzamento. La sessione che lavora **aggiorna questo file** man mano, così non si perde il
+> filo fra una sessione e l'altra.
 >
-> Contesto e punti aperti: [`appunti-cliente-2026-09-20.md`](./appunti-cliente-2026-09-20.md).
+> Contesto, appunti originali e punti aperti:
+> [`appunti-cliente-2026-09-20.md`](./appunti-cliente-2026-09-20.md).
 
 ---
 
-## Istruzioni per la sessione che esegue un modulo
+## Come si esegue
 
-1. Si lavora su **un solo modulo per sessione**. Il prompt di apertura è:
-   `Esegui docs/<nome-documento>.md`
-2. Si segue **esclusivamente** quel documento. Se qualcosa non torna o è ambiguo, **si segnala e
-   ci si ferma** — non si reinterpreta e non si allarga il lavoro ad altri moduli.
-3. A lavoro finito: **`npm run check`** deve essere verde (typecheck + lint + test + build).
-4. I criteri di accettazione del documento vanno verificati **davvero**, non dati per buoni.
-   Dove il documento dice "verificare a schermo", va avviato `npm run dev` e guardato.
-5. **Prima di chiudere la sessione**: tornare qui e aggiornare la riga del modulo — stato, data,
-   e nella colonna Note tutto ciò che chi viene dopo deve sapere (scelte fatte, cose rimaste
-   fuori, sorprese trovate nel codice).
+Un comando per **fase**, non per singolo modulo:
 
-Legenda stato: `⬜ da fare` · `🟡 in corso` · `✅ fatto` · `⛔ bloccato`
+```
+Esegui la Fase 1 di docs/PIANO-ESECUZIONE.md
+```
+
+La sessione svolge in sequenza tutti i punti di quella fase, seguendo il protocollo qui sotto.
+
+**Perché a fasi e non tutto in una volta**: dieci moduli in una sessione sola significano
+contesto saturo e un diff unico impossibile da rivedere. Una fase per sessione tiene i lavori
+correlati insieme e ogni modulo nel suo commit.
+
+### Protocollo — vale per ogni punto numerato
+
+1. **Leggi il documento del modulo** indicato al punto. È la fonte autoritativa: si segue quello,
+   non si reinterpreta e non si allarga il lavoro ad altri moduli.
+2. **Implementa.**
+3. **`npm run check`** (typecheck + lint + test + build) deve essere **verde**. Se non lo è, si
+   sistema prima di proseguire.
+4. **Verifica i criteri di accettazione** del documento, davvero. Dove dice "verificare a
+   schermo", si avvia `npm run dev` e si guarda.
+5. **Commit singolo per modulo** — mai due moduli nello stesso commit. Messaggio in inglese, come
+   da convenzione del repo.
+6. **Aggiorna questo file**: spunta la casella del punto, metti la data e scrivi nel Registro in
+   fondo cosa chi viene dopo deve sapere (scelte fatte, cose rimaste fuori, sorprese nel codice).
+7. **Passa al punto successivo** della fase. A fine fase, fermati e riepiloga.
+
+### Quando fermarsi e chiedere
+
+- Il documento è ambiguo o contraddice il codice che trovi → **fermati e segnala**, non decidere
+  al posto del cliente.
+- `npm run check` non torna verde e la causa è fuori dal modulo → **fermati e segnala**.
+- Un punto è marcato **🔒 BLOCCATO** → non iniziarlo, serve prima una risposta del cliente.
 
 ---
 
-## Fase 1 — Quick win (nessun prerequisito, si parte da qui)
+## Fase 1 — Quick win
 
-Lavori piccoli, isolati, che non dipendono da risposte del cliente. Portano risultato subito e
-non si pestano i piedi a vicenda.
+> Comando: `Esegui la Fase 1 di docs/PIANO-ESECUZIONE.md`
+> Tre lavori piccoli e isolati, nessun prerequisito. Servono anche a verificare che il flusso
+> documento → sessione funzioni.
 
-| # | Stato | Modulo | Documento | Note |
-|---|-------|--------|-----------|------|
-| 1 | ⬜ | Fix fuso orario notifiche | [`fix-timezone-notifiche.md`](./fix-timezone-notifiche.md) | ⚠️ Richiede deploy manuale della Cloud Function, non basta il merge |
-| 2 | ⬜ | Frecce campioni dopo il completamento | [`fix-navigazione-campioni.md`](./fix-navigazione-campioni.md) | |
-| 3 | ⬜ | Clienti: liste aziende e privati | [`clienti-aziende-privati.md`](./clienti-aziende-privati.md) | Tocca Sidebar/MobileNav/⌘K — vedi conflitti sotto |
+### ⬜ 1. Fix fuso orario nelle notifiche
 
-## Fase 2 — Feature sull'operatività quotidiana
+- **Documento**: [`fix-timezone-notifiche.md`](./fix-timezone-notifiche.md)
+- **In una riga**: le date nelle notifiche Telegram/email vanno formattate in `Europe/Rome`,
+  oggi escono in UTC e l'orario è sfasato.
+- **⚠️ Dopo il commit serve un passaggio manuale**, non basta il merge:
+  ```bash
+  npm --prefix functions run build
+  firebase deploy --only functions
+  ```
+  La Cloud Function non è nel `npm run build`, non è nel deploy Vercel e non è nella CI.
+- **Fatto quando**: un promemoria delle 09:00 arriva su Telegram scritto `09:00`, in ora legale e
+  in ora solare.
 
-Il valore più alto per chi usa il gestionale tutti i giorni. Ancora nessuna dipendenza dal cliente.
+### ⬜ 2. Frecce campioni dopo il completamento
 
-| # | Stato | Modulo | Documento | Note |
-|---|-------|--------|-----------|------|
-| 4 | ⬜ | Riepilogo analisi per categoria | [`riepilogo-analisi-per-categoria.md`](./riepilogo-analisi-per-categoria.md) | Fare **prima** del #5: tocca la lista campioni, il #5 il dettaglio |
-| 5 | ⬜ | Ping Telegram su inattività | [`ping-inattivita-telegram.md`](./ping-inattivita-telegram.md) | |
-| 6 | ⬜ | Incasso multiplo di più rate | [`pagamenti-multipli.md`](./pagamenti-multipli.md) | |
+- **Documento**: [`fix-navigazione-campioni.md`](./fix-navigazione-campioni.md)
+- **In una riga**: completando un campione si resta bloccati perché spariscono le frecce; deve
+  portare automaticamente al primo campione ancora in lavorazione.
+- **Fatto quando**: con 3 campioni in lavorazione si riesce a smaltirli tutti senza tornare alla
+  lista a mano, e sull'ultimo non si rompe niente.
 
-## Fase 3 — Richiede una risposta dal cliente
+### ⬜ 3. Clienti: liste separate aziende e privati
 
-**Non iniziare** questi moduli prima di aver ottenuto la risposta indicata: si rischia di
-buttare il lavoro.
+- **Documento**: [`clienti-aziende-privati.md`](./clienti-aziende-privati.md)
+- **In una riga**: due pagine distinte, `/clients/aziende` e `/clients/privati`, con colonne
+  pertinenti a ciascun tipo. Il modello dati non cambia: il campo `type` esiste già.
+- **Attenzione**: tocca Sidebar, MobileNav e palette ⌘K; e serve sistemare i `revalidatePath`,
+  altrimenti creando un cliente la lista non si aggiorna.
+- **Fatto quando**: le due liste sono complete e disgiunte, e creando un cliente compare subito
+  in quella giusta.
 
-| # | Stato | Modulo | Documento | Cosa serve prima |
-|---|-------|--------|-----------|------------------|
-| 7 | ⬜ | Tema verde biliardo | [`tema-verde-biliardo.md`](./tema-verde-biliardo.md) | Quale tonalità. Si implementa la **variante A**, gli si mostra a video, e si conferma o si passa alla B (6 valori da cambiare) |
-| 8 | ⬜ | Statistiche: spese, incassi, audit | [`statistiche-spese-e-incassi.md`](./statistiche-spese-e-incassi.md) | **(a)** elenco definitivo delle sottocategorie di spesa · **(b)** *quali numeri* gli sembravano sbagliati |
-| 9 | ⬜ | Modulo Obiettivi | [`modulo-obiettivi.md`](./modulo-obiettivi.md) | Quali metriche vuole come obiettivo annuale |
+---
 
-> Il #7 si può comunque **iniziare** senza risposta: la variante A è fatta apposta per essere
-> mostrata. I #8 e #9 no — senza risposta si costruisce sulla sabbia.
+## Fase 2 — Operatività quotidiana
+
+> Comando: `Esegui la Fase 2 di docs/PIANO-ESECUZIONE.md`
+> Il valore più alto per chi usa il gestionale tutti i giorni. Nessuna dipendenza dal cliente.
+> **L'ordine conta**: il punto 4 tocca la lista campioni, il 5 il dettaglio.
+
+### ⬜ 4. Riepilogo analisi per categoria
+
+- **Documento**: [`riepilogo-analisi-per-categoria.md`](./riepilogo-analisi-per-categoria.md)
+- **In una riga**: card in cima a `/samples`, una per categoria di analisi, col totale delle
+  analisi in corso; al click un popup con campione e relative analisi.
+- **Attenzione**: i conteggi **non** si calcolano sui campioni caricati in pagina (`getSamples` è
+  paginata) e **non** si filtra su `deletedAt` (i campioni non hanno quel campo — restituirebbe
+  zero risultati in silenzio). Entrambe le trappole sono spiegate nel documento.
+- **Fatto quando**: la somma dei numeri sulle card è pari al totale delle analisi dei campioni in
+  lavorazione, e non cambia filtrando la tabella sotto.
+
+### ⬜ 5. Ping Telegram su schermata inattiva
+
+- **Documento**: [`ping-inattivita-telegram.md`](./ping-inattivita-telegram.md)
+- **In una riga**: se il dettaglio di un campione in lavorazione resta aperto un'ora senza che
+  nessuno tocchi niente, parte un messaggio Telegram.
+- **Fatto quando**: abbassando temporaneamente la soglia il messaggio arriva, interagendo il
+  conteggio riparte, e ne arriva **uno solo** per apertura di pagina. Rimettere la soglia a un'ora
+  prima del commit.
+
+### ⬜ 6. Incasso multiplo di più rate
+
+- **Documento**: [`pagamenti-multipli.md`](./pagamenti-multipli.md)
+- **In una riga**: selezionare più rate in sospeso e registrarle in un colpo solo, con data,
+  metodo e **nota condivisa**.
+- **Fatto quando**: incassare 3 rate in blocco lascia gli stessi identici numeri che si
+  otterrebbero incassandole una per una col form singolo — stats cliente comprese.
+
+---
+
+## Fase 3 — 🔒 Bloccata: serve una risposta dal cliente
+
+> **Non iniziare questi punti prima di aver avuto la risposta indicata.** Si rischia di rifare il
+> lavoro da capo. Le domande sono nel dettaglio in
+> [`appunti-cliente-2026-09-20.md` §4](./appunti-cliente-2026-09-20.md).
+
+### ⬜ 7. Tema verde biliardo — *parzialmente sbloccato*
+
+- **Documento**: [`tema-verde-biliardo.md`](./tema-verde-biliardo.md)
+- **Serve sapere**: quale tonalità di verde.
+- **Si può comunque fare**: implementare la **variante A** (verde salvia chiaro), mostrarla a
+  video al cliente e farsi confermare. Se la vuole più marcata, la variante B è già scritta nel
+  documento: sei valori da cambiare.
+- **Fatto quando**: il cliente ha visto e confermato, e i badge di stato restano leggibili sul
+  nuovo sfondo — in particolare il verde "completed" su fondo verde.
+
+### ⬜ 8. 🔒 Statistiche: spese, incassi, audit dati
+
+- **Documento**: [`statistiche-spese-e-incassi.md`](./statistiche-spese-e-incassi.md)
+- **Serve sapere**: **(a)** l'elenco definitivo delle sottocategorie di spesa — nel documento c'è
+  una proposta da fargli validare; **(b)** *quali numeri* gli sembravano sbagliati.
+- **Nota**: è il lavoro che aggiunge il campo `subcategory` alle spese. Più si aspetta, più spese
+  si accumulano senza quel campo — quindi **sbloccarlo presto** col cliente, anche se si esegue
+  dopo.
+- La parte **audit** (§5 del documento) si può fare anche senza la risposta (b): ci sono già tre
+  rischi concreti individuati leggendo il codice. Produce `docs/audit-statistiche.md`.
+
+### ⬜ 9. 🔒 Modulo Obiettivi
+
+- **Documento**: [`modulo-obiettivi.md`](./modulo-obiettivi.md)
+- **Serve sapere**: quali metriche vuole come obiettivo annuale. La proposta nel documento è
+  fatturato incassato, numero campioni, nuovi clienti — tutte già calcolabili dai dati esistenti.
+- **Attenzione**: tocca Sidebar/MobileNav/⌘K come il punto 3. Se il 3 non è ancora stato fatto,
+  farlo prima.
+
+---
 
 ## Fase 4 — Il modulo grosso
 
-| # | Stato | Modulo | Documento | Note |
-|---|-------|--------|-----------|------|
-| 10 | ⬜ | Assistente AI | [`assistente-ai.md`](./assistente-ai.md) | Per ultimo: interroga trasversalmente tutti i dati, meglio che gli altri lavori siano già dentro. Aggiunge la dipendenza `@anthropic-ai/sdk` |
+> Comando: `Esegui la Fase 4 di docs/PIANO-ESECUZIONE.md`
+> **Da solo, in una sessione dedicata.** Non accorparlo ad altro.
+
+### ⬜ 10. Assistente AI
+
+- **Documento**: [`assistente-ai.md`](./assistente-ai.md)
+- **In una riga**: chat nel CRM che risponde su qualunque dato del gestionale e cita le entità
+  con link cliccabili.
+- **Perché per ultimo**: legge trasversalmente tutto: ogni modulo già chiuso è una cosa in più
+  che sa raccontare, senza doverci tornare sopra.
+- **Attenzione**: aggiunge la dipendenza `@anthropic-ai/sdk` e usa `claude-opus-5`. Prima di
+  scrivere il codice dell'SDK va invocata la skill `claude-api` e lette le pagine indicate nel
+  documento — le firme non vanno ricostruite a memoria.
+- **Fatto quando**: su 10 domande varie non produce nessun link rotto, e l'incassato che riporta
+  coincide con quello di `/stats`.
 
 ---
 
-## Perché quest'ordine
+## Conflitti fra moduli
 
-- **Le cose piccole prima**: tre lavori chiusi in poche ore danno subito qualcosa da mostrare al
-  cliente e verificano che il flusso "un documento → una sessione" funzioni.
-- **Il fuso orario per primo** perché è l'unico bug che il cliente *subisce* ogni giorno, e
-  perché è l'unico che richiede un deploy separato: meglio scoprire subito se quel passaggio dà
-  problemi, non alla fine sotto pressione.
-- **Le modifiche di schema tardi**: il #8 aggiunge il campo `subcategory` alle spese. Più si
-  aspetta, più spese si accumulano senza quel campo — ma anticiparlo senza la tassonomia
-  confermata è peggio. Da sbloccare col cliente **presto**, da eseguire dopo.
-- **L'assistente AI per ultimo** perché legge tutto: ogni modulo chiuso prima è una cosa in più
-  che l'assistente sa raccontare, senza doverci tornare sopra.
+Procedendo in sequenza non è un problema. Se si aprono branch paralleli, tenere separati nel
+tempo il punto 3 e il punto 9.
 
----
-
-## Conflitti fra moduli — attenzione se si lavora in parallelo
-
-| File | Moduli che lo toccano |
+| File | Punti che lo toccano |
 |------|----------------------|
-| `src/components/app-shell/Sidebar.tsx` | #3 (clienti), #9 (obiettivi) |
-| `src/components/app-shell/MobileNav.tsx` | #3, #9 |
-| `src/components/app-shell/Topbar.tsx` (`COMMAND_NAV`) | #3, #9 |
-| `src/app/(app)/samples/_components/SamplesClient.tsx` | #4 |
-| `src/app/(app)/samples/[id]/_components/SampleDetailClient.tsx` | #2, #5 |
-| `functions/src/index.ts` | #1 (formattazione date), #8 (eredità sottocategoria) |
-| `src/app/globals.css` | #7 |
-
-Se si procede in sequenza — come consigliato — non è un problema. Se si aprono branch paralleli,
-tenere #3 e #9 separati nel tempo.
+| `src/components/app-shell/Sidebar.tsx` | 3, 9 |
+| `src/components/app-shell/MobileNav.tsx` | 3, 9 |
+| `src/components/app-shell/Topbar.tsx` (`COMMAND_NAV`) | 3, 9 |
+| `src/app/(app)/samples/[id]/_components/SampleDetailClient.tsx` | 2, 5 |
+| `src/app/(app)/samples/_components/SamplesClient.tsx` | 4 |
+| `functions/src/index.ts` | 1, 8 |
+| `src/app/globals.css` | 7 |
 
 ---
 
 ## Promemoria trasversali
 
 - La **Cloud Function** (`functions/`) non è nel `npm run build`, non è nel deploy Vercel e non è
-  nella CI. Dopo ogni modifica lì dentro:
-  ```bash
-  npm --prefix functions run build
-  firebase deploy --only functions
-  ```
-- Le convenzioni facili da sbagliare (bracket notation, centesimi interi, `dueAt` e non
-  `dueDate`, niente `undefined` con l'Admin SDK, letture prima delle scritture in transazione)
-  sono in [`appunti-cliente-2026-09-20.md` §5](./appunti-cliente-2026-09-20.md).
+  nella CI. Dopo ogni modifica lì dentro: `npm --prefix functions run build` e
+  `firebase deploy --only functions`.
+- Le convenzioni facili da sbagliare — `ActionResult` solo per le scritture, soft delete **non**
+  uniforme (i campioni non hanno `deletedAt`), `zTimestamp` non esiste, bracket notation,
+  centesimi interi, `dueAt` e non `dueDate`, niente `undefined` con l'Admin SDK, letture prima
+  delle scritture in transazione — sono in
+  [`appunti-cliente-2026-09-20.md` §5](./appunti-cliente-2026-09-20.md).
 - I test coprono **solo funzioni pure**. Dove un modulo chiede un test, la logica va estratta in
   `src/lib/calc/` o `src/lib/utils/` e testata lì.
 
@@ -117,8 +214,8 @@ tenere #3 e #9 separati nel tempo.
 
 ## Registro
 
-Una riga per modulo completato: chi/quando/cosa è cambiato rispetto al documento.
+Una riga per modulo completato.
 
-| Data | Modulo | Esito | Note |
-|------|--------|-------|------|
-| | | | |
+| Data | # | Modulo | Esito | Note per chi viene dopo |
+|------|---|--------|-------|-------------------------|
+| | | | | |
