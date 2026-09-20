@@ -53,7 +53,7 @@ correlati insieme e ogni modulo nel suo commit.
 > Tre lavori piccoli e isolati, nessun prerequisito. Servono anche a verificare che il flusso
 > documento → sessione funzioni.
 
-### ⬜ 1. Fix fuso orario nelle notifiche
+### ✅ 1. Fix fuso orario nelle notifiche
 
 - **Documento**: [`fix-timezone-notifiche.md`](./fix-timezone-notifiche.md)
 - **In una riga**: le date nelle notifiche Telegram/email vanno formattate in `Europe/Rome`,
@@ -218,4 +218,4 @@ Una riga per modulo completato.
 
 | Data | # | Modulo | Esito | Note per chi viene dopo |
 |------|---|--------|-------|-------------------------|
-| | | | | |
+| 2026-09-20 | 1 | Fix fuso orario nelle notifiche | ✅ Fatto | `functions/` non aveva `node_modules` installati in locale: serve `npm install` dentro `functions/` prima di poterlo buildare. Aggiunta `const TZ = "Europe/Rome"` in cima a `functions/src/index.ts`, `timeZone: TZ` su tutte le formattazioni data/ora coinvolte (righe 108, 275, 823, 956) e in `src/app/api/costs/reminders/route.ts` (import da `@/lib/utils/date`). Verificato con script Node ad-hoc: 09:00 corretto sia in CEST che CET, e le 00:30 CET mostrano il giorno giusto. **⚠️ Manca ancora il deploy manuale**: `npm --prefix functions run build && firebase deploy --only functions` non eseguito in questa sessione — il fix è nel repo ma non in produzione finché non si esegue. |
