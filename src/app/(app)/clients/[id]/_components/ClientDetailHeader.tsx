@@ -61,13 +61,14 @@ export function ClientDetailHeader({ client }: Props) {
   const [editOpen, setEditOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [, startTransition] = useTransition();
+  const clientsListHref = client.type === "business" ? "/clients/aziende" : "/clients/privati";
 
   function handleArchive() {
     startTransition(async () => {
       const result = await archiveClient(client.id);
       if (result.success) {
         toast.success("Cliente archiviato");
-        router.push("/clients");
+        router.push(clientsListHref);
       } else {
         toast.error(result.error);
       }
@@ -114,7 +115,7 @@ export function ClientDetailHeader({ client }: Props) {
       <Breadcrumb className="mb-3">
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink render={<Link href="/clients" />}>
+            <BreadcrumbLink render={<Link href={clientsListHref} />}>
               Clienti
             </BreadcrumbLink>
           </BreadcrumbItem>

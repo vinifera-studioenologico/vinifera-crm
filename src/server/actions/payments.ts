@@ -272,7 +272,7 @@ export async function markInstallmentPaid(
     });
 
     revalidatePath("/payments");
-    revalidatePath("/clients");
+    revalidatePath("/clients", "layout");
     return { success: true, data: undefined };
   } catch (err) {
     const message =

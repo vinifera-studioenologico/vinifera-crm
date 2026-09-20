@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
+  Building2,
+  User,
   FlaskConical,
   Package,
   TestTube,
@@ -47,7 +49,8 @@ const NAV_GROUPS = [
   {
     label: "Clientela",
     items: [
-      { href: "/clients", label: "Clienti", icon: Users },
+      { href: "/clients/aziende", label: "Aziende", icon: Building2 },
+      { href: "/clients/privati", label: "Privati", icon: User },
       { href: "/packages", label: "Pacchetti", icon: Package },
       { href: "/reminders", label: "Promemoria", icon: Bell },
     ],

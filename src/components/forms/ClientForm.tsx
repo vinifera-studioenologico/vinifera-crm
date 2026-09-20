@@ -31,9 +31,10 @@ type FormInput = z.input<typeof ClientFormSchema>;
 interface Props {
   existing?: ClientDoc;
   onSuccess?: (id: string) => void;
+  defaultType?: "business" | "individual";
 }
 
-export function ClientForm({ existing, onSuccess }: Props) {
+export function ClientForm({ existing, onSuccess, defaultType = "business" }: Props) {
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<FormInput>({
@@ -68,7 +69,7 @@ export function ClientForm({ existing, onSuccess }: Props) {
               }),
         }
       : {
-          type: "business" as const,
+          type: defaultType,
           displayName: "",
           email: "",
           phone: "",

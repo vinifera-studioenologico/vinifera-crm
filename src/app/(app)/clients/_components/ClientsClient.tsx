@@ -24,7 +24,6 @@ import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import { ClientForm } from "@/components/forms/ClientForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
   Sheet,
@@ -52,9 +51,10 @@ import { formatEUR } from "@/lib/utils/money";
 
 interface Props {
   initialData: ClientDoc[];
+  type: "business" | "individual";
 }
 
-export function ClientsClient({ initialData }: Props) {
+export function ClientsClient({ initialData, type }: Props) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -62,7 +62,11 @@ export function ClientsClient({ initialData }: Props) {
   const [archiving, setArchiving] = useState<ClientDoc | null>(null);
   const [, startTransition] = useTransition();
 
-  const filtered = initialData.filter((c) => {
+  const byType = initialData.filter((c) => c.type === type);
+
+  const typeLabel = type === "business" ? "Aziende" : "Privati";
+
+  const filtered = byType.filter((c) => {
     if (!showArchived && c.deletedAt !== null) return false;
     if (showArchived && c.deletedAt === null) return false;
     if (!search) return true;
@@ -104,9 +108,13 @@ export function ClientsClient({ initialData }: Props) {
   const columns: ColumnDef<ClientDoc>[] = [
     {
       accessorKey: "displayName",
-      header: "Cliente",
+      header: type === "business" ? "Ragione sociale" : "Nome",
       cell: ({ row }) => {
         const c = row.original;
+        const name =
+          c.type === "individual"
+            ? `${c.firstName} ${c.lastName}`.trim() || c.displayName
+            : c.displayName;
         return (
           <div className="flex items-center gap-3 min-w-0">
             <div
@@ -125,7 +133,7 @@ export function ClientsClient({ initialData }: Props) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="font-medium text-sm text-foreground truncate">
-                {c.displayName}
+                {name}
               </p>
               <p className="text-xs text-muted-foreground truncate">{c.email}</p>
             </div>
@@ -135,19 +143,8 @@ export function ClientsClient({ initialData }: Props) {
       },
     },
     {
-      accessorKey: "type",
-      header: "Tipo",
-      size: 100,
-      meta: { className: "hidden md:table-cell" },
-      cell: ({ row }) => (
-        <Badge variant="secondary" className="font-normal text-xs">
-          {row.original.type === "business" ? "Azienda" : "Privato"}
-        </Badge>
-      ),
-    },
-    {
       id: "vatNumber",
-      header: "P.IVA / CF",
+      header: type === "business" ? "P.IVA" : "Codice fiscale",
       size: 150,
       meta: { className: "hidden md:table-cell" },
       cell: ({ row }) => {
@@ -158,6 +155,15 @@ export function ClientsClient({ initialData }: Props) {
           <span className="font-mono text-xs text-muted-foreground">{code}</span>
         );
       },
+    },
+    {
+      accessorKey: "phone",
+      header: "Telefono",
+      size: 130,
+      meta: { className: "hidden md:table-cell" },
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">{row.original.phone || "—"}</span>
+      ),
     },
     {
       id: "pendingAmount",
@@ -250,10 +256,11 @@ export function ClientsClient({ initialData }: Props) {
             </BreadcrumbList>
           </Breadcrumb>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-            Clienti
+            {typeLabel}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {initialData.filter((c) => c.deletedAt === null).length} clienti attivi
+            {byType.filter((c) => c.deletedAt === null).length}{" "}
+            {type === "business" ? "aziende attive" : "privati attivi"}
           </p>
         </div>
 
@@ -274,6 +281,7 @@ export function ClientsClient({ initialData }: Props) {
               <SheetTitle>Nuovo cliente</SheetTitle>
             </SheetHeader>
             <ClientForm
+              defaultType={type}
               onSuccess={(id) => {
                 setSheetOpen(false);
                 router.push(`/clients/${id}`);
@@ -288,7 +296,11 @@ export function ClientsClient({ initialData }: Props) {
         <div className="relative w-full md:flex-1 md:min-w-48 md:max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
           <Input
-            placeholder="Cerca per nome, email o P.IVA..."
+            placeholder={
+              type === "business"
+                ? "Cerca per ragione sociale, email o P.IVA..."
+                : "Cerca per nome, email o codice fiscale..."
+            }
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-8"
@@ -299,13 +311,12 @@ export function ClientsClient({ initialData }: Props) {
             data={filtered}
             columns={[
               { header: "Nome", accessor: (c: ClientDoc) => c.displayName },
-              { header: "Tipo", accessor: (c: ClientDoc) => c.type === "business" ? "Azienda" : "Privato" },
               { header: "Email", accessor: (c: ClientDoc) => c.email },
-              { header: "P.IVA / CF", accessor: (c: ClientDoc) => c.type === "business" ? c.vatNumber : (c.taxCode ?? "") },
+              { header: type === "business" ? "P.IVA" : "Codice fiscale", accessor: (c: ClientDoc) => c.type === "business" ? c.vatNumber : (c.taxCode ?? "") },
               { header: "Telefono", accessor: (c: ClientDoc) => c.phone ?? "" },
               { header: "Pendente (\u20ac)", accessor: (c: ClientDoc) => (c.stats.pendingAmountCents / 100).toFixed(2).replace(".", ",") },
             ]}
-            filenamePrefix="clienti"
+            filenamePrefix={type === "business" ? "clienti-aziende" : "clienti-privati"}
           />
           <Label
             htmlFor="show-archived-clients"
@@ -328,7 +339,9 @@ export function ClientsClient({ initialData }: Props) {
             <Users className="size-5 text-muted-foreground" strokeWidth={1.5} />
           </div>
           <p className="text-sm font-medium text-foreground">
-            {showArchived ? "Nessun cliente archiviato" : "Nessun cliente ancora"}
+            {showArchived
+              ? (type === "business" ? "Nessuna azienda archiviata" : "Nessun privato archiviato")
+              : (type === "business" ? "Nessuna azienda trovata" : "Nessun privato trovato")}
           </p>
           {!showArchived && (
             <p className="text-xs text-muted-foreground max-w-xs">
@@ -342,8 +355,8 @@ export function ClientsClient({ initialData }: Props) {
           data={filtered}
           emptyMessage={
             showArchived
-              ? "Nessun cliente archiviato corrisponde alla ricerca."
-              : "Nessun cliente trovato per questa ricerca."
+              ? (type === "business" ? "Nessuna azienda archiviata corrisponde alla ricerca." : "Nessun privato archiviato corrisponde alla ricerca.")
+              : (type === "business" ? "Nessuna azienda trovata per questa ricerca." : "Nessun privato trovato per questa ricerca.")
           }
           rowClassName={(row) => (row.deletedAt !== null ? "opacity-50" : "")}
           onRowClick={(row) => router.push(`/clients/${row.id}`)}

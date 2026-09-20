@@ -35,7 +35,7 @@ import {
 
 const BOTTOM_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/clients", label: "Clienti", icon: Users },
+  { href: "/clients/aziende", label: "Clienti", icon: Users },
   { href: "/samples", label: "Campioni", icon: TestTube },
   { href: "/quotes", label: "Preventivi", icon: FileText },
 ] as const;
@@ -65,6 +65,7 @@ export function MobileNav() {
 
   function isActive(href: string) {
     if (href === "/dashboard") return pathname === "/dashboard";
+    if (href === "/clients/aziende") return pathname.startsWith("/clients");
     return pathname.startsWith(href);
   }
 

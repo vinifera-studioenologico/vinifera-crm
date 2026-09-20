@@ -56,7 +56,8 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
 
 const COMMAND_NAV = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/clients", label: "Clienti" },
+  { href: "/clients/aziende", label: "Aziende" },
+  { href: "/clients/privati", label: "Privati" },
   { href: "/analyses", label: "Analisi" },
   { href: "/packages", label: "Pacchetti" },
   { href: "/samples", label: "Campioni" },

@@ -155,7 +155,7 @@ export async function createClient(raw: unknown): Promise<ActionResult<{ id: str
       createdBy: actor.uid,
     });
 
-    revalidatePath("/clients");
+    revalidatePath("/clients", "layout");
     logger.info("Cliente creato", { id: docRef.id, type: parsed.data.type });
     return { success: true, data: { id: docRef.id } };
   } catch (err) {
@@ -204,7 +204,7 @@ export async function updateClient(
     if (result === "not_found") return { success: false, error: "Cliente non trovato" };
     if (result === "conflict") return { success: false, error: "Il documento è stato modificato da un'altra sessione. Ricarica la pagina." };
 
-    revalidatePath("/clients");
+    revalidatePath("/clients", "layout");
     revalidatePath(`/clients/${id}`);
     logger.info("Cliente aggiornato", { id, uid: actor.uid });
     return { success: true, data: undefined };
@@ -225,7 +225,7 @@ export async function archiveClient(id: string): Promise<ActionResult<void>> {
       updatedBy: actor.uid,
     });
 
-    revalidatePath("/clients");
+    revalidatePath("/clients", "layout");
     revalidatePath(`/clients/${id}`);
     logger.info("Cliente archiviato", { id, uid: actor.uid });
     return { success: true, data: undefined };
@@ -246,7 +246,7 @@ export async function restoreClient(id: string): Promise<ActionResult<void>> {
       updatedBy: actor.uid,
     });
 
-    revalidatePath("/clients");
+    revalidatePath("/clients", "layout");
     revalidatePath(`/clients/${id}`);
     logger.info("Cliente ripristinato", { id, uid: actor.uid });
     return { success: true, data: undefined };
