@@ -76,7 +76,8 @@ export function ClientsClient({ initialData, type }: Props) {
       c.email.toLowerCase().includes(q) ||
       (c.type === "business" && c.vatNumber.toLowerCase().includes(q)) ||
       (c.type === "individual" &&
-        `${c.firstName} ${c.lastName}`.toLowerCase().includes(q))
+        (`${c.firstName} ${c.lastName}`.toLowerCase().includes(q) ||
+          (c.taxCode ?? "").toLowerCase().includes(q)))
     );
   });
 
