@@ -14,8 +14,10 @@ import { tsToISO, civilDateToEndOfDay, generateDueDates } from "@/lib/utils/date
 import type { ActionResult, PaginatedResult } from "@/types";
 import type { PaymentStatus } from "@/schemas/payment";
 import { computeSampleTotal, assignPackageCoverage } from "@/lib/calc/sample";
+import { groupInProgressAnalysesByCategory, type CategorySummary } from "@/lib/calc/samples-summary";
 import { splitInCents } from "@/lib/utils/money";
 import { getClient } from "./clients";
+import { getAnalyses } from "./analyses";
 
 const COL = "samples";
 const PAGE_SIZE = 25;
@@ -148,6 +150,22 @@ export async function getFirstInProgressSampleId(
 
   const first = snap.docs.find((d) => d.id !== excludeId);
   return first?.id ?? null;
+}
+
+// ── Riepilogo analisi in corso per categoria (card in cima a /samples) ──
+// Nessun filtro deletedAt: SampleDocSchema non ha quel campo (i campioni si
+// annullano con status "cancelled"), quindi where("deletedAt", "==", null)
+// restituirebbe sempre zero risultati.
+export async function getInProgressAnalysesSummary(): Promise<CategorySummary[]> {
+  await requireAdmin();
+
+  const [snap, analyses] = await Promise.all([
+    adminDb.collection(COL).where("status", "==", "in_progress").get(),
+    getAnalyses({ includeArchived: true }),
+  ]);
+
+  const samples = snap.docs.map((d) => toSampleDoc(d.id, d.data()));
+  return groupInProgressAnalysesByCategory(samples, analyses);
 }
 
 // ── Riepilogo pagamento collegato (per banner avviso disallineamento) ──

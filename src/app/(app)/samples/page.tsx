@@ -1,4 +1,4 @@
-import { getSamples } from "@/server/actions/samples";
+import { getSamples, getInProgressAnalysesSummary } from "@/server/actions/samples";
 import { getClients } from "@/server/actions/clients";
 import { getAnalyses } from "@/server/actions/analyses";
 import { getPaymentStatusesByIds } from "@/server/actions/payments";
@@ -9,10 +9,11 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Campioni — Vinifera" };
 
 export default async function SamplesPage() {
-  const [samplesResult, clientsResult, analyses] = await Promise.all([
+  const [samplesResult, clientsResult, analyses, categorySummary] = await Promise.all([
     getSamples(),
     getClients(),
     getAnalyses(),
+    getInProgressAnalysesSummary(),
   ]);
 
   const paymentIds = samplesResult.items
@@ -27,6 +28,7 @@ export default async function SamplesPage() {
         clients={clientsResult.items}
         analyses={analyses}
         paymentStatuses={paymentStatuses}
+        categorySummary={categorySummary}
       />
     </div>
   );

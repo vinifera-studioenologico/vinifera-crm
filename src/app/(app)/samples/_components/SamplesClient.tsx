@@ -9,12 +9,14 @@ import type { SampleDoc, SampleStatus } from "@/schemas/sample";
 import type { ClientDoc } from "@/schemas/client";
 import type { AnalysisDoc } from "@/schemas/analysis";
 import type { PaymentStatus } from "@/schemas/payment";
+import type { CategorySummary } from "@/lib/calc/samples-summary";
 import { formatEUR } from "@/lib/utils/money";
 import { formatDate } from "@/lib/utils/date";
 
 import { DataTable } from "@/components/data-table/DataTable";
 import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import { SampleWizard } from "@/components/forms/SampleWizard";
+import { AnalysesSummaryCards } from "./AnalysesSummaryCards";
 import { SampleStatusBadge } from "@/components/widgets/SampleStatusBadge";
 import { PaymentStatusBadge, paymentStatusLabel } from "@/components/widgets/PaymentStatusBadge";
 import { Button } from "@/components/ui/button";
@@ -45,9 +47,16 @@ interface Props {
   clients: ClientDoc[];
   analyses: AnalysisDoc[];
   paymentStatuses: Record<string, PaymentStatus>;
+  categorySummary: CategorySummary[];
 }
 
-export function SamplesClient({ initialData, clients, analyses, paymentStatuses }: Props) {
+export function SamplesClient({
+  initialData,
+  clients,
+  analyses,
+  paymentStatuses,
+  categorySummary,
+}: Props) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<SampleStatus | "all">("all");
@@ -198,6 +207,8 @@ export function SamplesClient({ initialData, clients, analyses, paymentStatuses 
           </SheetContent>
         </Sheet>
       </div>
+
+      <AnalysesSummaryCards summary={categorySummary} />
 
       {/* Filtri */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-3 md:flex-wrap">
