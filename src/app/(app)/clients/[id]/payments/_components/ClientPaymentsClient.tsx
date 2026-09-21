@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronDown,
@@ -605,24 +605,34 @@ function PaymentCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [installments, setInstallments] = useState<InstallmentDoc[] | null>(null);
+  const [installmentsVersion, setInstallmentsVersion] = useState<number | null>(null);
   const [loading, startLoading] = useTransition();
   const [editSheetOpen, setEditSheetOpen] = useState(false);
 
   // Le rate caricate sono uno stato locale, non derivato dalle props: un
   // aggiornamento fatto altrove (incasso multiplo, annullamento pagamento)
-  // arriva qui solo come nuova `payment` dopo router.refresh(). Se la card
-  // è già espansa, `version` che cambia è il segnale per ricaricare le rate
-  // — altrimenti resterebbero visibili con stato/badge non più corretti.
-  const prevVersionRef = useRef(payment.version);
+  // arriva qui solo come nuova `payment` dopo router.refresh(). Se la
+  // versione del pagamento è avanzata rispetto a quella per cui la cache è
+  // stata caricata, la cache è vecchia — altrimenti la card (se già
+  // espansa, o alla riespansione se era chiusa) resterebbe con badge/stato
+  // non più corretti. Scartarla durante il render (non in un effetto,
+  // altrimenti la regola eslint sulle setState sincrone in un effetto
+  // fallisce) è il pattern React consigliato per invalidare uno stato
+  // derivato dalle props tra un render e l'altro.
+  if (installments !== null && installmentsVersion !== payment.version) {
+    setInstallments(null);
+  }
+
+  // Effetto: (ri)carica le rate quando la card è espansa e non ha una
+  // cache valida — sia al primo expand, sia dopo l'invalidazione sopra.
   useEffect(() => {
-    if (payment.version === prevVersionRef.current) return;
-    prevVersionRef.current = payment.version;
-    if (!expanded) return;
+    if (!expanded || installments !== null) return;
     startLoading(async () => {
       const data = await getPaymentInstallments(payment.id);
       setInstallments(data);
+      setInstallmentsVersion(payment.version);
     });
-  }, [payment.version, payment.id, expanded]);
+  }, [expanded, installments, payment.id, payment.version]);
 
   const payableInstallments = installments?.filter((i) => isInstallmentPayable(i.status)) ?? [];
   const allPayableSelected =
@@ -645,17 +655,7 @@ function PaymentCard({
   }
 
   function handleExpand() {
-    if (expanded) {
-      setExpanded(false);
-      return;
-    }
-    setExpanded(true);
-    if (!installments) {
-      startLoading(async () => {
-        const data = await getPaymentInstallments(payment.id);
-        setInstallments(data);
-      });
-    }
+    setExpanded((prev) => !prev);
   }
 
   const progressPct =
@@ -767,6 +767,7 @@ function PaymentCard({
                       startLoading(async () => {
                         const data = await getPaymentInstallments(payment.id);
                         setInstallments(data);
+                        setInstallmentsVersion(payment.version);
                       });
                       onInstallmentPaid();
                     }}
@@ -861,6 +862,7 @@ export function ClientPaymentsClient({ client, initialPayments }: Props) {
 
   const selectedItems = [...selected.values()];
   const selectedTotal = selectedItems.reduce((s, it) => s + it.amountCents, 0);
+  const selectedKeySet = new Set(selected.keys());
 
   function handleCancel() {
     if (!cancelTarget) return;
@@ -972,7 +974,7 @@ export function ClientPaymentsClient({ client, initialPayments }: Props) {
               payment={p}
               onCancelRequest={setCancelTarget}
               onInstallmentPaid={() => router.refresh()}
-              selectedKeys={new Set(selected.keys())}
+              selectedKeys={selectedKeySet}
               onToggleSelect={toggleSelect}
             />
           ))}
