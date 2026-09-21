@@ -33,6 +33,7 @@ import {
 } from "@/server/actions/samples";
 import { formatEUR } from "@/lib/utils/money";
 import { formatDate } from "@/lib/utils/date";
+import { useIdlePing } from "@/hooks/use-idle-ping";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -109,6 +110,23 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
   const [newNote, setNewNote] = useState("");
   const [isAddingNote, startAddNote] = useTransition();
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+
+  // ── Ping Telegram se la schermata resta ferma un'ora in lavorazione ───
+  useIdlePing({
+    enabled: sample.status === "in_progress",
+    idleMs: 60 * 60 * 1000,
+    onIdle: () => {
+      fetch("/api/notifications/idle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sampleId: sample.id,
+          sampleCode: sample.code,
+          clientName: sample.clientNameSnapshot,
+        }),
+      }).catch(() => {});
+    },
+  });
 
   // ── Metadati campione (prodotto dichiarato, quantità, imballaggio, ecc.) ──
   const [metadata, setMetadata] = useState({
