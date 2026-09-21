@@ -84,6 +84,24 @@ export const MarkInstallmentPaidSchema = z.object({
 
 export type MarkInstallmentPaidValues = z.infer<typeof MarkInstallmentPaidSchema>;
 
+// ── Form "Incasso multiplo" (più rate, stessa data/metodo/nota) ────────
+export const MarkInstallmentsPaidBulkSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        paymentId: z.string().min(1),
+        installmentId: z.string().min(1),
+      }),
+    )
+    .min(1)
+    .max(50),
+  method: PaymentMethodSchema,
+  paidAt: z.string().min(1, "Data pagamento obbligatoria"), // "YYYY-MM-DD"
+  note: z.string().max(500).optional(),
+});
+
+export type MarkInstallmentsPaidBulkValues = z.infer<typeof MarkInstallmentsPaidBulkSchema>;
+
 // ── Form "Modifica pagamento" (descrizione/note) ──────────────────────
 export const UpdatePaymentSchema = z.object({
   paymentId: z.string(),

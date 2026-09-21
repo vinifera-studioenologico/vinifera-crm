@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { derivePaymentStatus } from "@/lib/calc/payment";
+import { derivePaymentStatus, isInstallmentPayable } from "@/lib/calc/payment";
 
 const PAST = new Date(2020, 0, 1);
 const FUTURE = new Date(2099, 0, 1);
@@ -74,5 +74,23 @@ describe("derivePaymentStatus", () => {
         NOW,
       ),
     ).toBe("pending");
+  });
+});
+
+describe("isInstallmentPayable", () => {
+  it("true per pending", () => {
+    expect(isInstallmentPayable("pending")).toBe(true);
+  });
+
+  it("true per overdue", () => {
+    expect(isInstallmentPayable("overdue")).toBe(true);
+  });
+
+  it("false per paid", () => {
+    expect(isInstallmentPayable("paid")).toBe(false);
+  });
+
+  it("false per cancelled", () => {
+    expect(isInstallmentPayable("cancelled")).toBe(false);
   });
 });

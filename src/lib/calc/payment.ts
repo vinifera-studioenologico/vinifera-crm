@@ -45,6 +45,15 @@ export function derivePaymentStatus(
 }
 
 /**
+ * Una rata è incassabile solo se `pending` o `overdue`. Usata dalla UI per
+ * decidere se mostrare la checkbox di selezione multipla e dall'azione
+ * server come guardia (una rata già pagata/annullata non va mai incassata).
+ */
+export function isInstallmentPayable(status: InstallmentStatus): boolean {
+  return status === "pending" || status === "overdue";
+}
+
+/**
  * Calcola paidAmountCents di un pagamento come somma delle transazioni.
  */
 export function computePaidAmount(

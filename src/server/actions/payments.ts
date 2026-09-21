@@ -11,15 +11,17 @@ import { logger } from "@/lib/logger";
 import {
   PaymentFormSchema,
   MarkInstallmentPaidSchema,
+  MarkInstallmentsPaidBulkSchema,
   UpdatePaymentSchema,
   UpdateInstallmentSchema,
 } from "@/schemas/payment";
-import type { PaymentDoc, InstallmentDoc } from "@/schemas/payment";
+import type { PaymentDoc, InstallmentDoc, InstallmentStatus } from "@/schemas/payment";
 import { tsToISO, generateDueDates, civilDateToEndOfDay } from "@/lib/utils/date";
 import type { ActionResult, PaginatedResult } from "@/types";
 import { splitInCents } from "@/lib/utils/money";
 import {
   derivePaymentStatus,
+  isInstallmentPayable,
   type InstallmentForCalc,
 } from "@/lib/calc/payment";
 
@@ -279,6 +281,165 @@ export async function markInstallmentPaid(
       err instanceof Error ? err.message : "Errore durante la registrazione";
     logger.error("markInstallmentPaid failed", { err });
     return { success: false, error: message };
+  }
+}
+
+// ── Registra incasso di più rate in un colpo solo (stessa data/metodo/nota) ─
+export async function markInstallmentsPaidBulk(
+  raw: unknown,
+): Promise<ActionResult<{ paidCount: number; skippedCount: number }>> {
+  const actor = await requireAdmin();
+
+  const parsed = MarkInstallmentsPaidBulkSchema.safeParse(raw);
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string[]> = {};
+    for (const issue of parsed.error.issues) {
+      const path = issue.path.join(".");
+      if (!fieldErrors[path]) fieldErrors[path] = [];
+      fieldErrors[path]!.push(issue.message);
+    }
+    return { success: false, error: "Dati non validi", fieldErrors };
+  }
+
+  const data = parsed.data;
+  const paidAtTs = Timestamp.fromDate(civilDateToEndOfDay(data.paidAt));
+
+  // Raggruppa le rate selezionate per pagamento: una transazione per
+  // pagamento, eseguite in sequenza (non in parallelo).
+  const byPayment = new Map<string, string[]>();
+  for (const item of data.items) {
+    const list = byPayment.get(item.paymentId) ?? [];
+    list.push(item.installmentId);
+    byPayment.set(item.paymentId, list);
+  }
+
+  let paidCount = 0;
+  let skippedCount = 0;
+  const clientDeltas = new Map<string, number>();
+
+  try {
+    for (const [paymentId, installmentIds] of byPayment) {
+      const result = await adminDb.runTransaction(async (tx) => {
+        const paymentRef = adminDb.collection(COL).doc(paymentId);
+        const installRefs = installmentIds.map((id) =>
+          adminDb.collection(COL).doc(paymentId).collection("installments").doc(id),
+        );
+
+        // ── FASE LETTURE ────────────────────────────────────────────────
+        const [paymentSnap, installSnaps, allInstallmentsSnap] = await Promise.all([
+          tx.get(paymentRef),
+          Promise.all(installRefs.map((ref) => tx.get(ref))),
+          tx.get(adminDb.collection(COL).doc(paymentId).collection("installments")),
+        ]);
+
+        if (!paymentSnap.exists) {
+          return { paid: 0, skipped: installmentIds.length, clientId: null, delta: 0 };
+        }
+        const paymentData = paymentSnap.data()!;
+
+        // Scarta le rate non (più) incassabili — es. pagate da un'altra
+        // sessione nel frattempo — senza far fallire il resto del batch.
+        const payable: Array<{ ref: FirebaseFirestore.DocumentReference; id: string; amountCents: number }> = [];
+        let skipped = 0;
+        installSnaps.forEach((snap) => {
+          if (!snap.exists) { skipped++; return; }
+          const status = snap.data()!["status"] as InstallmentStatus;
+          if (!isInstallmentPayable(status)) { skipped++; return; }
+          payable.push({ ref: snap.ref, id: snap.id, amountCents: (snap.data()!["amountCents"] as number) ?? 0 });
+        });
+
+        if (payable.length === 0) {
+          return { paid: 0, skipped, clientId: null, delta: 0 };
+        }
+
+        const paidIds = new Set(payable.map((p) => p.id));
+        const batchTotal = payable.reduce((sum, p) => sum + p.amountCents, 0);
+
+        const currentPaid = (paymentData["paidAmountCents"] as number) ?? 0;
+        const totalAmount = (paymentData["totalAmountCents"] as number) ?? 0;
+        const newPaid = currentPaid + batchTotal;
+
+        // §4.4 — usa derivePaymentStatus sull'insieme aggiornato delle rate
+        const now = new Date();
+        const installmentsForCalc: InstallmentForCalc[] = allInstallmentsSnap.docs.map((d) => ({
+          status: paidIds.has(d.id)
+            ? "paid"
+            : (d.data()["status"] as InstallmentForCalc["status"]),
+          dueDate: installmentDueDate(d.data()),
+          amountCents: (d.data()["amountCents"] as number) ?? 0,
+        }));
+        const newPaymentStatus = derivePaymentStatus(
+          { totalAmountCents: totalAmount, paidAmountCents: newPaid, cancelled: false },
+          installmentsForCalc,
+          now,
+        );
+
+        // ── FASE SCRITTURE ───────────────────────────────────────────────
+        for (const p of payable) {
+          tx.update(p.ref, {
+            status: "paid",
+            paidAt: paidAtTs,
+            paidAmountCents: p.amountCents,
+            method: data.method,
+            note: data.note ?? null,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+
+          const txLogRef = adminDb.collection(COL).doc(paymentId).collection("transactions").doc();
+          tx.set(txLogRef, {
+            installmentId: p.id,
+            type: "payment",
+            amountCents: p.amountCents,
+            date: paidAtTs,
+            method: data.method,
+            note: data.note ?? null,
+            performedBy: actor.uid,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        }
+
+        tx.update(paymentRef, {
+          paidAmountCents: FieldValue.increment(batchTotal),
+          status: newPaymentStatus,
+          version: FieldValue.increment(1),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+
+        return {
+          paid: payable.length,
+          skipped,
+          clientId: (paymentData["clientId"] as string | undefined) ?? null,
+          delta: batchTotal,
+        };
+      });
+
+      paidCount += result.paid;
+      skippedCount += result.skipped;
+      if (result.clientId && result.delta > 0) {
+        clientDeltas.set(result.clientId, (clientDeltas.get(result.clientId) ?? 0) + result.delta);
+      }
+    }
+
+    // Aggiorna le stats cliente una volta sola per cliente (non per rata)
+    if (clientDeltas.size > 0) {
+      const batch = adminDb.batch();
+      for (const [clientId, delta] of clientDeltas) {
+        batch.update(adminDb.collection("clients").doc(clientId), {
+          "stats.pendingAmountCents": FieldValue.increment(-delta),
+          "stats.totalRevenueCents": FieldValue.increment(delta),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    }
+
+    revalidatePath("/payments");
+    revalidatePath("/clients", "layout");
+    logger.info("Incasso multiplo registrato", { paidCount, skippedCount, uid: actor.uid });
+    return { success: true, data: { paidCount, skippedCount } };
+  } catch (err) {
+    logger.error("markInstallmentsPaidBulk failed", { err });
+    return { success: false, error: "Errore durante la registrazione dell'incasso multiplo" };
   }
 }
 

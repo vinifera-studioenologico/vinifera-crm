@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronDown,
@@ -24,12 +24,27 @@ const METHOD_LABELS: Record<string, string> = {
   card: "Carta",
   other: "Altro",
 };
+
+// ── Selezione multipla rate (incasso unico) ────────────────────────────
+interface SelectedInstallment {
+  paymentId: string;
+  installmentId: string;
+  amountCents: number;
+  index: number;
+  paymentDescription: string;
+}
+
+function selectionKey(paymentId: string, installmentId: string): string {
+  return `${paymentId}:${installmentId}`;
+}
 import {
   getPaymentInstallments,
   cancelPayment,
   cancelInstallment,
   createManualPayment,
+  markInstallmentsPaidBulk,
 } from "@/server/actions/payments";
+import { isInstallmentPayable } from "@/lib/calc/payment";
 import { formatEUR } from "@/lib/utils/money";
 import { formatDate } from "@/lib/utils/date";
 
@@ -39,6 +54,9 @@ import { EditInstallmentForm } from "@/components/forms/EditInstallmentForm";
 import { Button } from "@/components/ui/button";
 import { CsvExportButton } from "@/components/data-table/CsvExportButton";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
@@ -263,14 +281,131 @@ function ManualPaymentForm({
   );
 }
 
+// ── Sheet incasso multiplo (più rate, stessa data/metodo/nota) ─────────
+// Sia in caso di successo che di errore la selezione va comunque azzerata:
+// un errore può arrivare a batch parzialmente scritto (le transazioni dei
+// singoli pagamenti già processati restano valide), quindi le spunte non
+// rispecchierebbero più lo stato reale — meglio far ripartire la selezione
+// da dati aggiornati (router.refresh()) che lasciarla stantia.
+function BulkMarkPaidSheet({
+  items,
+  onDone,
+  onCancel,
+}: {
+  items: SelectedInstallment[];
+  onDone: (result: { paidCount: number; skippedCount: number } | { error: string }) => void;
+  onCancel: () => void;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const [method, setMethod] = useState<"cash" | "bank_transfer" | "card" | "other">("bank_transfer");
+  const [paidAt, setPaidAt] = useState(new Date().toISOString().slice(0, 10));
+  const [note, setNote] = useState("");
+
+  const total = items.reduce((sum, it) => sum + it.amountCents, 0);
+
+  function handleSubmit() {
+    startTransition(async () => {
+      const result = await markInstallmentsPaidBulk({
+        items: items.map((it) => ({ paymentId: it.paymentId, installmentId: it.installmentId })),
+        method,
+        paidAt,
+        note: note.trim() || undefined,
+      });
+      if (result.success) {
+        onDone(result.data);
+      } else {
+        onDone({ error: result.error });
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-border divide-y divide-border max-h-56 overflow-y-auto">
+        {items.map((it) => (
+          <div
+            key={selectionKey(it.paymentId, it.installmentId)}
+            className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
+          >
+            <div className="min-w-0">
+              <p className="truncate font-medium">{it.paymentDescription}</p>
+              <p className="text-xs text-muted-foreground">Rata #{it.index}</p>
+            </div>
+            <span className="tabular-nums shrink-0">{formatEUR(it.amountCents)}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-lg bg-muted/40 px-3 py-2 text-sm flex items-center justify-between">
+        <span className="text-muted-foreground">Totale</span>
+        <span className="font-semibold tabular-nums">{formatEUR(total)}</span>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label>Data incasso *</Label>
+        <Input
+          type="date"
+          value={paidAt}
+          onChange={(e) => setPaidAt(e.target.value)}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label>Metodo di pagamento *</Label>
+        <select
+          className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50"
+          value={method}
+          onChange={(e) => setMethod(e.target.value as typeof method)}
+        >
+          {Object.entries(METHOD_LABELS).map(([val, label]) => (
+            <option key={val} value={val}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label>Nota (opzionale)</Label>
+        <Textarea
+          rows={2}
+          className="resize-none"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Riferimento bonifico, note..."
+        />
+        <p className="text-xs text-muted-foreground">
+          Vale per tutte le {items.length} rate selezionate.
+        </p>
+      </div>
+
+      <div className="flex gap-2 pt-1">
+        <Button type="button" variant="outline" className="flex-1" onClick={onCancel} disabled={isPending}>
+          Annulla
+        </Button>
+        <Button type="button" className="flex-1" onClick={handleSubmit} disabled={isPending}>
+          {isPending && <Loader2 className="size-3.5 animate-spin" />}
+          {isPending ? "Registrazione..." : "Registra incasso"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ── Riga rata ─────────────────────────────────────────────────────────
 function InstallmentRow({
   installment,
   paymentId,
+  paymentDescription,
+  selected,
+  onToggleSelect,
   onPaid,
 }: {
   installment: InstallmentDoc;
   paymentId: string;
+  paymentDescription: string;
+  selected: boolean;
+  onToggleSelect: (item: SelectedInstallment) => void;
   onPaid: () => void;
 }) {
   const [mode, setMode] = useState<"none" | "pay" | "edit">("none");
@@ -278,6 +413,7 @@ function InstallmentRow({
   const [isCancelling, startCancel] = useTransition();
   const isPending =
     installment.status === "pending" || installment.status === "overdue";
+  const payable = isInstallmentPayable(installment.status);
 
   const dueDateTs = installment.dueDate;
 
@@ -297,6 +433,21 @@ function InstallmentRow({
   return (
     <div className="px-4 py-3 space-y-3">
       <div className="flex items-center gap-3">
+        {payable && mode === "none" && (
+          <Checkbox
+            checked={selected}
+            onCheckedChange={() =>
+              onToggleSelect({
+                paymentId,
+                installmentId: installment.id,
+                amountCents: installment.amountCents,
+                index: installment.index,
+                paymentDescription,
+              })
+            }
+            aria-label={`Seleziona rata #${installment.index} per incasso multiplo`}
+          />
+        )}
         <div className="flex-1 min-w-0">
           <p className="text-sm">
             <span className="font-medium tabular-nums">
@@ -443,15 +594,55 @@ function PaymentCard({
   payment,
   onCancelRequest,
   onInstallmentPaid,
+  selectedKeys,
+  onToggleSelect,
 }: {
   payment: PaymentDoc;
   onCancelRequest: (p: PaymentDoc) => void;
   onInstallmentPaid: () => void;
+  selectedKeys: Set<string>;
+  onToggleSelect: (item: SelectedInstallment) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [installments, setInstallments] = useState<InstallmentDoc[] | null>(null);
   const [loading, startLoading] = useTransition();
   const [editSheetOpen, setEditSheetOpen] = useState(false);
+
+  // Le rate caricate sono uno stato locale, non derivato dalle props: un
+  // aggiornamento fatto altrove (incasso multiplo, annullamento pagamento)
+  // arriva qui solo come nuova `payment` dopo router.refresh(). Se la card
+  // è già espansa, `version` che cambia è il segnale per ricaricare le rate
+  // — altrimenti resterebbero visibili con stato/badge non più corretti.
+  const prevVersionRef = useRef(payment.version);
+  useEffect(() => {
+    if (payment.version === prevVersionRef.current) return;
+    prevVersionRef.current = payment.version;
+    if (!expanded) return;
+    startLoading(async () => {
+      const data = await getPaymentInstallments(payment.id);
+      setInstallments(data);
+    });
+  }, [payment.version, payment.id, expanded]);
+
+  const payableInstallments = installments?.filter((i) => isInstallmentPayable(i.status)) ?? [];
+  const allPayableSelected =
+    payableInstallments.length > 0 &&
+    payableInstallments.every((i) => selectedKeys.has(selectionKey(payment.id, i.id)));
+
+  function toggleSelectAllPayable() {
+    const shouldSelectAll = !allPayableSelected;
+    for (const inst of payableInstallments) {
+      const isSelected = selectedKeys.has(selectionKey(payment.id, inst.id));
+      if (shouldSelectAll === isSelected) continue;
+      onToggleSelect({
+        paymentId: payment.id,
+        installmentId: inst.id,
+        amountCents: inst.amountCents,
+        index: inst.index,
+        paymentDescription: payment.description,
+      });
+    }
+  }
 
   function handleExpand() {
     if (expanded) {
@@ -549,23 +740,40 @@ function PaymentCard({
               <Loader2 className="size-4 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="divide-y divide-border">
-              {installments.map((inst) => (
-                <InstallmentRow
-                  key={inst.id}
-                  installment={inst}
-                  paymentId={payment.id}
-                  onPaid={() => {
-                    // Refresh installments list
-                    startLoading(async () => {
-                      const data = await getPaymentInstallments(payment.id);
-                      setInstallments(data);
-                    });
-                    onInstallmentPaid();
-                  }}
-                />
-              ))}
-            </div>
+            <>
+              {payableInstallments.length > 1 && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-muted/20">
+                  <Checkbox
+                    checked={allPayableSelected}
+                    onCheckedChange={toggleSelectAllPayable}
+                    aria-label="Seleziona tutte le rate incassabili di questo pagamento"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    Seleziona tutte le rate incassabili
+                  </span>
+                </div>
+              )}
+              <div className="divide-y divide-border">
+                {installments.map((inst) => (
+                  <InstallmentRow
+                    key={inst.id}
+                    installment={inst}
+                    paymentId={payment.id}
+                    paymentDescription={payment.description}
+                    selected={selectedKeys.has(selectionKey(payment.id, inst.id))}
+                    onToggleSelect={onToggleSelect}
+                    onPaid={() => {
+                      // Refresh installments list
+                      startLoading(async () => {
+                        const data = await getPaymentInstallments(payment.id);
+                        setInstallments(data);
+                      });
+                      onInstallmentPaid();
+                    }}
+                  />
+                ))}
+              </div>
+            </>
           )}
 
           {/* Azioni pagamento */}
@@ -626,12 +834,33 @@ export function ClientPaymentsClient({ client, initialPayments }: Props) {
   const [isPending, startTransition] = useTransition();
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  // Selezione multipla rate per l'incasso unico
+  const [selected, setSelected] = useState<Map<string, SelectedInstallment>>(new Map());
+  const [bulkSheetOpen, setBulkSheetOpen] = useState(false);
+
   // KPI
   const pending = initialPayments.filter(
     (p) => p.status === "pending" || p.status === "partial",
   );
   const totalPending = pending.reduce((s, p) => s + p.totalAmountCents - p.paidAmountCents, 0);
   const totalRevenue = initialPayments.reduce((s, p) => s + p.paidAmountCents, 0);
+
+  function toggleSelect(item: SelectedInstallment) {
+    setSelected((prev) => {
+      const key = selectionKey(item.paymentId, item.installmentId);
+      const next = new Map(prev);
+      if (next.has(key)) next.delete(key);
+      else next.set(key, item);
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelected(new Map());
+  }
+
+  const selectedItems = [...selected.values()];
+  const selectedTotal = selectedItems.reduce((s, it) => s + it.amountCents, 0);
 
   function handleCancel() {
     if (!cancelTarget) return;
@@ -709,6 +938,24 @@ export function ClientPaymentsClient({ client, initialPayments }: Props) {
         </div>
       </div>
 
+      {/* Barra selezione multipla */}
+      {selected.size > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+          <p className="text-sm text-foreground">
+            {selected.size} rat{selected.size === 1 ? "a" : "e"} selezionat{selected.size === 1 ? "a" : "e"} ·{" "}
+            Totale {formatEUR(selectedTotal)}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={clearSelection}>
+              Annulla selezione
+            </Button>
+            <Button size="sm" onClick={() => setBulkSheetOpen(true)}>
+              Registra incasso unico
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Lista pagamenti */}
       {initialPayments.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-12 flex flex-col items-center gap-3 text-center">
@@ -725,10 +972,44 @@ export function ClientPaymentsClient({ client, initialPayments }: Props) {
               payment={p}
               onCancelRequest={setCancelTarget}
               onInstallmentPaid={() => router.refresh()}
+              selectedKeys={new Set(selected.keys())}
+              onToggleSelect={toggleSelect}
             />
           ))}
         </div>
       )}
+
+      {/* Sheet incasso multiplo */}
+      <Sheet
+        open={bulkSheetOpen}
+        onOpenChange={(open) => {
+          setBulkSheetOpen(open);
+        }}
+      >
+        <SheetContent side="right" className="overflow-y-auto">
+          <SheetHeader className="mb-6">
+            <SheetTitle>Registra incasso multiplo</SheetTitle>
+          </SheetHeader>
+          <BulkMarkPaidSheet
+            items={selectedItems}
+            onCancel={() => setBulkSheetOpen(false)}
+            onDone={(result) => {
+              setBulkSheetOpen(false);
+              clearSelection();
+              if ("error" in result) {
+                toast.error(result.error);
+              } else if (result.skippedCount > 0) {
+                toast.success(
+                  `Incassate ${result.paidCount} rate, saltate ${result.skippedCount} (già pagate nel frattempo)`,
+                );
+              } else {
+                toast.success(`Incassate ${result.paidCount} rate`);
+              }
+              router.refresh();
+            }}
+          />
+        </SheetContent>
+      </Sheet>
 
       {/* Dialog conferma annullamento */}
       <Dialog
