@@ -98,7 +98,12 @@ export function ExpensesTable({ initialData }: Props) {
       accessorKey: "supplier",
       header: "Titolo",
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.supplier ?? "—"}</span>
+        <span
+          className="block max-w-40 truncate text-sm"
+          title={row.original.supplier ?? undefined}
+        >
+          {row.original.supplier ?? "—"}
+        </span>
       ),
     },
     {
@@ -107,7 +112,8 @@ export function ExpensesTable({ initialData }: Props) {
       cell: ({ row }) => (
         <Link
           href={`/costs/expenses/${row.original.id}`}
-          className="font-medium hover:underline text-primary"
+          className="block max-w-70 truncate font-medium hover:underline text-primary"
+          title={row.original.description}
         >
           {row.original.description}
         </Link>
