@@ -129,7 +129,7 @@ correlati insieme e ogni modulo nel suo commit.
 > lavoro da capo. Le domande sono nel dettaglio in
 > [`appunti-cliente-2026-09-20.md` §4](./appunti-cliente-2026-09-20.md).
 
-### 🟨 7. Tema verde biliardo — *variante A implementata, in attesa di conferma cliente*
+### ✅ 7. Tema verde biliardo — *variante A confermata dal cliente*
 
 - **Documento**: [`tema-verde-biliardo.md`](./tema-verde-biliardo.md)
 - **Serve sapere**: quale tonalità di verde.
@@ -138,9 +138,8 @@ correlati insieme e ogni modulo nel suo commit.
   documento: sei valori da cambiare.
 - **Fatto quando**: il cliente ha visto e confermato, e i badge di stato restano leggibili sul
   nuovo sfondo — in particolare il verde "completed" su fondo verde.
-- **Stato**: variante A implementata, verificata a schermo e **in produzione dal 2026-09-22** (push
-  deciso senza attendere la demo al cliente). **Resta da fare**: farsi confermare dal cliente A vs
-  B, ora che la vede live — se preferisce la B è pronta nel documento, sei valori da cambiare.
+- **Stato**: variante A implementata, in produzione dal 2026-09-22, **confermata dal cliente il
+  2026-09-22**. Chiuso.
 
 ### 🟨 8. 🔒 Statistiche: spese, incassi, audit dati — *Parte B (audit) fatta*
 
