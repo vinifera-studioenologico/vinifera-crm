@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useTheme } from "next-themes";
 import { ArrowLeft } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
@@ -14,6 +12,8 @@ import {
   CATEGORY_COLORS,
   UNSPECIFIED_SUBCATEGORY_LABEL,
 } from "@/lib/constants/expenses";
+import { useResolvedChartTheme } from "@/hooks/use-resolved-chart-theme";
+import { EurPieTooltip } from "@/components/charts/EurPieTooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -24,15 +24,6 @@ import {
 } from "@/components/ui/breadcrumb";
 
 const MUTED_COLOR = "#898781";
-
-/** Tema risolto in modo sicuro per l'hydration: "light" finché non è montato. */
-function useResolvedChartTheme(): "light" | "dark" {
-  const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setMounted(true); }, []);
-  return mounted && resolvedTheme === "dark" ? "dark" : "light";
-}
 
 /**
  * Sfumatura del colore di categoria per le sottocategorie: rampa mono-hue
@@ -47,21 +38,6 @@ function subShade(categoryHex: string, key: string, index: number, total: number
   const alpha = 1 - (index / Math.max(1, total - 1)) * 0.55;
   const alphaHex = Math.round(alpha * 255).toString(16).padStart(2, "0");
   return `${categoryHex}${alphaHex}`;
-}
-
-function PieTooltip({ active, payload }: {
-  active?: boolean;
-  payload?: Array<{ name: string; value: number; payload: { fill: string } }>;
-}) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0]!;
-  return (
-    <div className="rounded-lg border border-border bg-card shadow-md px-3 py-2 text-xs">
-      <p className="font-semibold" style={{ color: p.payload.fill }}>
-        {p.name}: {formatEUR(Math.round(p.value * 100))}
-      </p>
-    </div>
-  );
 }
 
 interface Props {
@@ -162,7 +138,7 @@ export function ExpensesBreakdownClient({ breakdown, selectedYear, currentYear }
                         <Cell key={entry.name} fill={entry.fill} />
                       ))}
                     </Pie>
-                    <Tooltip content={<PieTooltip />} />
+                    <Tooltip content={<EurPieTooltip />} />
                     <Legend
                       wrapperStyle={{ fontSize: 12 }}
                       formatter={(value: string) => {
@@ -206,7 +182,7 @@ export function ExpensesBreakdownClient({ breakdown, selectedYear, currentYear }
                               <Cell key={entry.name} fill={entry.fill} />
                             ))}
                           </Pie>
-                          <Tooltip content={<PieTooltip />} />
+                          <Tooltip content={<EurPieTooltip />} />
                           <Legend
                             wrapperStyle={{ fontSize: 11 }}
                             formatter={(value: string) => {

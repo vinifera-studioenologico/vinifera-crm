@@ -16,6 +16,9 @@ import type { Timestamp } from "firebase/firestore";
 
 export const TZ = "Europe/Rome";
 
+/** Fonte unica delle etichette mese italiane per i grafici mensili. */
+export const MONTHS_IT = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
+
 /**
  * Converte un Timestamp Firestore in Date JS.
  */

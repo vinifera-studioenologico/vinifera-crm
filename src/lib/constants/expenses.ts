@@ -1,4 +1,5 @@
 import type { ExpenseCategory } from "@/schemas/cost";
+import type { PaymentMethod } from "@/schemas/payment";
 
 /**
  * Etichette italiane delle categorie spesa. Fonte unica: prima duplicata in
@@ -13,6 +14,15 @@ export const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   fixed_cost: "Costo fisso",
   other: "Altro",
 };
+
+/**
+ * Le 7 categorie, derivate da CATEGORY_LABELS invece che riscritte a mano:
+ * un `Record<ExpenseCategory, ...>` come CATEGORY_LABELS/CATEGORY_COLORS
+ * forza il compilatore a segnalare una categoria mancante, un array
+ * hardcoded no — aggiungerne una qui non farebbe più sparire silenziosamente
+ * dal grafico mensile chi dimentica di aggiornare l'elenco a parte.
+ */
+export const ALL_EXPENSE_CATEGORIES = Object.keys(CATEGORY_LABELS) as ExpenseCategory[];
 
 /**
  * Sottocategorie per categoria. Tassonomia generata dallo storico reale delle
@@ -58,7 +68,9 @@ export const CATEGORY_COLORS: Record<ExpenseCategory, { light: string; dark: str
   other: { light: "#4a3aa7", dark: "#9085e9" }, // viola
 };
 
-export const PAYMENT_METHOD_LABELS: Record<string, string> = {
+export type PaymentMethodOrUnspecified = PaymentMethod | "unspecified";
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethodOrUnspecified, string> = {
   cash: "Contanti",
   bank_transfer: "Bonifico",
   card: "Carta",
@@ -73,7 +85,7 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
  * dati: colore neutro (muted, invariato fra i due temi) invece di un hue
  * categorico, per non fargli impersonare una vera categoria.
  */
-export const PAYMENT_METHOD_COLORS: Record<string, { light: string; dark: string }> = {
+export const PAYMENT_METHOD_COLORS: Record<PaymentMethodOrUnspecified, { light: string; dark: string }> = {
   cash: { light: "#2a78d6", dark: "#3987e5" },
   bank_transfer: { light: "#eb6834", dark: "#d95926" },
   card: { light: "#1baf7a", dark: "#199e70" },

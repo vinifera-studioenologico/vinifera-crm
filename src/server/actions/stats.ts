@@ -5,7 +5,7 @@ import "server-only";
 import { Timestamp } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireAdmin } from "@/server/auth";
-import { tsToISO } from "@/lib/utils/date";
+import { tsToISO, MONTHS_IT } from "@/lib/utils/date";
 import type { SampleDoc } from "@/schemas/sample";
 import type { ReminderDoc } from "@/schemas/reminder";
 import type { ExpenseCategory } from "@/schemas/cost";
@@ -203,8 +203,6 @@ export interface MonthlyRevenue {
   incassatoCents: number;
   attesoCents: number; // rate pending/overdue con scadenza nel mese
 }
-
-const MONTHS_IT = ["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"];
 
 export async function getMonthlyStats(year?: number): Promise<MonthlyRevenue[]> {
   await requireAdmin();

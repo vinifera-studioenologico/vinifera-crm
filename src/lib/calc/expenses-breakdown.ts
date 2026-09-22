@@ -5,18 +5,8 @@
  */
 
 import type { ExpenseCategory } from "@/schemas/cost";
-
-const MONTHS_IT = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
-
-const ALL_CATEGORIES: ExpenseCategory[] = [
-  "supplier_invoice",
-  "utility",
-  "maintenance",
-  "consumable",
-  "kit_purchase",
-  "fixed_cost",
-  "other",
-];
+import { MONTHS_IT } from "@/lib/utils/date";
+import { ALL_EXPENSE_CATEGORIES } from "@/lib/constants/expenses";
 
 // ── Spese per categoria, per mese ──────────────────────────────────────
 export interface ExpenseRow {
@@ -39,7 +29,7 @@ export function groupExpensesByCategoryMonthly(
 ): ExpensesByMonthPoint[] {
   const points: ExpensesByMonthPoint[] = MONTHS_IT.map((month) => {
     const base = { month } as ExpensesByMonthPoint;
-    for (const cat of ALL_CATEGORIES) base[cat] = 0;
+    for (const cat of ALL_EXPENSE_CATEGORIES) base[cat] = 0;
     return base;
   });
 

@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import { ArrowRight } from "lucide-react";
 import {
   BarChart,
@@ -21,9 +20,16 @@ import {
 } from "recharts";
 import type { MonthlyRevenue, SamplesByMonth } from "@/server/actions/stats";
 import type { ExpensesByMonthPoint, IncomeByMethodRow } from "@/lib/calc/expenses-breakdown";
-import type { ExpenseCategory } from "@/schemas/cost";
 import { formatEUR } from "@/lib/utils/money";
-import { CATEGORY_LABELS, CATEGORY_COLORS, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_COLORS } from "@/lib/constants/expenses";
+import {
+  CATEGORY_LABELS,
+  CATEGORY_COLORS,
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_METHOD_COLORS,
+  ALL_EXPENSE_CATEGORIES,
+} from "@/lib/constants/expenses";
+import { useResolvedChartTheme } from "@/hooks/use-resolved-chart-theme";
+import { EurPieTooltip } from "@/components/charts/EurPieTooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -32,25 +38,6 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
-
-const EXPENSE_CATEGORIES: ExpenseCategory[] = [
-  "supplier_invoice",
-  "utility",
-  "maintenance",
-  "consumable",
-  "kit_purchase",
-  "fixed_cost",
-  "other",
-];
-
-/** Tema risolto in modo sicuro per l'hydration: "light" finché non è montato. */
-function useResolvedChartTheme(): "light" | "dark" {
-  const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setMounted(true); }, []);
-  return mounted && resolvedTheme === "dark" ? "dark" : "light";
-}
 
 // ── Tooltip personalizzato ────────────────────────────────────────────
 function EurTooltip({ active, payload, label }: {
@@ -89,20 +76,6 @@ function CountTooltip({ active, payload, label }: {
   );
 }
 
-function EurPieTooltip({ active, payload }: {
-  active?: boolean;
-  payload?: Array<{ name: string; value: number; payload: { fill: string } }>;
-}) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0]!;
-  return (
-    <div className="rounded-lg border border-border bg-card shadow-md px-3 py-2 text-xs">
-      <p className="font-semibold" style={{ color: p.payload.fill }}>
-        {p.name}: {formatEUR(Math.round(p.value * 100))}
-      </p>
-    </div>
-  );
-}
 
 // ── Componente principale ─────────────────────────────────────────────
 interface Props {
@@ -126,11 +99,11 @@ export function StatsClient({
 
   const expensesChartData = expensesByCategory.map((point) => {
     const row: Record<string, string | number> = { month: point.month };
-    for (const cat of EXPENSE_CATEGORIES) row[cat] = point[cat] / 100;
+    for (const cat of ALL_EXPENSE_CATEGORIES) row[cat] = point[cat] / 100;
     return row;
   });
   const hasExpenses = expensesByCategory.some((p) =>
-    EXPENSE_CATEGORIES.some((cat) => p[cat] > 0),
+    ALL_EXPENSE_CATEGORIES.some((cat) => p[cat] > 0),
   );
 
   const totalIncome = incomeByMethod.reduce((s, r) => s + r.totalCents, 0);
@@ -339,7 +312,7 @@ export function StatsClient({
                 />
                 <Tooltip content={<EurTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                {EXPENSE_CATEGORIES.map((cat) => (
+                {ALL_EXPENSE_CATEGORIES.map((cat) => (
                   <Line
                     key={cat}
                     type="monotone"
