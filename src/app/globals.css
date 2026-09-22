@@ -10,28 +10,28 @@
  *   Champagne gold →  oklch(0.73 0.09 82)    (#c9a84c area)
  */
 :root {
-  /* Warm cream base — harmonises with the gold accent */
-  --background: oklch(0.985 0.005 80);
+  /* Billiard-green base — harmonises with the forest green and gold accent from the logo */
+  --background: oklch(0.945 0.022 165);
   --foreground: oklch(0.15 0.02 175);
-  --card: oklch(1 0 0);
+  --card: oklch(0.985 0.008 165);
   --card-foreground: oklch(0.15 0.02 175);
-  --popover: oklch(1 0 0);
+  --popover: oklch(0.985 0.008 165);
   --popover-foreground: oklch(0.15 0.02 175);
   /* Primary — forest green from logo */
   --primary: oklch(0.37 0.09 175);
   --primary-foreground: oklch(0.98 0.005 80);
-  /* Secondary — warm neutral (gold-tinted) */
-  --secondary: oklch(0.92 0.04 82);
+  /* Secondary — desaturated green, no longer gold-tinted */
+  --secondary: oklch(0.90 0.03 168);
   --secondary-foreground: oklch(0.2 0.03 175);
-  --muted: oklch(0.93 0.01 82);
-  --muted-foreground: oklch(0.5 0.02 165);
+  --muted: oklch(0.91 0.02 165);
+  --muted-foreground: oklch(0.47 0.025 165);
   /* Accent — champagne gold from logo */
   --accent: oklch(0.88 0.07 82);
   --accent-foreground: oklch(0.25 0.05 82);
   --destructive: oklch(0.45 0.15 20);
   --destructive-foreground: oklch(0.98 0.005 80);
-  --border: oklch(0.88 0.015 165);
-  --input: oklch(0.88 0.015 165);
+  --border: oklch(0.86 0.02 165);
+  --input: oklch(0.86 0.02 165);
   --ring: oklch(0.37 0.09 175);
   --radius: 0.75rem;
 }

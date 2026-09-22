@@ -237,7 +237,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     href="https://alessiobernardini.dev/qr"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex size-8 items-center justify-center rounded-lg border border-border bg-white shadow-sm transition-opacity hover:opacity-90"
+                    className="flex size-8 items-center justify-center rounded-lg border border-border bg-card shadow-sm transition-opacity hover:opacity-90"
                     aria-label="Realizzato da Alessio Bernardini — alessiobernardini.dev"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element -- next/image blocks local SVGs without dangerouslyAllowSVG */}
@@ -254,7 +254,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               href="https://alessiobernardini.dev/qr"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded-lg border border-border bg-white px-2.5 py-1.5 shadow-sm transition-opacity hover:opacity-90"
+              className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 shadow-sm transition-opacity hover:opacity-90"
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- next/image blocks local SVGs without dangerouslyAllowSVG */}
               <img src="/logo_scuro.svg" alt="" width={16} height={16} className="size-4 shrink-0" />
