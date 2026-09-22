@@ -35,6 +35,13 @@ export const ALL_EXPENSE_CATEGORIES = Object.keys(CATEGORY_LABELS) as ExpenseCat
  * categorie senza spese storiche (maintenance, fixed_cost) usano una
  * tassonomia generica ragionevole, non essendoci dati da cui derivarla.
  * Le categorie vuote (nessun array) non mostrano il campo sottocategoria.
+ *
+ * "other" aggiunta il 2026-09-23, non alla generazione iniziale: era vuota
+ * per decisione del documento originale, ma a consuntivo pesava il 14% della
+ * spesa 2026 (637€) con dentro un mix reale — commercialista, un piccolo
+ * elettrodomestico, capsule caffè — troppo eterogeneo per restare un'unica
+ * fetta opaca nel grafico. Stesso criterio delle altre: solo voci con
+ * riscontro nei dati, più un residuale "Altro".
  */
 export const SUBCATEGORIES_BY_CATEGORY: Record<ExpenseCategory, string[]> = {
   supplier_invoice: ["Materiale e attrezzature laboratorio", "Sponsorizzazioni e marketing", "Altro fornitore"],
@@ -43,7 +50,7 @@ export const SUBCATEGORIES_BY_CATEGORY: Record<ExpenseCategory, string[]> = {
   consumable: [],
   kit_purchase: [],
   fixed_cost: ["Affitto", "Assicurazione", "Commercialista", "Abbonamenti e servizi", "Compensi"],
-  other: [],
+  other: ["Servizi professionali", "Forniture e attrezzature ufficio", "Altro"],
 };
 
 export const UNSPECIFIED_SUBCATEGORY_LABEL = "Non specificata";
