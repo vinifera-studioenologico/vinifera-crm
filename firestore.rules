@@ -86,6 +86,10 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    match /goals/{goalId} {
+      allow read, write: if isAdmin();
+    }
+
     // Servizi — admin gestisce, API pubblica usa Admin SDK (bypassa le rules)
     match /services/{serviceId} {
       allow read, write: if isAdmin();

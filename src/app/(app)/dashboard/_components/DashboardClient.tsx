@@ -11,14 +11,18 @@ import {
   Users,
   Bell,
   ChevronRight,
+  Target,
 } from "lucide-react";
 
 import type { DashboardStats } from "@/server/actions/stats";
+import type { GoalProgress } from "@/server/actions/goals";
+import type { GoalMetricProgress } from "@/lib/calc/goals";
 import type { SampleDoc } from "@/schemas/sample";
 import type { ReminderDoc } from "@/schemas/reminder";
 
 import { KpiCard } from "@/components/widgets/KpiCard";
 import { SampleStatusBadge } from "@/components/widgets/SampleStatusBadge";
+import { Button } from "@/components/ui/button";
 import { formatEUR } from "@/lib/utils/money";
 import { cn } from "@/lib/utils";
 import {
@@ -115,12 +119,45 @@ function ReminderRow({ reminder }: { reminder: ReminderDoc }) {
   );
 }
 
+// ── Riga di avanzamento obiettivo ───────────────────────────────────────
+function GoalProgressRow({
+  label,
+  progress,
+  formatValue,
+}: {
+  label: string;
+  progress: GoalMetricProgress;
+  formatValue: (n: number) => string;
+}) {
+  return (
+    <div className="px-2 py-2">
+      <div className="flex items-baseline justify-between gap-2 text-xs flex-wrap">
+        <span className="font-medium text-foreground">{label}</span>
+        <span className="text-muted-foreground whitespace-nowrap">
+          {formatValue(progress.current)} / {formatValue(progress.target)} ({progress.actualPercent}%)
+        </span>
+      </div>
+      <div className="mt-1.5 h-1.5 rounded-full bg-muted overflow-hidden">
+        <div
+          className={cn(
+            "h-full rounded-full transition-all",
+            progress.onTrack ? "bg-primary" : "bg-amber-500",
+          )}
+          style={{ width: `${progress.percent}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ── Componente principale ─────────────────────────────────────────────
 interface Props {
   stats: DashboardStats;
+  goalProgress: GoalProgress | null;
+  currentYear: number;
 }
 
-export function DashboardClient({ stats }: Props) {
+export function DashboardClient({ stats, goalProgress, currentYear }: Props) {
   const {
     incassiMeseCents,
     incassiFuturiCents,
@@ -149,6 +186,28 @@ export function DashboardClient({ stats }: Props) {
         </h1>
         <p className="text-sm text-muted-foreground">Panoramica attività del laboratorio</p>
       </div>
+
+      {/* Sollecito obiettivi non impostati */}
+      {goalProgress && !goalProgress.hasGoals && (
+        <div className="rounded-xl border border-primary/30 bg-card p-5 flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="size-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <Target className="size-4 text-primary" strokeWidth={1.75} />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Obiettivi {currentYear} non ancora impostati
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Imposta almeno un obiettivo per seguirne l&apos;avanzamento durante l&apos;anno.
+              </p>
+            </div>
+          </div>
+          <Link href="/obiettivi">
+            <Button size="sm">Imposta obiettivi</Button>
+          </Link>
+        </div>
+      )}
 
       {/* KPI grid */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -205,6 +264,37 @@ export function DashboardClient({ stats }: Props) {
           />
         </Link>
       </div>
+
+      {/* Avanzamento obiettivi */}
+      {goalProgress && goalProgress.hasGoals && (
+        <section className="rounded-xl border border-border bg-card p-5 space-y-1">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-medium">Obiettivi {currentYear}</h2>
+            <Link href="/obiettivi" className="text-xs text-primary hover:underline">
+              Vedi dettaglio
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4">
+            {goalProgress.revenue && (
+              <GoalProgressRow label="Fatturato" progress={goalProgress.revenue} formatValue={formatEUR} />
+            )}
+            {goalProgress.newBusinessClients && (
+              <GoalProgressRow
+                label="Nuove aziende"
+                progress={goalProgress.newBusinessClients}
+                formatValue={(n) => String(n)}
+              />
+            )}
+            {goalProgress.newPrivateClients && (
+              <GoalProgressRow
+                label="Nuovi privati"
+                progress={goalProgress.newPrivateClients}
+                formatValue={(n) => String(n)}
+              />
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Sezioni recenti */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

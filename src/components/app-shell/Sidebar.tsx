@@ -25,6 +25,7 @@ import {
   CalendarDays,
   Users2,
   TrendingUp,
+  Target,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -81,6 +82,7 @@ const NAV_GROUPS = [
       { href: "/quotes", label: "Preventivi", icon: FileText },
       { href: "/payments", label: "Pagamenti", icon: CreditCard },
       { href: "/stats", label: "Statistiche", icon: BarChart2 },
+      { href: "/obiettivi", label: "Obiettivi", icon: Target },
       { href: "/costs", label: "Costi", icon: Coins },
     ],
   },

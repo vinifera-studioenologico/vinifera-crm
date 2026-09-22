@@ -66,6 +66,7 @@ const COMMAND_NAV = [
   { href: "/payments", label: "Pagamenti" },
   { href: "/reminders", label: "Promemoria" },
   { href: "/stats", label: "Statistiche" },
+  { href: "/obiettivi", label: "Obiettivi" },
   { href: "/settings/company", label: "Impostazioni" },
 ] as const;
 
