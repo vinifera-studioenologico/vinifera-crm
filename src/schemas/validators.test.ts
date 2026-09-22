@@ -4,6 +4,7 @@ import {
   validateTaxCode,
   validateIBAN,
   validateSdiCode,
+  zEurInput,
 } from "@/schemas/validators";
 
 describe("validateVatNumber (P.IVA italiana)", () => {
@@ -66,6 +67,37 @@ describe("validateIBAN (IBAN italiano)", () => {
 
   it("rifiuta IBAN con check digit errato", () => {
     expect(validateIBAN("IT00X0542811101000000123456")).toBe(false);
+  });
+});
+
+describe("zEurInput (importo in euro → centesimi)", () => {
+  it("converte un importo semplice senza migliaia", () => {
+    expect(zEurInput.parse("1234,56")).toBe(123456);
+  });
+
+  it("converte correttamente un importo con separatore delle migliaia", () => {
+    // Bug reale: senza rimuovere il punto prima, "50.000,00" diventava 50 centesimi
+    expect(zEurInput.parse("50.000,00")).toBe(5000000);
+  });
+
+  it("converte un importo con più punti delle migliaia (milioni)", () => {
+    expect(zEurInput.parse("1.234.567,89")).toBe(123456789);
+  });
+
+  it("converte un importo intero con virgola decimale a zero", () => {
+    expect(zEurInput.parse("1.200,00")).toBe(120000);
+  });
+
+  it("tratta il punto come separatore decimale quando non c'è virgola (invariato)", () => {
+    expect(zEurInput.parse("1.5")).toBe(150);
+  });
+
+  it("rifiuta un importo non numerico", () => {
+    expect(() => zEurInput.parse("abc")).toThrow();
+  });
+
+  it("rifiuta un importo negativo", () => {
+    expect(() => zEurInput.parse("-100,00")).toThrow();
   });
 });
 

@@ -63,19 +63,22 @@ export function GoalForm({ year, existing, onSuccess }: Props) {
 
   function onSubmit(values: FormInput) {
     startTransition(async () => {
-      const result = await upsertGoal({
-        year,
-        revenueTargetCents: values.revenueTargetCents || undefined,
-        newBusinessClientsTarget:
-          values.newBusinessClientsTarget !== undefined && values.newBusinessClientsTarget !== ""
-            ? parseInt(values.newBusinessClientsTarget, 10)
-            : undefined,
-        newPrivateClientsTarget:
-          values.newPrivateClientsTarget !== undefined && values.newPrivateClientsTarget !== ""
-            ? parseInt(values.newPrivateClientsTarget, 10)
-            : undefined,
-        notes: values.notes || undefined,
-      });
+      const result = await upsertGoal(
+        {
+          year,
+          revenueTargetCents: values.revenueTargetCents || undefined,
+          newBusinessClientsTarget:
+            values.newBusinessClientsTarget !== undefined && values.newBusinessClientsTarget !== ""
+              ? parseInt(values.newBusinessClientsTarget, 10)
+              : undefined,
+          newPrivateClientsTarget:
+            values.newPrivateClientsTarget !== undefined && values.newPrivateClientsTarget !== ""
+              ? parseInt(values.newPrivateClientsTarget, 10)
+              : undefined,
+          notes: values.notes || undefined,
+        },
+        existing?.version,
+      );
 
       if (result.success) {
         toast.success("Obiettivi salvati");

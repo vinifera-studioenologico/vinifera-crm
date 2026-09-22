@@ -99,7 +99,12 @@ export const zEurInput = z
   .string()
   .min(1, "Campo obbligatorio")
   .transform((val) => {
-    const normalized = val.replace(",", ".");
+    // Formato italiano: "." separatore delle migliaia, "," separatore decimale
+    // (es. "50.000,00"). Il punto va rimosso PRIMA di convertire la virgola,
+    // altrimenti "50.000,00" diventa "50.000.00" e parseFloat legge solo "50" —
+    // ma solo quando c'è una virgola: senza virgola un punto resta il separatore
+    // decimale (comportamento invariato per chi digita "1.5" alla anglosassone).
+    const normalized = val.includes(",") ? val.replace(/\./g, "").replace(",", ".") : val;
     const n = parseFloat(normalized);
     if (isNaN(n) || n < 0) throw new Error("Importo non valido");
     return Math.round(n * 100);

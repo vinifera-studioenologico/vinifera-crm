@@ -28,24 +28,32 @@ function isNextRedirect(err: unknown): boolean {
 export default async function DashboardPage() {
   const currentYear = new Date().getFullYear();
 
+  // Le due chiamate sono indipendenti (fonti e fallback diversi): eseguite in
+  // parallelo invece che in sequenza, il tempo di caricamento della pagina è
+  // il massimo delle due, non la somma.
+  const [statsResult, goalProgressResult] = await Promise.allSettled([
+    getDashboardStats(),
+    getGoalProgress(currentYear),
+  ]);
+
   let stats: DashboardStats;
-  try {
-    stats = await getDashboardStats();
-  } catch (err) {
+  if (statsResult.status === "fulfilled") {
+    stats = statsResult.value;
+  } else {
     // Rilancia i redirect di Next.js (requireAdmin → /login)
-    if (isNextRedirect(err)) throw err;
-    logger.error("Errore caricamento dashboard stats", err);
+    if (isNextRedirect(statsResult.reason)) throw statsResult.reason;
+    logger.error("Errore caricamento dashboard stats", statsResult.reason);
     stats = EMPTY_STATS;
   }
 
   // Caricato separatamente da DashboardStats (che ha il suo EMPTY_STATS): un
   // errore sugli obiettivi non deve far cadere il resto della dashboard.
   let goalProgress: GoalProgress | null = null;
-  try {
-    goalProgress = await getGoalProgress(currentYear);
-  } catch (err) {
-    if (isNextRedirect(err)) throw err;
-    logger.error("Errore caricamento obiettivi dashboard", err);
+  if (goalProgressResult.status === "fulfilled") {
+    goalProgress = goalProgressResult.value;
+  } else {
+    if (isNextRedirect(goalProgressResult.reason)) throw goalProgressResult.reason;
+    logger.error("Errore caricamento obiettivi dashboard", goalProgressResult.reason);
   }
 
   return (

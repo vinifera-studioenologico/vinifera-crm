@@ -43,11 +43,13 @@ describe("computeGoalProgress", () => {
     expect(reached!.onTrack).toBe(true);
   });
 
-  it("handles a target of 0 without dividing by zero", () => {
-    const zeroCurrentToo = computeGoalProgress(0, 0, new Date(2026, 5, 1), 2026);
-    expect(zeroCurrentToo).toMatchObject({ target: 0, current: 0, percent: 0, actualPercent: 0 });
+  it("treats a target of 0 as already met — never 'in ritardo' regardless of current or date", () => {
+    // Un obiettivo di 0 non ha nulla da inseguire: dev'essere sempre onTrack,
+    // anche il 2 gennaio (prima del fix, actualPercent=0 risultava "in ritardo").
+    const zeroCurrentToo = computeGoalProgress(0, 0, new Date(2026, 0, 2), 2026);
+    expect(zeroCurrentToo).toMatchObject({ target: 0, current: 0, percent: 100, actualPercent: 100, remaining: 0, onTrack: true });
 
     const someProgress = computeGoalProgress(0, 50, new Date(2026, 5, 1), 2026);
-    expect(someProgress).toMatchObject({ target: 0, current: 50, percent: 100, actualPercent: 100 });
+    expect(someProgress).toMatchObject({ target: 0, current: 50, percent: 100, actualPercent: 100, onTrack: true });
   });
 });
