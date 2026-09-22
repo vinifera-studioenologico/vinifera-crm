@@ -12,6 +12,7 @@ import { it } from "date-fns/locale";
 import type { ExpenseDoc } from "@/schemas/cost";
 import { deleteExpense } from "@/server/actions/costs";
 import { formatEUR } from "@/lib/utils/money";
+import { CATEGORY_LABELS } from "@/lib/constants/expenses";
 
 import { DataTable } from "@/components/data-table/DataTable";
 import { CsvExportButton } from "@/components/data-table/CsvExportButton";
@@ -35,16 +36,6 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 
-const CATEGORY_LABELS: Record<string, string> = {
-  supplier_invoice: "Bolla fornitore",
-  utility: "Bolletta",
-  maintenance: "Manutenzione",
-  consumable: "Materiale consumo",
-  kit_purchase: "Acquisto kit",
-  fixed_cost: "Costo fisso",
-  other: "Altro",
-};
-
 interface Props {
   initialData: ExpenseDoc[];
 }
@@ -62,6 +53,7 @@ export function ExpensesTable({ initialData }: Props) {
       e.description.toLowerCase().includes(q) ||
       (e.supplier?.toLowerCase().includes(q) ?? false) ||
       (e.invoiceNumber?.toLowerCase().includes(q) ?? false) ||
+      (e.subcategory?.toLowerCase().includes(q) ?? false) ||
       (CATEGORY_LABELS[e.category] ?? e.category).toLowerCase().includes(q)
     );
   });
@@ -84,6 +76,7 @@ export function ExpensesTable({ initialData }: Props) {
     { header: "Titolo", accessor: (e) => e.supplier ?? "" },
     { header: "Descrizione", accessor: (e) => e.description },
     { header: "Categoria", accessor: (e) => CATEGORY_LABELS[e.category] ?? e.category },
+    { header: "Sottocategoria", accessor: (e) => e.subcategory ?? "" },
     { header: "N° Bolla", accessor: (e) => e.invoiceNumber ?? "" },
     { header: "Importo (€)", accessor: (e) => (e.totalCents / 100).toFixed(2).replace(".", ",") },
     { header: "Note", accessor: (e) => e.notes ?? "" },
@@ -124,9 +117,14 @@ export function ExpensesTable({ initialData }: Props) {
       accessorKey: "category",
       header: "Categoria",
       cell: ({ row }) => (
-        <Badge variant="secondary">
-          {CATEGORY_LABELS[row.original.category] ?? row.original.category}
-        </Badge>
+        <div className="flex flex-col items-start gap-0.5">
+          <Badge variant="secondary">
+            {CATEGORY_LABELS[row.original.category] ?? row.original.category}
+          </Badge>
+          {row.original.subcategory && (
+            <span className="text-xs text-muted-foreground">{row.original.subcategory}</span>
+          )}
+        </div>
       ),
     },
     {

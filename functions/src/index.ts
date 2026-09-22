@@ -544,6 +544,7 @@ export const checkReminders = onSchedule(
             await db.collection("costExpenses").add({
               description: fcDescription || name,
               category: "fixed_cost",
+              subcategory: (fc["subcategory"] as string | undefined) ?? null,
               supplier: name,
               invoiceNumber: null,
               date: todayStr,

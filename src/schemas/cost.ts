@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { zNonEmptyString, zCents, zEurInput } from "./validators";
+import { SUBCATEGORIES_BY_CATEGORY } from "@/lib/constants/expenses";
 
 // ── Categoria spesa ───────────────────────────────────────────────────
 export const ExpenseCategorySchema = z.enum([
@@ -17,6 +18,7 @@ export type ExpenseCategory = z.infer<typeof ExpenseCategorySchema>;
 const ExpenseFormBaseSchema = z.object({
   description: zNonEmptyString.max(300, "Descrizione troppo lunga"),
   category: ExpenseCategorySchema,
+  subcategory: z.string().max(100).optional(),
   supplier: z.string().max(200).optional(),
   invoiceNumber: z.string().max(50).optional(),
   date: z.string().min(1, "Data obbligatoria"),   // "YYYY-MM-DD"
@@ -44,6 +46,9 @@ export const ExpenseFormSchema = ExpenseFormBaseSchema.refine(
     return hasFrom === hasTo; // entrambi o nessuno
   },
   { message: "Specificare sia inizio che fine periodo, oppure nessuno dei due", path: ["periodTo"] },
+).refine(
+  (d) => !d.subcategory || (SUBCATEGORIES_BY_CATEGORY[d.category] ?? []).includes(d.subcategory),
+  { message: "Sottocategoria non valida per la categoria selezionata", path: ["subcategory"] },
 );
 export type ExpenseFormValues = z.infer<typeof ExpenseFormSchema>;
 
@@ -83,6 +88,9 @@ const FixedCostFormBaseSchema = z.object({
   // Mese di riferimento (1-12): primo mese del ciclo per trimestrale/annuale.
   // Ignorato per i costi mensili.
   paymentMonth: z.number().int().min(1).max(12).optional(),
+  // Sottocategoria del costo fisso (tassonomia "fixed_cost"): ereditata dalla
+  // spesa che la Cloud Function genera automaticamente alla scadenza.
+  subcategory: z.string().max(100).optional(),
   active: z.boolean(),
   notifyTelegram: z.boolean().default(true),
   notifyEmail: z.boolean().default(false),
@@ -92,6 +100,9 @@ const FixedCostFormBaseSchema = z.object({
 export const FixedCostFormSchema = FixedCostFormBaseSchema.refine(
   (d) => d.frequency === "monthly" || d.paymentMonth != null,
   { message: "Specificare il mese di pagamento", path: ["paymentMonth"] },
+).refine(
+  (d) => !d.subcategory || SUBCATEGORIES_BY_CATEGORY.fixed_cost.includes(d.subcategory),
+  { message: "Sottocategoria non valida", path: ["subcategory"] },
 );
 export type FixedCostFormValues = z.infer<typeof FixedCostFormSchema>;
 

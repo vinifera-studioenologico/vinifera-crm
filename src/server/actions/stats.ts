@@ -8,6 +8,20 @@ import { requireAdmin } from "@/server/auth";
 import { tsToISO } from "@/lib/utils/date";
 import type { SampleDoc } from "@/schemas/sample";
 import type { ReminderDoc } from "@/schemas/reminder";
+import type { ExpenseCategory } from "@/schemas/cost";
+import {
+  groupExpensesByCategoryMonthly,
+  computeExpensesBreakdown,
+  groupInstallmentsByMethod,
+  type ExpenseRow,
+  type ExpensesByMonthPoint,
+  type ExpensesBreakdown,
+  type IncomeByMethodRow,
+} from "@/lib/calc/expenses-breakdown";
+// Nota: niente `export type` da questo file — un modulo "use server" può
+// esportare solo Server Action async; ri-esportare tipi rompe il build
+// (Next.js prova a trattarli come riferimenti ad azioni). I tipi si
+// importano direttamente da "@/lib/calc/expenses-breakdown".
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -292,4 +306,88 @@ export async function getSamplesByMonth(): Promise<SamplesByMonth[]> {
   return Object.entries(byMonth)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([, v]) => v);
+}
+
+// ── Spese per categoria, per mese (grafico "Spese per categoria") ──────
+export async function getExpensesByCategoryMonthly(year: number): Promise<ExpensesByMonthPoint[]> {
+  await requireAdmin();
+
+  const from = `${year}-01-01`;
+  const to = `${year}-12-31`;
+
+  const snap = await safeGet(
+    adminDb
+      .collection("costExpenses")
+      .where("deletedAt", "==", null)
+      .where("date", ">=", from)
+      .where("date", "<=", to),
+  );
+
+  const rows: ExpenseRow[] = snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      category: (data["category"] as ExpenseCategory) ?? "other",
+      subcategory: data["subcategory"] as string | null | undefined,
+      totalCents: (data["totalCents"] as number) ?? 0,
+      date: (data["date"] as string) ?? "",
+    };
+  });
+
+  return groupExpensesByCategoryMonthly(rows, year);
+}
+
+// ── Spese dell'anno: totali per categoria e sottocategoria (pagina torte) ─
+export async function getExpensesBreakdown(year: number): Promise<ExpensesBreakdown> {
+  await requireAdmin();
+
+  const from = `${year}-01-01`;
+  const to = `${year}-12-31`;
+
+  const snap = await safeGet(
+    adminDb
+      .collection("costExpenses")
+      .where("deletedAt", "==", null)
+      .where("date", ">=", from)
+      .where("date", "<=", to),
+  );
+
+  const rows: ExpenseRow[] = snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      category: (data["category"] as ExpenseCategory) ?? "other",
+      subcategory: data["subcategory"] as string | null | undefined,
+      totalCents: (data["totalCents"] as number) ?? 0,
+      date: (data["date"] as string) ?? "",
+    };
+  });
+
+  return computeExpensesBreakdown(rows);
+}
+
+// ── Incassi per metodo di pagamento (grafico "Incassi per metodo") ─────
+export async function getIncomeByMethod(year: number): Promise<IncomeByMethodRow[]> {
+  await requireAdmin();
+
+  const yearStart = Timestamp.fromDate(new Date(year, 0, 1));
+  const yearEnd = Timestamp.fromDate(new Date(year, 11, 31, 23, 59, 59));
+
+  // Stessa identica forma di query di getMonthlyStats (paidSnap), così i due
+  // grafici non possono divergere sul totale incassato dell'anno.
+  const snap = await safeGet(
+    adminDb
+      .collectionGroup("installments")
+      .where("status", "==", "paid")
+      .where("paidAt", ">=", yearStart)
+      .where("paidAt", "<=", yearEnd),
+  );
+
+  const rows = snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      method: data["method"] as string | null | undefined,
+      amountCents: (data["paidAmountCents"] as number | null) ?? (data["amountCents"] as number | null) ?? 0,
+    };
+  });
+
+  return groupInstallmentsByMethod(rows);
 }

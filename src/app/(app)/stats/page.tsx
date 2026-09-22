@@ -1,4 +1,9 @@
-import { getMonthlyStats, getSamplesByMonth } from "@/server/actions/stats";
+import {
+  getMonthlyStats,
+  getSamplesByMonth,
+  getExpensesByCategoryMonthly,
+  getIncomeByMethod,
+} from "@/server/actions/stats";
 import { StatsClient } from "./_components/StatsClient";
 
 export const dynamic = "force-dynamic";
@@ -6,9 +11,11 @@ export const dynamic = "force-dynamic";
 export default async function StatsPage() {
   const currentYear = new Date().getFullYear();
 
-  const [revenue, samplesByMonth] = await Promise.all([
+  const [revenue, samplesByMonth, expensesByCategory, incomeByMethod] = await Promise.all([
     getMonthlyStats(currentYear),
     getSamplesByMonth(),
+    getExpensesByCategoryMonthly(currentYear),
+    getIncomeByMethod(currentYear),
   ]);
 
   return (
@@ -16,6 +23,8 @@ export default async function StatsPage() {
       <StatsClient
         initialRevenue={revenue}
         samplesByMonth={samplesByMonth}
+        expensesByCategory={expensesByCategory}
+        incomeByMethod={incomeByMethod}
         currentYear={currentYear}
       />
     </div>

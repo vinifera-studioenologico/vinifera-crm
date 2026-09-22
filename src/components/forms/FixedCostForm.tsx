@@ -10,6 +10,7 @@ import { z } from "zod";
 import type { FixedCostDoc } from "@/schemas/cost";
 import { createFixedCost, updateFixedCost } from "@/server/actions/costs";
 import { formatEUR } from "@/lib/utils/money";
+import { SUBCATEGORIES_BY_CATEGORY } from "@/lib/constants/expenses";
 
 import {
   Form,
@@ -39,6 +40,7 @@ const FixedCostClientSchema = z
     frequency: z.enum(["monthly", "quarterly", "annual"]),
     paymentDay: z.number().int().min(1, "Giorno non valido").max(31, "Giorno non valido"),
     paymentMonth: z.number().int().min(1).max(12).optional(),
+    subcategory: z.string().max(100).optional(),
     active: z.boolean(),
     notifyTelegram: z.boolean(),
     notifyEmail: z.boolean(),
@@ -135,6 +137,7 @@ export function FixedCostForm({ existing, onSuccess }: Props) {
       frequency: existing?.frequency ?? "monthly",
       paymentDay: existing?.paymentDay ?? 1,
       paymentMonth: existing?.paymentMonth ?? undefined,
+      subcategory: existing?.subcategory ?? "",
       active: existing?.active ?? true,
       notifyTelegram: existing?.notifyTelegram ?? true,
       notifyEmail: existing?.notifyEmail ?? false,
@@ -314,6 +317,34 @@ export function FixedCostForm({ existing, onSuccess }: Props) {
               <FormControl>
                 <Textarea rows={2} placeholder="Note opzionali…" {...field} />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="subcategory"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Sottocategoria</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value || undefined}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Nessuna" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {SUBCATEGORIES_BY_CATEGORY.fixed_cost.map((sub) => (
+                    <SelectItem key={sub} value={sub}>
+                      {sub}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Ereditata dalla spesa generata automaticamente alla scadenza
+              </p>
               <FormMessage />
             </FormItem>
           )}

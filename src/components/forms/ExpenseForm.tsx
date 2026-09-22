@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import type { ExpenseDoc } from "@/schemas/cost";
 import type { ParsedInvoiceItem } from "@/app/(app)/costs/_components/InvoiceUploader";
 import { createExpense, updateExpense } from "@/server/actions/costs";
 import { formatEUR } from "@/lib/utils/money";
+import { CATEGORY_LABELS, SUBCATEGORIES_BY_CATEGORY } from "@/lib/constants/expenses";
 
 import {
   Form,
@@ -31,19 +32,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const CATEGORY_LABELS: Record<string, string> = {
-  supplier_invoice: "Bolla fornitore",
-  utility: "Bolletta",
-  maintenance: "Manutenzione",
-  consumable: "Materiale consumo",
-  kit_purchase: "Acquisto kit",
-  fixed_cost: "Costo fisso",
-  other: "Altro",
-};
-
 const ExpenseClientSchema = z.object({
   description: z.string().min(1, "Descrizione obbligatoria").max(300),
   category: z.enum(["supplier_invoice", "utility", "maintenance", "consumable", "kit_purchase", "fixed_cost", "other"]),
+  subcategory: z.string().max(100).optional(),
   supplier: z.string().max(200).optional(),
   invoiceNumber: z.string().max(50).optional(),
   date: z.string().min(1, "Data obbligatoria"),
@@ -77,6 +69,7 @@ export function ExpenseForm({ existing, prefill, pdfFile, parsedItems, fileHash,
     defaultValues: {
       description: existing?.description ?? prefill?.description ?? "",
       category: existing?.category ?? prefill?.category ?? "supplier_invoice",
+      subcategory: existing?.subcategory ?? prefill?.subcategory ?? "",
       supplier: existing?.supplier ?? prefill?.supplier ?? "",
       invoiceNumber: existing?.invoiceNumber ?? prefill?.invoiceNumber ?? "",
       date: existing?.date ?? prefill?.date ?? todayISO,
@@ -92,6 +85,17 @@ export function ExpenseForm({ existing, prefill, pdfFile, parsedItems, fileHash,
   const watchCategory = form.watch("category");
   const showSupplier = !["other", "consumable"].includes(watchCategory);
   const showPeriod = watchCategory === "utility";
+  const subcategoryOptions = SUBCATEGORIES_BY_CATEGORY[watchCategory] ?? [];
+
+  // Azzera la sottocategoria se non più valida per la categoria selezionata
+  // (es. cambio categoria), ma non tocca un valore già valido al mount.
+  useEffect(() => {
+    const current = form.getValues("subcategory");
+    if (current && !subcategoryOptions.includes(current)) {
+      form.setValue("subcategory", "");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchCategory]);
 
   function onSubmit() {
     const rawValues = form.getValues();
@@ -209,6 +213,33 @@ export function ExpenseForm({ existing, prefill, pdfFile, parsedItems, fileHash,
             )}
           />
         </div>
+
+        {subcategoryOptions.length > 0 && (
+          <FormField
+            control={form.control}
+            name="subcategory"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Sottocategoria</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value || undefined}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Nessuna" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {subcategoryOptions.map((sub) => (
+                      <SelectItem key={sub} value={sub}>
+                        {sub}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           {showPeriod && (

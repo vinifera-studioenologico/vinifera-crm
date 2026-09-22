@@ -143,6 +143,7 @@ export async function POST(req: NextRequest) {
   const raw = {
     description: formData.get("description"),
     category: formData.get("category"),
+    subcategory: formData.get("subcategory") || undefined,
     supplier: formData.get("supplier") ?? undefined,
     invoiceNumber: formData.get("invoiceNumber") ?? undefined,
     date: formData.get("date"),
