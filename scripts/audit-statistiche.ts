@@ -147,11 +147,18 @@ async function main() {
   }
 
   let paidAtMismatches = 0;
+  let paidWithoutPaidAt = 0;
+  let paidAtChecked = 0;
   const paidAtMismatchExamples: string[] = [];
   for (const doc of installmentsSnap.docs) {
     const d = doc.data();
+    if (d["status"] !== "paid") continue;
     const paidAt = d["paidAt"] as Timestamp | undefined;
-    if (!paidAt || d["status"] !== "paid") continue;
+    if (!paidAt) {
+      paidWithoutPaidAt++;
+      continue;
+    }
+    paidAtChecked++;
     if (monthMismatch(paidAt)) {
       paidAtMismatches++;
       if (paidAtMismatchExamples.length < 5) paidAtMismatchExamples.push(paidAt.toDate().toISOString());
@@ -173,7 +180,10 @@ async function main() {
 
   console.log("── Punto 5: confini mese in UTC vs Europe/Rome ─────────────");
   console.log(`  Rate pagate ("paidAt") il cui mese "vero" (Rome) differisce dal mese`);
-  console.log(`  che il codice attuale calcola (naive/UTC): ${paidAtMismatches} su ${paidTotal}`);
+  console.log(`  che il codice attuale calcola (naive/UTC): ${paidAtMismatches} su ${paidAtChecked} verificate`);
+  if (paidWithoutPaidAt > 0) {
+    console.log(`  ⚠️ ${paidWithoutPaidAt} rate "paid" su ${paidTotal} sono prive di "paidAt" e non sono state verificabili per questo punto.`);
+  }
   if (paidAtMismatchExamples.length > 0) console.log(`    Esempi (paidAt UTC): ${paidAtMismatchExamples.join(", ")}`);
   console.log(`  Campioni ("createdAt") il cui mese "vero" (Rome) differisce dal mese`);
   console.log(`  che getSamplesByMonth calcola oggi (naive/UTC): ${sampleCreatedAtMismatches} su ${samplesSnap.size}`);
