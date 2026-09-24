@@ -130,7 +130,7 @@ correlati insieme e ogni modulo nel suo commit.
 > in sessione — direttamente dall'utente, non tutte passando dal cliente stesso (vedi le note per
 > singolo punto) — e tutti e tre i punti sono stati completati il 2026-09-22.
 
-### ✅ 7. Tema verde biliardo — *variante A confermata dal cliente*
+### ✅ 7. Tema verde biliardo — *variante C confermata dal cliente*
 
 - **Documento**: [`tema-verde-biliardo.md`](./tema-verde-biliardo.md)
 - **Serve sapere**: quale tonalità di verde.
@@ -139,8 +139,10 @@ correlati insieme e ogni modulo nel suo commit.
   documento: sei valori da cambiare.
 - **Fatto quando**: il cliente ha visto e confermato, e i badge di stato restano leggibili sul
   nuovo sfondo — in particolare il verde "completed" su fondo verde.
-- **Stato**: variante A implementata, in produzione dal 2026-09-22, **confermata dal cliente il
-  2026-09-22**. Chiuso.
+- **Stato**: partito con la variante A (in produzione dal 2026-09-22, confermata dal cliente il
+  2026-09-22); vista dal vivo, il cliente ha chiesto un verde ancora più deciso → escalation a
+  variante B e poi a **variante C** (colori passati da `oklch()` a hex), applicata il 2026-09-24
+  insieme al follow-up sulle sottocategorie "Altro" — vedi Registro. Chiuso.
 
 ### ✅ 8. Statistiche: spese, incassi, audit dati
 
