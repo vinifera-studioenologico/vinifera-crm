@@ -10,28 +10,33 @@
  *   Champagne gold →  oklch(0.73 0.09 82)    (#c9a84c area)
  */
 :root {
-  /* Billiard-green base — harmonises with the forest green and gold accent from the logo */
-  --background: oklch(0.945 0.022 165);
+  /* Billiard-green base, variant C ("verde biliardo deciso") — sfondo pagina
+     in hex invece di oklch(): niente più conversione di spazio colore fatta
+     dal browser su un'area piena grande, che su alcuni schermi si vedeva
+     come una leggera banda/gradiente. Verde più saturo e presente di prima
+     su richiesta esplicita del cliente 2026-09-24, testo scuro invariato
+     (resta leggibile); armonizza col verde foresta e l'oro champagne del logo. */
+  --background: #6fab86;
   --foreground: oklch(0.15 0.02 175);
-  --card: oklch(0.985 0.008 165);
+  --card: #f3faf6;
   --card-foreground: oklch(0.15 0.02 175);
-  --popover: oklch(0.985 0.008 165);
+  --popover: #f3faf6;
   --popover-foreground: oklch(0.15 0.02 175);
   /* Primary — forest green from logo */
   --primary: oklch(0.37 0.09 175);
   --primary-foreground: oklch(0.98 0.005 80);
   /* Secondary — desaturated green, no longer gold-tinted */
-  --secondary: oklch(0.90 0.03 168);
+  --secondary: #d5ecdf;
   --secondary-foreground: oklch(0.2 0.03 175);
-  --muted: oklch(0.91 0.02 165);
+  --muted: #ddefe4;
   --muted-foreground: oklch(0.47 0.025 165);
   /* Accent — champagne gold from logo */
   --accent: oklch(0.88 0.07 82);
   --accent-foreground: oklch(0.25 0.05 82);
   --destructive: oklch(0.45 0.15 20);
   --destructive-foreground: oklch(0.98 0.005 80);
-  --border: oklch(0.86 0.02 165);
-  --input: oklch(0.86 0.02 165);
+  --border: #4f8b69;
+  --input: #4f8b69;
   --ring: oklch(0.37 0.09 175);
   --radius: 0.75rem;
 }
