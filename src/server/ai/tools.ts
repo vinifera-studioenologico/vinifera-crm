@@ -6,10 +6,10 @@ import { differenceInCalendarDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 
 import { adminDb } from "@/lib/firebase/admin";
-import { requireAdmin } from "@/server/auth";
 import { globalSearch } from "@/lib/search";
 import { getClient, getClients } from "@/server/actions/clients";
 import { getSamples, getSample, getClientActivePkgs, getLinkedPaymentSummary } from "@/server/actions/samples";
+import { getPayments } from "@/server/actions/payments";
 import { getQuotes } from "@/server/actions/quotes";
 import { getReminders } from "@/server/actions/reminders";
 import { getAnalyses } from "@/server/actions/analyses";
@@ -299,60 +299,40 @@ export const getSampleTool = betaZodTool({
 
 // ── list_payments ─────────────────────────────────────────────────────────
 
-interface PaymentQueryDoc {
-  id: string;
-  clientId: string;
-  description: string;
-  status: string;
-  totalAmountCents: number;
-  paidAmountCents: number;
-}
-
 export const listPaymentsTool = betaZodTool({
   name: "list_payments",
   description:
     'Elenco pagamenti, filtrabile per cliente e stato ("pending", "partial", "paid", "overdue", ' +
     '"cancelled"). Utile per "chi non ha ancora pagato" (status "pending"/"overdue"). Il link di ' +
     "ogni pagamento porta alla pagina pagamenti del cliente, non a una pagina per singolo pagamento " +
-    "(non esiste).",
+    "(non esiste). Senza clientId guarda solo i pagamenti più recenti su tutti i clienti — se lo " +
+    "stato cercato è raro, prova a restringere per cliente.",
   inputSchema: z.object({
     clientId: z.string().optional(),
     status: PaymentStatusSchema.optional(),
     limit: LimitSchema,
   }),
   run: async ({ clientId, status, limit }) => {
-    await requireAdmin();
-
-    let query = adminDb.collection("payments").where("deletedAt", "==", null) as FirebaseFirestore.Query;
-    if (clientId) query = query.where("clientId", "==", clientId);
-    if (status) query = query.where("status", "==", status);
-    query = query.orderBy("createdAt", "desc").limit(limit ?? 20);
-
-    const snap = await query.get();
-    const docs: PaymentQueryDoc[] = snap.docs.map((d) => {
-      const data = d.data();
-      return {
-        id: d.id,
-        clientId: (data["clientId"] as string) ?? "",
-        description: (data["description"] as string) ?? "",
-        status: (data["status"] as string) ?? "pending",
-        totalAmountCents: (data["totalAmountCents"] as number) ?? 0,
-        paidAmountCents: (data["paidAmountCents"] as number) ?? 0,
-      };
-    });
-    const clientNames = await resolveClientNames(docs.map((d) => d.clientId));
+    // Riusa getPayments (stessa forma di query indicizzata già in uso altrove
+    // nel repo): niente filtro `deletedAt` qui — nessuna action sui pagamenti
+    // lo valorizza mai (l'annullamento usa status: "cancelled"), e aggiungerlo
+    // alla query richiederebbe un indice composito non presente in produzione.
+    const { items } = await getPayments({ clientId });
+    const filtered = status ? items.filter((p) => p.status === status) : items;
+    const capped = filtered.slice(0, limit ?? 20);
+    const clientNames = await resolveClientNames(capped.map((p) => p.clientId));
 
     return toolResult({
-      total: docs.length,
-      items: docs.map((d) => ({
-        id: d.id,
-        clientName: clientNames.get(d.clientId) ?? "",
-        description: d.description,
-        status: d.status,
-        total: money(d.totalAmountCents),
-        paid: money(d.paidAmountCents),
-        remaining: money(Math.max(0, d.totalAmountCents - d.paidAmountCents)),
-        href: d.clientId ? `/clients/${d.clientId}/payments` : "/payments",
+      total: filtered.length,
+      items: capped.map((p) => ({
+        id: p.id,
+        clientName: clientNames.get(p.clientId) ?? "",
+        description: p.description,
+        status: p.status,
+        total: money(p.totalAmountCents),
+        paid: money(p.paidAmountCents),
+        remaining: money(Math.max(0, p.totalAmountCents - p.paidAmountCents)),
+        href: p.clientId ? `/clients/${p.clientId}/payments` : "/payments",
       })),
     });
   },
