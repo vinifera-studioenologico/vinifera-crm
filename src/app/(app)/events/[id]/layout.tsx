@@ -36,7 +36,7 @@ export default async function EventDetailLayout({ children, params }: Props) {
       {/* Body: left nav + content */}
       <div className="flex flex-1 min-h-0">
         {/* Left rail — md+ */}
-        <aside className="hidden md:flex w-48 shrink-0 flex-col border-r border-border px-3 py-4">
+        <aside className="hidden md:flex w-48 shrink-0 flex-col border-r border-border bg-card px-3 py-4">
           <EventDetailNav eventId={id} />
         </aside>
 
