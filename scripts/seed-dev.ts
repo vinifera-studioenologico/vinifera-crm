@@ -739,6 +739,7 @@ async function seed() {
     const { id: docId, cancelledAt, cancelReason, createdAt: sCreatedAt, ...data } = s;
     const doc: Record<string, unknown> = {
       ...data,
+      deletedAt: null,
       version: 0,
       createdAt: sCreatedAt ?? now,
       updatedAt: sCreatedAt ?? now,

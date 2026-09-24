@@ -135,7 +135,7 @@ export async function globalSearch(query: string): Promise<GlobalSearchResults> 
     adminDb
       .collection("samples")
       .orderBy("createdAt", "desc")
-      .select("code", "sampleName", "clientNameSnapshot", "status")
+      .select("code", "sampleName", "clientNameSnapshot", "status", "deletedAt")
       .limit(FETCH_LIMIT)
       .get(),
     adminDb
@@ -199,6 +199,7 @@ export async function globalSearch(query: string): Promise<GlobalSearchResults> 
   const samples: SampleHit[] = samplesSnap.docs
     .filter((doc) => {
       const d = doc.data();
+      if (d["deletedAt"] !== null && d["deletedAt"] !== undefined) return false;
       return (
         (d["code"] as string ?? "").toLowerCase().includes(q) ||
         (d["sampleName"] as string ?? "").toLowerCase().includes(q) ||

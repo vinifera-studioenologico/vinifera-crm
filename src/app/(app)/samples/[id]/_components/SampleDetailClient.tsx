@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Search,
   AlertTriangle,
+  MoreHorizontal,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -29,10 +30,11 @@ import {
   addSampleAnalyses,
   removeSampleAnalysis,
   updateSampleMetadata,
+  deleteSample,
   getFirstInProgressSampleId,
 } from "@/server/actions/samples";
 import { formatEUR } from "@/lib/utils/money";
-import { formatDate } from "@/lib/utils/date";
+import { formatDate, toInputDateString } from "@/lib/utils/date";
 import { useIdlePing } from "@/hooks/use-idle-ping";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -47,6 +49,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -103,7 +111,10 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
       sample.items.map((it) => [it.analysisId, it.result ?? ""]),
     ),
   );
+  const isDeleted = sample.deletedAt != null;
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isDeleting, startDelete] = useTransition();
   const [version, setVersion] = useState(sample.version);
   const [isPending, startTransition] = useTransition();
   const [isSavingResults, startSaveResults] = useTransition();
@@ -128,8 +139,10 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
     },
   });
 
-  // ── Metadati campione (prodotto dichiarato, quantità, imballaggio, ecc.) ──
+  // ── Metadati campione (nome, data ricezione, prodotto dichiarato, ecc.) ──
   const [metadata, setMetadata] = useState({
+    sampleName: sample.sampleName,
+    receivedAt: sample.receivedAt ? toInputDateString(new Date(sample.receivedAt)) : "",
     declaredProduct: sample.declaredProduct ?? "",
     sampleQuantity: sample.sampleQuantity ?? "",
     packaging: sample.packaging ?? "",
@@ -138,7 +151,7 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
   const [isSavingMetadata, startSaveMetadata] = useTransition();
 
   // ── Aggiunta / rimozione analisi (solo campioni modificabili) ─────────
-  const editable = sample.status === "pending" || sample.status === "in_progress";
+  const editable = !isDeleted && (sample.status === "pending" || sample.status === "in_progress");
   const [addOpen, setAddOpen] = useState(false);
   const [addSearch, setAddSearch] = useState("");
   const [selectedToAdd, setSelectedToAdd] = useState<Set<string>>(new Set());
@@ -351,10 +364,20 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
   }
 
   function handleSaveMetadata() {
+    if (!metadata.sampleName.trim()) {
+      toast.error("Il nome del campione è obbligatorio");
+      return;
+    }
+    if (!metadata.receivedAt) {
+      toast.error("La data di ricezione è obbligatoria");
+      return;
+    }
     startSaveMetadata(async () => {
       const res = await updateSampleMetadata(
         sample.id,
         {
+          sampleName: metadata.sampleName.trim(),
+          receivedAt: metadata.receivedAt,
           declaredProduct: metadata.declaredProduct || undefined,
           sampleQuantity: metadata.sampleQuantity || undefined,
           packaging: metadata.packaging || undefined,
@@ -365,9 +388,23 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
       if (res.success) {
         toast.success("Dettagli campione aggiornati");
         setVersion(res.data.version);
+        router.refresh();
       } else {
         toast.error(res.error);
       }
+    });
+  }
+
+  function handleDelete() {
+    startDelete(async () => {
+      const res = await deleteSample(sample.id, version);
+      if (res.success) {
+        toast.success("Campione eliminato");
+        router.push("/samples");
+      } else {
+        toast.error(res.error);
+      }
+      setDeleteOpen(false);
     });
   }
 
@@ -400,9 +437,9 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
     });
   }
 
-  const availableTransitions = STATUS_TRANSITIONS.filter((t) =>
-    t.from.includes(sample.status),
-  );
+  const availableTransitions = isDeleted
+    ? []
+    : STATUS_TRANSITIONS.filter((t) => t.from.includes(sample.status));
 
   const receivedDate = sample.receivedAt
     ? formatDate(sample.receivedAt as Parameters<typeof formatDate>[0])
@@ -520,6 +557,11 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
               <h1 className="text-2xl font-semibold tracking-tight">{sample.code}</h1>
               <SampleStatusBadge status={sample.status} />
               <PaymentStatusBadge status={linkedPayment?.status ?? null} />
+              {isDeleted && (
+                <Badge variant="outline" className="text-destructive border-destructive/30">
+                  Eliminato
+                </Badge>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
               {sample.clientNameSnapshot} · {sample.sampleName} · Ricevuto {receivedDate}
@@ -556,6 +598,24 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
                 </Button>
               );
             })}
+            {!isDeleted && (
+              <DropdownMenu>
+                <DropdownMenuTrigger render={
+                  <Button variant="outline" size="icon" aria-label="Altre azioni">
+                    <MoreHorizontal className="size-3.5" strokeWidth={1.75} />
+                  </Button>
+                } />
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => setDeleteOpen(true)}
+                  >
+                    <Trash2 className="size-3.5" strokeWidth={1.75} />
+                    Elimina campione
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
           {availableTransitions.some((t) => t.to === "completed") && missingResults && (
             <p className="text-xs text-muted-foreground">
@@ -564,6 +624,22 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
           )}
         </div>
       </div>
+
+      {/* Avviso campione eliminato */}
+      {isDeleted && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 flex items-start gap-3">
+          <Trash2 className="size-4 shrink-0 mt-0.5 text-destructive" strokeWidth={1.75} />
+          <div className="text-sm">
+            <p className="font-medium text-destructive">Campione eliminato</p>
+            <p className="text-muted-foreground mt-0.5">
+              Eliminato il {formatDate(sample.deletedAt as Parameters<typeof formatDate>[0])}. I
+              dati restano visibili solo per consultazione: gli slot pacchetto consumati sono
+              stati restituiti e l&apos;eventuale pagamento collegato non ancora saldato è stato
+              annullato.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Avviso disallineamento pagamento */}
       {paymentMismatch && (
@@ -618,7 +694,7 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
           <Button
             size="sm"
             variant="outline"
-            disabled={isSavingMetadata}
+            disabled={isSavingMetadata || isDeleted}
             onClick={handleSaveMetadata}
           >
             {isSavingMetadata ? (
@@ -631,13 +707,26 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
         </div>
         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="sm:col-span-2 space-y-1.5">
-            <label className="text-xs text-muted-foreground">Prodotto dichiarato</label>
+            <label className="text-xs text-muted-foreground">Nome / riferimento campione *</label>
             <Input
-              placeholder="es. Cerasuolo d'Abruzzo Colline Teramane Superiore DOC 2024"
+              placeholder="es. Lotto A - Vino bianco 2025"
               className="h-8 text-sm"
-              value={metadata.declaredProduct}
+              disabled={isDeleted}
+              value={metadata.sampleName}
               onChange={(e) =>
-                setMetadata((prev) => ({ ...prev, declaredProduct: e.target.value }))
+                setMetadata((prev) => ({ ...prev, sampleName: e.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">Data ricezione *</label>
+            <Input
+              type="date"
+              className="h-8 text-sm"
+              disabled={isDeleted}
+              value={metadata.receivedAt}
+              onChange={(e) =>
+                setMetadata((prev) => ({ ...prev, receivedAt: e.target.value }))
               }
             />
           </div>
@@ -646,9 +735,22 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
             <Input
               placeholder="es. 0,50 lt"
               className="h-8 text-sm"
+              disabled={isDeleted}
               value={metadata.sampleQuantity}
               onChange={(e) =>
                 setMetadata((prev) => ({ ...prev, sampleQuantity: e.target.value }))
+              }
+            />
+          </div>
+          <div className="sm:col-span-2 space-y-1.5">
+            <label className="text-xs text-muted-foreground">Prodotto dichiarato</label>
+            <Input
+              placeholder="es. Cerasuolo d'Abruzzo Colline Teramane Superiore DOC 2024"
+              className="h-8 text-sm"
+              disabled={isDeleted}
+              value={metadata.declaredProduct}
+              onChange={(e) =>
+                setMetadata((prev) => ({ ...prev, declaredProduct: e.target.value }))
               }
             />
           </div>
@@ -657,16 +759,18 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
             <Input
               placeholder="es. Bottiglia vetro con tappo corona"
               className="h-8 text-sm"
+              disabled={isDeleted}
               value={metadata.packaging}
               onChange={(e) =>
                 setMetadata((prev) => ({ ...prev, packaging: e.target.value }))
               }
             />
           </div>
-          <div className="sm:col-span-2 space-y-1.5">
+          <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">Campionamento a cura di</label>
             <select
               className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/50"
+              disabled={isDeleted}
               value={metadata.samplingBy}
               onChange={(e) =>
                 setMetadata((prev) => ({
@@ -699,7 +803,7 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
                 Aggiungi analisi
               </Button>
             )}
-            {(sample.status === "in_progress" || sample.status === "completed") && (
+            {!isDeleted && (sample.status === "in_progress" || sample.status === "completed") && (
               <Button
                 size="sm"
                 variant="outline"
@@ -720,7 +824,7 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
         <div className="divide-y divide-border">
           {sample.items.map((item) => {
             const isCovered = item.coveredByPackageId && !item.chargeAnyway;
-            const canEdit = sample.status === "in_progress" || sample.status === "completed";
+            const canEdit = !isDeleted && (sample.status === "in_progress" || sample.status === "completed");
 
             return (
               <div
@@ -840,19 +944,21 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
                     {formatDate(note.createdAt as Parameters<typeof formatDate>[0])}
                   </p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
-                  disabled={deletingNoteId === note.id}
-                  onClick={() => handleDeleteNote(note.id)}
-                >
-                  {deletingNoteId === note.id ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    <Trash2 className="size-3.5" />
-                  )}
-                </Button>
+                {!isDeleted && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                    disabled={deletingNoteId === note.id}
+                    onClick={() => handleDeleteNote(note.id)}
+                  >
+                    {deletingNoteId === note.id ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="size-3.5" />
+                    )}
+                  </Button>
+                )}
               </div>
             ))}
           </div>
@@ -861,29 +967,31 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
         )}
 
         {/* Form nuova nota */}
-        <div className="px-4 py-3 border-t border-border flex gap-2">
-          <Textarea
-            placeholder="Scrivi una nota..."
-            className="min-h-15 text-sm"
-            value={newNote}
-            onChange={(e) => setNewNote(e.target.value)}
-            maxLength={2000}
-          />
-          <Button
-            size="sm"
-            variant="outline"
-            className="shrink-0 self-end"
-            disabled={isAddingNote || !newNote.trim()}
-            onClick={handleAddNote}
-          >
-            {isAddingNote ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Plus className="size-3.5" />
-            )}
-            Aggiungi
-          </Button>
-        </div>
+        {!isDeleted && (
+          <div className="px-4 py-3 border-t border-border flex gap-2">
+            <Textarea
+              placeholder="Scrivi una nota..."
+              className="min-h-15 text-sm"
+              value={newNote}
+              onChange={(e) => setNewNote(e.target.value)}
+              maxLength={2000}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0 self-end"
+              disabled={isAddingNote || !newNote.trim()}
+              onClick={handleAddNote}
+            >
+              {isAddingNote ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Plus className="size-3.5" />
+              )}
+              Aggiungi
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Motivo annullamento */}
@@ -901,7 +1009,9 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
             <DialogTitle>Annulla campione</DialogTitle>
             <DialogDescription>
               Il campione <strong>{sample.code}</strong> sarà annullato. Le analisi
-              coperte da pacchetto non verranno restituite automaticamente.
+              coperte da pacchetto verranno restituite al cliente. Il pagamento
+              eventualmente collegato non viene toccato: se necessario annullalo
+              manualmente dalla sezione Pagamenti.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -915,6 +1025,30 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
             >
               {isPending && <Loader2 className="size-3.5 animate-spin" />}
               Annulla campione
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog conferma eliminazione */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Elimina campione</DialogTitle>
+            <DialogDescription>
+              Il campione <strong>{sample.code}</strong> sarà eliminato e non sarà più
+              visibile nelle liste. Le analisi coperte da pacchetto verranno restituite al
+              cliente e l&apos;eventuale pagamento collegato non ancora saldato verrà
+              annullato automaticamente.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={isDeleting}>
+              Torna indietro
+            </Button>
+            <Button variant="destructive" disabled={isDeleting} onClick={handleDelete}>
+              {isDeleting && <Loader2 className="size-3.5 animate-spin" />}
+              Elimina campione
             </Button>
           </DialogFooter>
         </DialogContent>

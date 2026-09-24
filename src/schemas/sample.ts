@@ -54,6 +54,8 @@ export type SampleBaseFormValues = z.infer<typeof SampleBaseFormSchema>;
 
 // ── Form modifica metadati campione (post-creazione) ──────────────────
 export const SampleMetadataFormSchema = z.object({
+  sampleName: zNonEmptyString.max(200, "Nome campione troppo lungo"),
+  receivedAt: z.string().min(1, "Data ricezione obbligatoria"), // "YYYY-MM-DD"
   declaredProduct: z.string().max(200).optional(),
   sampleQuantity: z.string().max(50).optional(),
   packaging: z.string().max(200).optional(),
@@ -116,6 +118,7 @@ export const SampleDocSchema = z.object({
   additionalNotes: z.array(SampleNoteSchema).optional(),
   cancelledAt: z.any().optional(),
   cancelReason: z.string().optional(),
+  deletedAt: z.any().nullable().optional(), // soft delete
   version: z.number().int().min(0),
   createdAt: z.any(),
   updatedAt: z.any(),

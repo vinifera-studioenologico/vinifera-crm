@@ -18,6 +18,7 @@ import { groupInProgressAnalysesByCategory, type CategorySummary } from "@/lib/c
 import { splitInCents } from "@/lib/utils/money";
 import { getClient } from "./clients";
 import { getAnalyses } from "./analyses";
+import { cancelPayment } from "./payments";
 
 const COL = "samples";
 const PAGE_SIZE = 25;
@@ -44,6 +45,7 @@ function toSampleDoc(id: string, data: FirebaseFirestore.DocumentData): SampleDo
     additionalNotes: data["additionalNotes"] ?? [],
     cancelledAt: tsToISO(data["cancelledAt"]),
     cancelReason: data["cancelReason"],
+    deletedAt: tsToISO(data["deletedAt"]) ?? null,
     version: data["version"] ?? 0,
     createdAt: tsToISO(data["createdAt"]),
     updatedAt: tsToISO(data["updatedAt"]),
@@ -79,7 +81,7 @@ export async function getSamples(opts: {
 } = {}): Promise<PaginatedResult<SampleDoc>> {
   await requireAdmin();
 
-  let query = adminDb.collection(COL).orderBy("createdAt", "desc");
+  let query = adminDb.collection(COL).orderBy("createdAt", "desc").where("deletedAt", "==", null);
 
   if (opts.clientId) {
     query = query.where("clientId", "==", opts.clientId) as typeof query;
@@ -120,6 +122,7 @@ export async function getAdjacentInProgressSamples(
   const snap = await adminDb
     .collection(COL)
     .where("status", "==", "in_progress")
+    .where("deletedAt", "==", null)
     .orderBy("createdAt", "desc")
     .select()
     .get();
@@ -144,6 +147,7 @@ export async function getFirstInProgressSampleId(
   const snap = await adminDb
     .collection(COL)
     .where("status", "==", "in_progress")
+    .where("deletedAt", "==", null)
     .orderBy("createdAt", "desc")
     .select()
     .get();
@@ -153,14 +157,15 @@ export async function getFirstInProgressSampleId(
 }
 
 // ── Riepilogo analisi in corso per categoria (card in cima a /samples) ──
-// Nessun filtro deletedAt: SampleDocSchema non ha quel campo (i campioni si
-// annullano con status "cancelled"), quindi where("deletedAt", "==", null)
-// restituirebbe sempre zero risultati.
 export async function getInProgressAnalysesSummary(): Promise<CategorySummary[]> {
   await requireAdmin();
 
   const [snap, analyses] = await Promise.all([
-    adminDb.collection(COL).where("status", "==", "in_progress").get(),
+    adminDb
+      .collection(COL)
+      .where("status", "==", "in_progress")
+      .where("deletedAt", "==", null)
+      .get(),
     getAnalyses({ includeArchived: true }),
   ]);
 
@@ -215,6 +220,7 @@ export async function addSampleAnalyses(
       if (!sampleSnap.exists) return { code: "not_found" as const };
 
       const sampleData = sampleSnap.data()!;
+      if (sampleData["deletedAt"] != null) return { code: "deleted" as const };
       const status = sampleData["status"] as SampleStatus;
       if (!EDITABLE_STATUSES.includes(status)) return { code: "locked" as const };
       if ((sampleData["version"] ?? 0) !== expectedVersion) return { code: "conflict" as const };
@@ -312,6 +318,7 @@ export async function addSampleAnalyses(
     });
 
     if (result.code === "not_found") return { success: false, error: "Campione non trovato" };
+    if (result.code === "deleted") return { success: false, error: "Campione eliminato: non modificabile" };
     if (result.code === "locked") return { success: false, error: "Il campione non è modificabile in questo stato" };
     if (result.code === "conflict") return { success: false, error: "Il documento è stato modificato. Ricarica la pagina." };
     if (result.code === "analysis_missing") return { success: false, error: "Analisi non trovata" };
@@ -344,6 +351,7 @@ export async function removeSampleAnalysis(
       if (!sampleSnap.exists) return { code: "not_found" as const };
 
       const data = sampleSnap.data()!;
+      if (data["deletedAt"] != null) return { code: "deleted" as const };
       const status = data["status"] as SampleStatus;
       if (!EDITABLE_STATUSES.includes(status)) return { code: "locked" as const };
       if ((data["version"] ?? 0) !== expectedVersion) return { code: "conflict" as const };
@@ -392,6 +400,7 @@ export async function removeSampleAnalysis(
     });
 
     if (result.code === "not_found") return { success: false, error: "Campione non trovato" };
+    if (result.code === "deleted") return { success: false, error: "Campione eliminato: non modificabile" };
     if (result.code === "locked") return { success: false, error: "Il campione non è modificabile in questo stato" };
     if (result.code === "conflict") return { success: false, error: "Il documento è stato modificato. Ricarica la pagina." };
     if (result.code === "item_missing") return { success: false, error: "Analisi non presente nel campione" };
@@ -560,6 +569,7 @@ export async function createSample(raw: unknown): Promise<ActionResult<{ id: str
         items: data.items,
         estimatedTotalCents,
         notes: data.notes ?? null,
+        deletedAt: null,
         version: 0,
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
@@ -704,6 +714,7 @@ export async function updateSampleStatus(
       if (!snap.exists) return "not_found";
 
       const sampleData = snap.data()!;
+      if (sampleData["deletedAt"] != null) return "deleted";
       const currentStatus = sampleData["status"] as SampleStatus;
       const items = (sampleData["items"] ?? []) as SampleDoc["items"];
       const clientId = sampleData["clientId"] as string;
@@ -777,6 +788,7 @@ export async function updateSampleStatus(
     });
 
     if (txResult === "not_found") return { success: false, error: "Campione non trovato" };
+    if (txResult === "deleted") return { success: false, error: "Campione eliminato: non modificabile" };
     if (txResult === "missing_results") {
       return {
         success: false,
@@ -807,6 +819,7 @@ export async function saveSampleResults(
       const docRef = adminDb.collection(COL).doc(id);
       const snap = await tx.get(docRef);
       if (!snap.exists) return "not_found";
+      if (snap.data()!["deletedAt"] != null) return "deleted";
       if (snap.data()!["version"] !== expectedVersion) return "conflict";
 
       const items = (snap.data()!["items"] as SampleDoc["items"]).map((item) => {
@@ -824,6 +837,7 @@ export async function saveSampleResults(
     });
 
     if (result === "not_found") return { success: false, error: "Campione non trovato" };
+    if (result === "deleted") return { success: false, error: "Campione eliminato: non modificabile" };
     if (result === "conflict") return { success: false, error: "Il documento è stato modificato. Ricarica la pagina." };
 
     revalidatePath(`/samples/${id}`);
@@ -853,10 +867,13 @@ export async function updateSampleMetadata(
       const docRef = adminDb.collection(COL).doc(id);
       const snap = await tx.get(docRef);
       if (!snap.exists) return { code: "not_found" as const };
+      if (snap.data()!["deletedAt"] != null) return { code: "deleted" as const };
       if ((snap.data()!["version"] ?? 0) !== expectedVersion) return { code: "conflict" as const };
 
       const newVersion = expectedVersion + 1;
       tx.update(docRef, {
+        sampleName: data.sampleName,
+        receivedAt: Timestamp.fromDate(civilDateToEndOfDay(data.receivedAt)),
         declaredProduct: data.declaredProduct ?? null,
         sampleQuantity: data.sampleQuantity ?? null,
         packaging: data.packaging ?? null,
@@ -869,8 +886,10 @@ export async function updateSampleMetadata(
     });
 
     if (result.code === "not_found") return { success: false, error: "Campione non trovato" };
+    if (result.code === "deleted") return { success: false, error: "Campione eliminato: non modificabile" };
     if (result.code === "conflict") return { success: false, error: "Il documento è stato modificato. Ricarica la pagina." };
 
+    revalidatePath("/samples");
     revalidatePath(`/samples/${id}`);
     return { success: true, data: { version: result.version } };
   } catch (err) {
@@ -893,6 +912,10 @@ export async function addSampleNote(
 
   try {
     const docRef = adminDb.collection(COL).doc(sampleId);
+    const snap = await docRef.get();
+    if (!snap.exists) return { success: false, error: "Campione non trovato" };
+    if (snap.data()!["deletedAt"] != null) return { success: false, error: "Campione eliminato: non modificabile" };
+
     const noteEntry = {
       id: adminDb.collection("_").doc().id, // genera ID univoco
       text: trimmed,
@@ -922,6 +945,7 @@ export async function deleteSampleNote(
     const docRef = adminDb.collection(COL).doc(sampleId);
     const snap = await docRef.get();
     if (!snap.exists) return { success: false, error: "Campione non trovato" };
+    if (snap.data()!["deletedAt"] != null) return { success: false, error: "Campione eliminato: non modificabile" };
 
     const notes = (snap.data()!["additionalNotes"] ?? []) as Array<{ id: string; text: string; createdAt: string }>;
     const updated = notes.filter((n) => n.id !== noteId);
@@ -935,6 +959,115 @@ export async function deleteSampleNote(
     return { success: true, data: undefined };
   } catch (err) {
     logger.error("Errore eliminazione nota campione", err);
+    return { success: false, error: "Errore durante l'eliminazione. Riprova." };
+  }
+}
+
+// ── Elimina campione (soft delete) ─────────────────────────────────────
+// A differenza di "Annulla" (status "cancelled", che resta visibile nelle
+// liste), questa nasconde il campione ovunque tramite deletedAt e ripulisce
+// le conseguenze collegate: restituisce gli slot pacchetto consumati (se non
+// già restituiti da un annullamento precedente) e annulla il pagamento
+// collegato non ancora saldato.
+export async function deleteSample(
+  id: string,
+  expectedVersion: number,
+): Promise<ActionResult<void>> {
+  const actor = await requireAdmin();
+
+  try {
+    const txResult = await adminDb.runTransaction(async (tx) => {
+      const sampleRef = adminDb.collection(COL).doc(id);
+      const snap = await tx.get(sampleRef);
+      if (!snap.exists) return { code: "not_found" as const };
+
+      const data = snap.data()!;
+      if (data["deletedAt"] != null) return { code: "already_deleted" as const };
+      if ((data["version"] ?? 0) !== expectedVersion) return { code: "conflict" as const };
+
+      const status = data["status"] as SampleStatus;
+      const clientId = data["clientId"] as string;
+      const items = (data["items"] ?? []) as SampleDoc["items"];
+      const paymentId = data["paymentId"] as string | undefined;
+
+      // Un campione già annullato ha già restituito i suoi slot pacchetto
+      // (vedi updateSampleStatus) — evita di restituirli due volte.
+      const restorations = new Map<string, number>();
+      if (status !== "cancelled") {
+        for (const item of items) {
+          if (item.coveredByPackageId && !item.chargeAnyway) {
+            restorations.set(
+              item.coveredByPackageId,
+              (restorations.get(item.coveredByPackageId) ?? 0) + 1,
+            );
+          }
+        }
+      }
+
+      // ── FASE LETTURE ────────────────────────────────────────────────
+      const pkgRefs = [...restorations.keys()].map((pkgId) =>
+        adminDb.collection("clientPackages").doc(pkgId),
+      );
+      const pkgSnaps = pkgRefs.length > 0
+        ? await Promise.all(pkgRefs.map((ref) => tx.get(ref)))
+        : [];
+
+      // ── FASE SCRITTURE ───────────────────────────────────────────────
+      tx.update(sampleRef, {
+        deletedAt: FieldValue.serverTimestamp(),
+        version: (data["version"] ?? 0) + 1,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: actor.uid,
+      });
+
+      const wasActive = status === "pending" || status === "in_progress";
+      if (wasActive) {
+        tx.update(adminDb.collection("clients").doc(clientId), {
+          "stats.samplesPending": FieldValue.increment(-1),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+
+      pkgRefs.forEach((ref, i) => {
+        const pkgSnap = pkgSnaps[i];
+        if (!pkgSnap?.exists) return;
+        const restoreCount = restorations.get(ref.id) ?? 0;
+        const currentPkgStatus = pkgSnap.data()!["status"] as string;
+        const newRemaining = (pkgSnap.data()!["remainingAnalyses"] as number) + restoreCount;
+        tx.update(ref, {
+          remainingAnalyses: newRemaining,
+          ...(currentPkgStatus === "exhausted" ? { status: "active" } : {}),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      });
+
+      return { code: "ok" as const, clientId, paymentId };
+    });
+
+    if (txResult.code === "not_found") return { success: false, error: "Campione non trovato" };
+    if (txResult.code === "already_deleted") return { success: false, error: "Campione già eliminato" };
+    if (txResult.code === "conflict") return { success: false, error: "Il documento è stato modificato. Ricarica la pagina." };
+
+    // Annulla il pagamento collegato (best-effort: il campione è già stato
+    // eliminato a prescindere dall'esito di questa chiamata).
+    if (txResult.paymentId) {
+      const payRes = await cancelPayment(txResult.paymentId);
+      if (!payRes.success) {
+        logger.error("Eliminazione campione: annullamento pagamento collegato fallito", {
+          sampleId: id,
+          paymentId: txResult.paymentId,
+          error: payRes.error,
+        });
+      }
+    }
+
+    revalidatePath("/samples");
+    revalidatePath(`/samples/${id}`);
+    revalidatePath(`/clients/${txResult.clientId}`);
+    logger.info("Campione eliminato", { id, uid: actor.uid });
+    return { success: true, data: undefined };
+  } catch (err) {
+    logger.error("Errore eliminazione campione", err);
     return { success: false, error: "Errore durante l'eliminazione. Riprova." };
   }
 }
