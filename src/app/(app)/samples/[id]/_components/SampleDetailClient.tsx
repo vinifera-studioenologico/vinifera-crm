@@ -294,6 +294,11 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
     startTransition(async () => {
       // Quando si completa il campione, salva prima i risultati in sospeso
       if (to === "completed") {
+        if (sample.items.some((it) => !(results[it.analysisId] ?? "").trim())) {
+          toast.error("Inserisci il risultato di tutte le analisi prima di completare il campione");
+          return;
+        }
+
         const payload = Object.entries(results).map(([analysisId, result]) => ({
           analysisId,
           result,
@@ -409,6 +414,7 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
   const coveredItems = sample.items.filter(
     (it) => it.coveredByPackageId && !it.chargeAnyway,
   );
+  const missingResults = sample.items.some((it) => !(results[it.analysisId] ?? "").trim());
 
   // Catalogo analisi aggiungibili (attive, non archiviate, non già presenti)
   const presentIds = new Set(sample.items.map((it) => it.analysisId));
@@ -522,25 +528,40 @@ export function SampleDetailClient({ sample, adjacentIds, analyses, linkedPaymen
         </div>
 
         {/* Azioni */}
-        <div className="flex gap-2 flex-wrap">
-          {availableTransitions.map((t) => (
-            <Button
-              key={t.to}
-              variant={t.variant}
-              size="sm"
-              disabled={isPending}
-              onClick={() =>
-                t.confirm ? setConfirmCancel(true) : handleTransition(t.to)
-              }
-            >
-              {isPending ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <t.icon className="size-3.5" strokeWidth={1.75} />
-              )}
-              {t.label}
-            </Button>
-          ))}
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex gap-2 flex-wrap justify-end">
+            {availableTransitions.map((t) => {
+              const blockedByResults = t.to === "completed" && missingResults;
+              return (
+                <Button
+                  key={t.to}
+                  variant={t.variant}
+                  size="sm"
+                  disabled={isPending || blockedByResults}
+                  title={
+                    blockedByResults
+                      ? "Inserisci il risultato di tutte le analisi prima di completare il campione"
+                      : undefined
+                  }
+                  onClick={() =>
+                    t.confirm ? setConfirmCancel(true) : handleTransition(t.to)
+                  }
+                >
+                  {isPending ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <t.icon className="size-3.5" strokeWidth={1.75} />
+                  )}
+                  {t.label}
+                </Button>
+              );
+            })}
+          </div>
+          {availableTransitions.some((t) => t.to === "completed") && missingResults && (
+            <p className="text-xs text-muted-foreground">
+              Inserisci il risultato di tutte le analisi per completare il campione.
+            </p>
+          )}
         </div>
       </div>
 

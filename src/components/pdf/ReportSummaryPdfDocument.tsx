@@ -311,7 +311,8 @@ export function ReportSummaryPdfDocument({ summaryNumber, company, client, group
             </Text>
           )}
           <Text style={[S.clientSub, { marginTop: 6 }]}>
-            Riepilogo di {groups.length} referti · {groups.reduce((a, g) => a + g.samples.length, 0)} campioni totali
+            Riepilogo di {groups.length} referti · {groups.reduce((a, g) => a + g.samples.length, 0)} campioni totali ·{" "}
+            {groups.reduce((a, g) => a + g.samples.reduce((b, s) => b + s.items.length, 0), 0)} analisi svolte
           </Text>
         </View>
 

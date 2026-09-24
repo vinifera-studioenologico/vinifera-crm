@@ -708,6 +708,10 @@ export async function updateSampleStatus(
       const items = (sampleData["items"] ?? []) as SampleDoc["items"];
       const clientId = sampleData["clientId"] as string;
 
+      if (status === "completed" && items.some((item) => !item.result?.trim())) {
+        return "missing_results";
+      }
+
       // Calcola quali pacchetti ripristinare (solo se cancellazione)
       const packageRestorations = new Map<string, number>();
       if (status === "cancelled") {
@@ -773,6 +777,12 @@ export async function updateSampleStatus(
     });
 
     if (txResult === "not_found") return { success: false, error: "Campione non trovato" };
+    if (txResult === "missing_results") {
+      return {
+        success: false,
+        error: "Inserisci il risultato di tutte le analisi prima di completare il campione",
+      };
+    }
 
     revalidatePath("/samples");
     revalidatePath(`/samples/${id}`);
