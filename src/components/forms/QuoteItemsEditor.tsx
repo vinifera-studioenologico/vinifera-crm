@@ -91,7 +91,7 @@ export function QuoteItemsEditor({ analyses, packages }: Props) {
   return (
     <div className="space-y-3">
       {/* Tabella voci */}
-      <div className="rounded-xl border border-border overflow-hidden">
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
         {/* Header */}
         <div className="grid grid-cols-[auto_1fr_80px_110px_36px] gap-2 bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
           <span className="w-5" />

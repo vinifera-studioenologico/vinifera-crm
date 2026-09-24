@@ -86,7 +86,7 @@ export function DataTable<TData>({
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-border overflow-hidden">
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
         {reloadBar}
         <Table>
           <TableHeader>
@@ -115,7 +115,7 @@ export function DataTable<TData>({
   }
 
   return (
-    <div className="rounded-xl border border-border overflow-hidden">
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
       {reloadBar}
       <div className="overflow-x-auto">
       <Table>

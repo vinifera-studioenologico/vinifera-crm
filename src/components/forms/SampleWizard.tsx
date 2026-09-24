@@ -425,7 +425,7 @@ function Step2({
 
       {/* Analisi selezionate con impostazioni per riga */}
       {fields.length > 0 && (
-        <div className="rounded-xl border border-border overflow-hidden">
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
           <div className="px-3 py-2 border-b border-border bg-muted/20">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Analisi selezionate ({fields.length})

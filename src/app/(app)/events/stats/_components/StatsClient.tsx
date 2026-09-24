@@ -63,7 +63,7 @@ export function StatsClient({ byEvent, byMonth, totals, year }: Props) {
       {/* Per evento */}
       <div>
         <h2 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wide">Per evento</h2>
-        <div className="rounded-xl border border-border overflow-hidden">
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-muted/40">
               <tr>

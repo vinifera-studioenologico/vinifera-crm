@@ -170,7 +170,7 @@ export function ClientReportsClient({
             </p>
           </div>
         ) : (
-          <div className="rounded-xl border border-border overflow-hidden divide-y divide-border">
+          <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
             {reports.map((r) => (
               <div
                 key={r.id}
@@ -221,7 +221,7 @@ export function ClientReportsClient({
             </p>
           </div>
         ) : (
-          <div className="rounded-xl border border-border overflow-hidden divide-y divide-border">
+          <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
             {summaries.map((s) => (
               <div
                 key={s.id}

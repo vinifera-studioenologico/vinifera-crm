@@ -327,7 +327,7 @@ export function NewReportForm({ clients, completedSamples }: Props) {
                     Nessun campione completato per questo cliente.
                   </p>
                 ) : (
-                  <div className="rounded-xl border border-border overflow-hidden divide-y divide-border">
+                  <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
                     {clientSamples.map((sample) => {
                       const isSelected = selectedSampleIds.includes(sample.id);
                       return (

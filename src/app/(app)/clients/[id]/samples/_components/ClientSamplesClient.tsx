@@ -110,7 +110,7 @@ export function ClientSamplesClient({ client, initialSamples, analyses, paymentS
           </p>
         </div>
       ) : (
-        <div className="rounded-xl border border-border overflow-hidden divide-y divide-border">
+        <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
           {samples.map((s) => (
             <button
               key={s.id}

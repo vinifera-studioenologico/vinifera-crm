@@ -227,7 +227,7 @@ function PackageGroup({
       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
         {title}
       </p>
-      <div className="rounded-xl border border-border overflow-hidden divide-y divide-border">
+      <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
         {items.map((pkg) => {
           const usedPct =
             pkg.totalAnalyses > 0

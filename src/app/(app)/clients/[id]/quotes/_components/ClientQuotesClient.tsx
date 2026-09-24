@@ -123,7 +123,7 @@ export function ClientQuotesClient({
           </p>
         </div>
       ) : (
-        <div className="rounded-xl border border-border overflow-hidden divide-y divide-border">
+        <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
           {quotes.map((q) => (
             <div
               key={q.id}
