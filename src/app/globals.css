@@ -10,33 +10,31 @@
  *   Champagne gold →  oklch(0.73 0.09 82)    (#c9a84c area)
  */
 :root {
-  /* Billiard-green base, variant C ("verde biliardo deciso") — sfondo pagina
-     in hex invece di oklch(): niente più conversione di spazio colore fatta
-     dal browser su un'area piena grande, che su alcuni schermi si vedeva
-     come una leggera banda/gradiente. Verde più saturo e presente di prima
-     su richiesta esplicita del cliente 2026-09-24, testo scuro invariato
-     (resta leggibile); armonizza col verde foresta e l'oro champagne del logo. */
-  --background: #6fab86;
+  /* Warm cream base — harmonises with the gold accent. Ripristinato al
+     2026-09-24 su richiesta esplicita del cliente: il verde biliardo
+     (varianti A/B/C) è stato provato e poi scartato, si torna al tema
+     chiaro originale. */
+  --background: oklch(0.985 0.005 80);
   --foreground: oklch(0.15 0.02 175);
-  --card: #f3faf6;
+  --card: oklch(1 0 0);
   --card-foreground: oklch(0.15 0.02 175);
-  --popover: #f3faf6;
+  --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.15 0.02 175);
   /* Primary — forest green from logo */
   --primary: oklch(0.37 0.09 175);
   --primary-foreground: oklch(0.98 0.005 80);
-  /* Secondary — desaturated green, no longer gold-tinted */
-  --secondary: #d5ecdf;
+  /* Secondary — warm neutral (gold-tinted) */
+  --secondary: oklch(0.92 0.04 82);
   --secondary-foreground: oklch(0.2 0.03 175);
-  --muted: #ddefe4;
-  --muted-foreground: oklch(0.47 0.025 165);
+  --muted: oklch(0.93 0.01 82);
+  --muted-foreground: oklch(0.5 0.02 165);
   /* Accent — champagne gold from logo */
   --accent: oklch(0.88 0.07 82);
   --accent-foreground: oklch(0.25 0.05 82);
   --destructive: oklch(0.45 0.15 20);
   --destructive-foreground: oklch(0.98 0.005 80);
-  --border: #4f8b69;
-  --input: #4f8b69;
+  --border: oklch(0.88 0.015 165);
+  --input: oklch(0.88 0.015 165);
   --ring: oklch(0.37 0.09 175);
   --radius: 0.75rem;
 }
@@ -105,6 +103,22 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Bordi più spessi ovunque (tabelle, input, card, sheet…), su richiesta
+   esplicita del cliente 2026-09-24 — con lo sfondo tornato chiaro i bordi
+   sottili di Tailwind (1px) si perdevano troppo. Selettori diretti sulle
+   utility, non un override generico su `*`: una regola su `*` avrebbe
+   specificità più bassa delle classi `.border*` e verrebbe ignorata.
+   Una proprietà per lato, non lo shorthand `border-width`, altrimenti
+   `.border-t`/`.border-x`/ecc. finirebbero per disegnare un bordo anche sui
+   lati che quella utility non tocca. */
+.border { border-width: 2px; }
+.border-t { border-top-width: 2px; }
+.border-b { border-bottom-width: 2px; }
+.border-l { border-left-width: 2px; }
+.border-r { border-right-width: 2px; }
+.border-x { border-left-width: 2px; border-right-width: 2px; }
+.border-y { border-top-width: 2px; border-bottom-width: 2px; }
 
 /* Touch targets minimi 44px per iPad (§17.10) */
 button, [role="button"], a { min-height: 44px; }
