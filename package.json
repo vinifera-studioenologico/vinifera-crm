@@ -24,6 +24,7 @@
     "seed:all:clean": "npm run seed:clean && npm run seed:costs:clean && npm run seed:events:clean"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "@base-ui/react": "^1.4.1",
     "@hookform/resolvers": "^5.2.2",
     "@react-pdf/renderer": "^4.5.1",

@@ -9,6 +9,7 @@ import { useSidebar } from "@/hooks/use-sidebar";
 import { Sidebar } from "@/components/app-shell/Sidebar";
 import { Topbar } from "@/components/app-shell/Topbar";
 import { MobileNav } from "@/components/app-shell/MobileNav";
+import { AssistantLauncher } from "@/components/ai/AssistantLauncher";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -49,6 +50,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Bottom nav — visibile solo su mobile */}
       <MobileNav />
+
+      <AssistantLauncher />
     </div>
   );
 }
