@@ -104,6 +104,24 @@ export async function getPayments(
   };
 }
 
+// ── Tutti i pagamenti di un cliente (storico completo) ────────────────
+// Non paginata di proposito: la pagina pagamenti del cliente calcola i KPI
+// ("Incassato tot.", "Da incassare") sull'intero storico. Usare getPayments
+// qui troncava ai 25 più recenti, falsando i totali per i clienti con molti
+// pagamenti. Stessa forma di query (clientId + createdAt desc) → stesso
+// indice composito già esistente.
+export async function getClientPayments(clientId: string): Promise<PaymentDoc[]> {
+  await requireAdmin();
+
+  const snap = await adminDb
+    .collection(COL)
+    .where("clientId", "==", clientId)
+    .orderBy("createdAt", "desc")
+    .get();
+
+  return snap.docs.map((d) => toPaymentDoc(d.id, d.data()));
+}
+
 // ── Rate di un pagamento ──────────────────────────────────────────────
 export async function getPaymentInstallments(
   paymentId: string,
