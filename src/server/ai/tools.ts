@@ -9,7 +9,7 @@ import { adminDb } from "@/lib/firebase/admin";
 import { globalSearch } from "@/lib/search";
 import { getClient, getClients } from "@/server/actions/clients";
 import { getSamples, getSample, getClientActivePkgs, getLinkedPaymentSummary } from "@/server/actions/samples";
-import { getPayments } from "@/server/actions/payments";
+import { getClientPayments, getPayments } from "@/server/actions/payments";
 import { getQuotes } from "@/server/actions/quotes";
 import { getReminders } from "@/server/actions/reminders";
 import { getAnalyses } from "@/server/actions/analyses";
@@ -317,7 +317,11 @@ export const listPaymentsTool = betaZodTool({
     // nel repo): niente filtro `deletedAt` qui — nessuna action sui pagamenti
     // lo valorizza mai (l'annullamento usa status: "cancelled"), e aggiungerlo
     // alla query richiederebbe un indice composito non presente in produzione.
-    const { items } = await getPayments({ clientId });
+    // Con clientId: storico completo del cliente (getPayments troncherebbe
+    // ai 25 più recenti e falserebbe "chi non ha pagato" / i totali).
+    const items = clientId
+      ? await getClientPayments(clientId)
+      : (await getPayments({})).items;
     const filtered = status ? items.filter((p) => p.status === status) : items;
     const capped = filtered.slice(0, limit ?? 20);
     const clientNames = await resolveClientNames(capped.map((p) => p.clientId));
